@@ -367,4 +367,16 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get stateBlocked => 'cannot hold a guest';
+
+  @override
+  String get legendTitle => 'Legend';
+
+  @override
+  String get legendRooms => 'Rooms';
+
+  @override
+  String get legendItems => 'Items';
+
+  @override
+  String get legendOccupiable => 'a guest can sit here';
 }

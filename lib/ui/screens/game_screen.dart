@@ -12,6 +12,7 @@ import '../../state/game_controller.dart';
 import '../../state/stats_controller.dart';
 import '../widgets/accuse_sheet.dart';
 import '../widgets/board_view.dart';
+import '../widgets/legend_sheet.dart';
 import '../widgets/dialogs.dart';
 import '../widgets/suspect_panel.dart';
 
@@ -129,6 +130,11 @@ class _GameScreenState extends ConsumerState<GameScreen>
         ),
         title: Text('$difficultyLabel · ${formatDuration(state.elapsed)}'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.menu_book),
+            tooltip: l10n.legendTitle,
+            onPressed: () => showLegendSheet(context, state.caseData),
+          ),
           IconButton(
             icon: const Icon(Icons.visibility),
             tooltip: l10n.revealSolution,

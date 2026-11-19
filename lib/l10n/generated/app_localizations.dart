@@ -703,6 +703,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'cannot hold a guest'**
   String get stateBlocked;
+
+  /// No description provided for @legendTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Legend'**
+  String get legendTitle;
+
+  /// No description provided for @legendRooms.
+  ///
+  /// In en, this message translates to:
+  /// **'Rooms'**
+  String get legendRooms;
+
+  /// No description provided for @legendItems.
+  ///
+  /// In en, this message translates to:
+  /// **'Items'**
+  String get legendItems;
+
+  /// No description provided for @legendOccupiable.
+  ///
+  /// In en, this message translates to:
+  /// **'a guest can sit here'**
+  String get legendOccupiable;
 }
 
 class _AppLocalizationsDelegate

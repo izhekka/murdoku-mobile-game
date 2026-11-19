@@ -367,4 +367,16 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get stateBlocked => 'нельзя занять';
+
+  @override
+  String get legendTitle => 'Легенда';
+
+  @override
+  String get legendRooms => 'Комнаты';
+
+  @override
+  String get legendItems => 'Предметы';
+
+  @override
+  String get legendOccupiable => 'гость может сесть';
 }

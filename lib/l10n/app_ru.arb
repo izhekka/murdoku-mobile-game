@@ -189,5 +189,9 @@
         "type": "int"
       }
     }
-  }
+  },
+  "legendTitle": "Легенда",
+  "legendRooms": "Комнаты",
+  "legendItems": "Предметы",
+  "legendOccupiable": "гость может сесть"
 }

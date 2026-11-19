@@ -315,5 +315,9 @@
   "languageSystem": "System",
   "languageRussian": "Русский",
   "languageEnglish": "English",
-  "stateBlocked": "cannot hold a guest"
+  "stateBlocked": "cannot hold a guest",
+  "legendTitle": "Legend",
+  "legendRooms": "Rooms",
+  "legendItems": "Items",
+  "legendOccupiable": "a guest can sit here"
 }
