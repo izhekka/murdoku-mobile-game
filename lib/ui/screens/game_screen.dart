@@ -9,6 +9,7 @@ import '../../domain/game_logic.dart' show Tool, boardSolved;
 import '../../domain/models.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../state/game_controller.dart';
+import '../../state/stats_controller.dart';
 import '../widgets/accuse_sheet.dart';
 import '../widgets/board_view.dart';
 import '../widgets/dialogs.dart';
@@ -231,6 +232,13 @@ class _GameScreenState extends ConsumerState<GameScreen>
     final correct = notifier.accuse(accused);
     if (correct) {
       final won = ref.read(gameControllerProvider)!;
+      unawaited(ref.read(statsControllerProvider.notifier).recordWin(
+        difficulty: won.caseData.difficulty,
+        time: won.elapsed,
+        mistakes: won.wrongAccusations,
+        isDaily: won.isDaily,
+        dailyDate: won.dailyDate ?? '',
+      ));
       await showDialog<void>(
         context: context,
         barrierDismissible: false,
