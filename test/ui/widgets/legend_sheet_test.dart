@@ -4,7 +4,7 @@ import 'package:murdoku/domain/generator/case_factory.dart';
 import 'package:murdoku/domain/models.dart';
 import 'package:murdoku/l10n/generated/app_localizations.dart';
 import 'package:murdoku/ui/widgets/legend_sheet.dart';
-import 'package:murdoku/domain/localized_names.dart' as ln;
+import 'package:murdoku/domain/localized_names.dart';
 
 final CaseData fixture = generateCase(difficulty: Difficulty.easy, seed: 3);
 
