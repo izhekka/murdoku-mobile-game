@@ -1,32 +1,28 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../../domain/localized_names.dart';
 import '../../domain/models.dart';
 import '../../l10n/generated/app_localizations.dart';
 import 'avatar.dart';
 
 /// Pure clue -> sentence rendering per the spec's wording table (positive and
-/// negated forms). Names resolve suspects; `V` resolves to "the victim".
-String describeClue(Clue clue, CaseData c, AppLocalizations l10n) {
-  String nameOf(String id) => id == victimId
-      ? l10n.victimName
-      : c.suspects.firstWhere((s) => s.id == id).name;
+/// negated forms). [names] resolves locale- and grammar-appropriate forms:
+/// nominative for subjects, genitive for direction/beside targets, full
+/// prepositional room phrases in ru.
+String describeClue(
+  Clue clue,
+  CaseData c,
+  AppLocalizations l10n,
+  NameForms names,
+) {
+  String nameOf(String id) =>
+      id == victimId ? names.victimNom() : names.nom(id);
 
-  String objectNameOf(String objectId) {
-    final kind = c.objects.firstWhere((o) => o.id == objectId).kind;
-    return switch (kind) {
-      ObjectKind.piano => l10n.objectPiano,
-      ObjectKind.plant => l10n.objectPlant,
-      ObjectKind.armor => l10n.objectArmor,
-      ObjectKind.chest => l10n.objectChest,
-      ObjectKind.clock => l10n.objectClock,
-      ObjectKind.globe => l10n.objectGlobe,
-      ObjectKind.portrait => l10n.objectPortrait,
-      ObjectKind.fireplace => l10n.objectFireplace,
-    };
-  }
+  String targetOf(String id) =>
+      id == victimId ? names.victimGen() : names.gen(id);
 
-  String roomNameOf(String roomId) =>
-      c.rooms.firstWhere((r) => r.id == roomId).name;
+  String objectNameOf(String objectId) =>
+      names.objectGen(c.objects.firstWhere((o) => o.id == objectId).kind);
 
   String dirName(Direction d) => switch (d) {
         Direction.north => l10n.dirNorth,
@@ -38,7 +34,7 @@ String describeClue(Clue clue, CaseData c, AppLocalizations l10n) {
   final name = nameOf(clue.suspectId);
   switch (clue) {
     case InRoom(:final roomId):
-      final room = roomNameOf(roomId);
+      final room = names.roomPrep(roomId);
       return clue.negated
           ? l10n.clueInRoomNot(name, room)
           : l10n.clueInRoom(name, room);
@@ -53,13 +49,13 @@ String describeClue(Clue clue, CaseData c, AppLocalizations l10n) {
           ? l10n.clueSameColNot(name, target)
           : l10n.clueSameCol(name, target);
     case DirectionClue(:final targetId, :final direction):
-      final target = nameOf(targetId);
+      final target = targetOf(targetId);
       final dir = dirName(direction);
       return clue.negated
           ? l10n.clueDirectionNot(name, dir, target)
           : l10n.clueDirection(name, dir, target);
     case Beside(:final targetId):
-      final target = nameOf(targetId);
+      final target = targetOf(targetId);
       return clue.negated
           ? l10n.clueBesideNot(name, target)
           : l10n.clueBeside(name, target);
@@ -90,6 +86,7 @@ class SuspectPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final names = NameForms.forLocale(l10n.localeName, caseData);
     final cluesBySuspect = <String, List<Clue>>{};
     for (final clue in caseData.clues) {
       cluesBySuspect.putIfAbsent(clue.suspectId, () => []).add(clue);
@@ -103,7 +100,7 @@ class SuspectPanel extends StatelessWidget {
           clues: cluesBySuspect[caseData.suspects[i].id] ?? const [],
           clueTexts: [
             for (final clue in cluesBySuspect[caseData.suspects[i].id] ?? const <Clue>[])
-              describeClue(clue, caseData, l10n),
+              describeClue(clue, caseData, l10n, names),
           ],
           selected: caseData.suspects[i].id == selectedSuspectId,
           isPlaced: placed.containsKey(caseData.suspects[i].id),

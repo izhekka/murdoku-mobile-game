@@ -352,4 +352,19 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get glossaryRowCol =>
       'Same floor: the same row. Same corridor: the same column.';
+
+  @override
+  String get languageLabel => 'Language';
+
+  @override
+  String get languageSystem => 'System';
+
+  @override
+  String get languageRussian => 'Русский';
+
+  @override
+  String get languageEnglish => 'English';
+
+  @override
+  String get stateBlocked => 'cannot hold a guest';
 }

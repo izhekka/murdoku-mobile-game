@@ -1,0 +1,193 @@
+{
+  "@@locale": "ru",
+  "appTitle": "Murdoku",
+  "fatalErrorMessage": "Что-то пошло не так. Перезапустите приложение.",
+  "howToPlayTitle": "Как играть",
+  "gameTitle": "Дело",
+  "statsTitle": "Статистика",
+  "settingsTitle": "Настройки",
+  "continueCase": "Продолжить дело",
+  "newCase": "Новое дело",
+  "dailyCase": "Дело дня",
+  "dailyCompleted": "Сегодня решено",
+  "difficultyEasy": "Легко",
+  "difficultyStandard": "Средне",
+  "difficultyHard": "Сложно",
+  "discardTitle": "Отменить текущее дело?",
+  "discardBody": "Новое дело отменит текущий прогресс.",
+  "discard": "Отменить",
+  "cancel": "Отмена",
+  "chooseDifficulty": "Выберите сложность",
+  "objectPiano": "Пианино",
+  "objectPlant": "Растение",
+  "objectArmor": "Доспехи",
+  "objectChest": "Сундук",
+  "objectClock": "Часы",
+  "objectGlobe": "Глобус",
+  "objectPortrait": "Портрет",
+  "objectFireplace": "Камин",
+  "victimLabel": "Жертва",
+  "cellSemantics": "Ряд {row}, колонка {column}, {room}, {state}",
+  "stateEmpty": "пусто",
+  "stateExcluded": "помечено пустым",
+  "stateVictim": "жертва",
+  "stateBlocked": "нельзя занять",
+  "victimName": "жертва",
+  "dirNorth": "севернее",
+  "dirSouth": "южнее",
+  "dirEast": "восточнее",
+  "dirWest": "западнее",
+  "clueInRoom": "{name} — {room}.",
+  "clueInRoomNot": "{name} — не {room}.",
+  "clueSameRow": "{name} — на том же этаже, что и {target}.",
+  "clueSameRowNot": "{name} — не на том же этаже, что и {target}.",
+  "clueSameCol": "{name} — в том же коридоре, что и {target}.",
+  "clueSameColNot": "{name} — не в том же коридоре, что и {target}.",
+  "clueDirection": "{name} — {direction} {target}.",
+  "clueDirectionNot": "{name} — не {direction} {target}.",
+  "clueBeside": "{name} — около {target}.",
+  "clueBesideNot": "{name} — не около {target}.",
+  "clueBesideObject": "{name} — около {object}.",
+  "clueBesideObjectNot": "{name} — не около {object}.",
+  "accuse": "Обвинить",
+  "accuseTitle": "Кто убийца?",
+  "alibi": "У {name} железное алиби.",
+  "checkResult": "{n} из {total} гостей на своих местах.",
+  "victoryTitle": "Дело закрыто!",
+  "victoryTime": "Время: {time}",
+  "victoryMistakes": "Ошибок: {count}",
+  "victoryDone": "Готово",
+  "revealSolution": "Показать решение",
+  "revealConfirmTitle": "Показать решение?",
+  "revealConfirmBody": "Дело будет засчитано как проваленное.",
+  "quitCase": "Выйти из дела",
+  "quitConfirmTitle": "Покинуть дело?",
+  "quitConfirmBody": "Прогресс этого дела будет потерян.",
+  "resume": "Продолжить",
+  "hintTitle": "Выберите подсказку",
+  "hintPlace": "Открыть позицию гостя",
+  "hintEliminate": "Исключить подозреваемого",
+  "hintsLeft": "Подсказок осталось: {count}",
+  "noActiveCase": "Нет активного дела.",
+  "backToHome": "На главную",
+  "playAgain": "Играть снова",
+  "statsSolved": "Решено: {n}",
+  "statsBest": "Лучшее: {time}",
+  "statsAverage": "Среднее: {time}",
+  "currentStreak": "Серия дней: {n}",
+  "totalCasesLabel": "Всего дел: {n}",
+  "statsEmpty": "Пока ничего не решено. Начните новое дело!",
+  "themeModeLabel": "Тема",
+  "themeSystem": "Системная",
+  "themeLight": "Светлая",
+  "themeDark": "Тёмная",
+  "hapticsLabel": "Вибрация",
+  "resetProgress": "Сбросить прогресс",
+  "resetConfirmTitle": "Сбросить весь прогресс?",
+  "resetConfirmBody": "Будут удалены сохранения, статистика и серия дней. Настройки сохранятся.",
+  "progressReset": "Прогресс сброшен.",
+  "rule1Text": "Каждый гость встречается ровно один раз в каждом ряду, колонке и комнате — как судоку из подозреваемых.",
+  "rule2Text": "Каждая улика правдива. Улики — это правила, а не подсказки.",
+  "rule3Text": "Карта — это улика. Комнаты и предметы — место действия.",
+  "rule4Text": "С жертвой в одной комнате остался один гость. Это и есть убийца. Найдите его последним.",
+  "tutorialXHint": "Ставьте крестики на клетки, которые точно не подходят.",
+  "tutorialNext": "Далее",
+  "tutorialDone": "Понятно",
+  "glossaryTitle": "Словарь улик",
+  "glossaryBeside": "Рядом: вплотную (сверху, снизу, слева, справа).",
+  "glossaryDirections": "Север — вверх, юг — вниз, запад — влево, восток — вправо.",
+  "glossaryRowCol": "Тот же этаж: та же строка. Тот же коридор: та же колонка.",
+  "languageLabel": "Язык",
+  "languageSystem": "Системный",
+  "languageRussian": "Русский",
+  "languageEnglish": "English",
+  "@cellSemantics": {
+    "placeholders": {
+      "row": {
+        "type": "int"
+      },
+      "column": {
+        "type": "int"
+      },
+      "room": {
+        "type": "String"
+      },
+      "state": {
+        "type": "String"
+      }
+    }
+  },
+  "@alibi": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "@checkResult": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "@victoryTime": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "@victoryMistakes": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "@hintsLeft": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "@statsSolved": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "@statsBest": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "@statsAverage": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "@currentStreak": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "@totalCasesLabel": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  }
+}

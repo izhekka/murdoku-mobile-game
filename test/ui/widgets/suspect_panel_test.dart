@@ -48,6 +48,9 @@ final CaseData fixture = CaseData(
 );
 
 Widget wrap({required void Function(String) onSuspectTap}) => MaterialApp(
+      // The panel test pins English: it asserts exact en clue wording with
+      // declension forms (see localization_test.dart for the ru grammar).
+      locale: const Locale('en'),
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       home: Scaffold(

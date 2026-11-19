@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../../core/theme.dart';
+import '../../domain/localized_names.dart';
 import '../../domain/models.dart';
 import '../../l10n/generated/app_localizations.dart';
 import 'avatar.dart';
@@ -14,6 +15,12 @@ IconData objectIcon(ObjectKind kind) => switch (kind) {
       ObjectKind.globe => Icons.public,
       ObjectKind.portrait => Icons.portrait,
       ObjectKind.fireplace => Icons.local_fire_department,
+      ObjectKind.table => Icons.table_restaurant,
+      ObjectKind.chair => Icons.chair,
+      ObjectKind.flowers => Icons.local_florist,
+      ObjectKind.sofa => Icons.weekend,
+      ObjectKind.bookshelf => Icons.shelves,
+      ObjectKind.lamp => Icons.light,
     };
 
 /// The mansion map: G×G rooms with suspects, the victim, objects and X marks.
@@ -122,16 +129,6 @@ class _Cell extends StatelessWidget {
   final String? selectedSuspectId;
   final void Function(Pos) onCellTap;
 
-  String _objectName(AppLocalizations l10n, ObjectKind kind) => switch (kind) {
-        ObjectKind.piano => l10n.objectPiano,
-        ObjectKind.plant => l10n.objectPlant,
-        ObjectKind.armor => l10n.objectArmor,
-        ObjectKind.chest => l10n.objectChest,
-        ObjectKind.clock => l10n.objectClock,
-        ObjectKind.globe => l10n.objectGlobe,
-        ObjectKind.portrait => l10n.objectPortrait,
-        ObjectKind.fireplace => l10n.objectFireplace,
-      };
 
   @override
   Widget build(BuildContext context) {
@@ -232,7 +229,8 @@ class _Cell extends StatelessWidget {
       );
     } else if (objectHere.isNotEmpty) {
       content = Semantics(
-        label: _objectName(l10n, objectHere.first.kind),
+        label: NameForms.forLocale(l10n.localeName, c)
+            .objectNom(objectHere.first.kind),
         child: Center(
           child: Icon(
             objectIcon(objectHere.first.kind),

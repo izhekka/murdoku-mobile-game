@@ -1,9 +1,11 @@
+import 'package:cupertino_ui/cupertino_ui.dart' show GlobalCupertinoLocalizations;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'core/routes.dart';
 import 'core/theme.dart';
 import 'l10n/generated/app_localizations.dart';
+import 'storage/prefs_repository.dart' show LanguageSetting;
 import 'state/settings_controller.dart';
 
 class MurdokuApp extends ConsumerWidget {
@@ -17,7 +19,23 @@ class MurdokuApp extends ConsumerWidget {
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
       themeMode: settings.themeMode,
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      locale: switch (settings.language) {
+        LanguageSetting.system => null,
+        LanguageSetting.russian => const Locale('ru'),
+        LanguageSetting.english => const Locale('en'),
+      },
+      localizationsDelegates: [
+        // material_ui's own MaterialLocalizations must come last: components
+        // look up material_ui's type, which the SDK flutter_localizations
+        // delegates do not provide (they implement the deprecated
+        // flutter/material type). Without this, non-English locales crash.
+        // Cupertino: cupertino_ui's delegate likewise provides the type
+        // material_ui's WidgetsApp checks (the SDK one implements the
+        // deprecated flutter/cupertino type).
+        ...AppLocalizations.localizationsDelegates,
+        GlobalMaterialLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
       supportedLocales: AppLocalizations.supportedLocales,
       routerConfig: buildRouter(),
     );

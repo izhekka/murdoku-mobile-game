@@ -90,7 +90,7 @@ void main() {
 
     expect(find.byType(VictoryDialog), findsOneWidget);
     expect(find.text(l10n.victoryTitle), findsOneWidget);
-    expect(find.textContaining('Time:'), findsOneWidget);
+    expect(find.textContaining(l10n.victoryTime('')), findsOneWidget);
     expect(find.text(l10n.victoryMistakes(0)), findsOneWidget);
   });
 

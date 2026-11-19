@@ -310,5 +310,10 @@
   "glossaryTitle": "Clue glossary",
   "glossaryBeside": "Beside: directly adjacent (up, down, left, right).",
   "glossaryDirections": "North is up, south is down, west is left, east is right.",
-  "glossaryRowCol": "Same floor: the same row. Same corridor: the same column."
+  "glossaryRowCol": "Same floor: the same row. Same corridor: the same column.",
+  "languageLabel": "Language",
+  "languageSystem": "System",
+  "languageRussian": "Русский",
+  "languageEnglish": "English",
+  "stateBlocked": "cannot hold a guest"
 }

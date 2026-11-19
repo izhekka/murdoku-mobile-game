@@ -6,25 +6,41 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../domain/models.dart';
 
+/// App language preference. `system` follows the platform locale (clamped to
+/// supported locales); the app defaults to [russian].
+enum LanguageSetting { system, russian, english }
+
 class Settings {
-  const Settings({this.themeMode = ThemeMode.system, this.haptics = true});
+  const Settings({
+    this.themeMode = ThemeMode.system,
+    this.haptics = true,
+    this.language = LanguageSetting.russian,
+  });
 
   final ThemeMode themeMode;
   final bool haptics;
+  final LanguageSetting language;
 
   @override
   bool operator ==(Object other) =>
-      other is Settings && other.themeMode == themeMode && other.haptics == haptics;
+      other is Settings &&
+      other.themeMode == themeMode &&
+      other.haptics == haptics &&
+      other.language == language;
 
   @override
-  int get hashCode => Object.hash(themeMode, haptics);
+  int get hashCode => Object.hash(themeMode, haptics, language);
 
-  Map<String, Object?> toJson() => {'themeMode': themeMode.name, 'haptics': haptics};
+  Map<String, Object?> toJson() =>
+      {'themeMode': themeMode.name, 'haptics': haptics, 'language': language.name};
 
   factory Settings.fromJson(Map<String, Object?> json) => Settings(
         themeMode: ThemeMode.values
             .firstWhere((m) => m.name == json['themeMode'], orElse: () => ThemeMode.system),
         haptics: json['haptics'] as bool? ?? true,
+        language: LanguageSetting.values.firstWhere(
+            (l) => l.name == json['language'],
+            orElse: () => LanguageSetting.russian),
       );
 }
 

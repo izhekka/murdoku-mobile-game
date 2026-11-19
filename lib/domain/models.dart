@@ -50,7 +50,22 @@ extension DirectionX on Direction {
       Direction.values.firstWhere((d) => d.name == name);
 }
 
-enum ObjectKind { piano, plant, armor, chest, clock, globe, portrait, fireplace }
+enum ObjectKind {
+  piano,
+  plant,
+  armor,
+  chest,
+  clock,
+  globe,
+  portrait,
+  fireplace,
+  table,
+  chair,
+  flowers,
+  sofa,
+  bookshelf,
+  lamp,
+}
 
 extension ObjectKindX on ObjectKind {
   static ObjectKind fromName(String name) =>
@@ -58,49 +73,71 @@ extension ObjectKindX on ObjectKind {
 }
 
 class Suspect {
-  const Suspect({required this.id, required this.name});
+  const Suspect({
+    required this.id,
+    required this.name,
+    this.poolIndex = -1,
+  });
 
   final String id; // "s0", "s1", ...
   final String name;
+  final int poolIndex; // index into the localized name pools; -1 = use name
 
   @override
-  bool operator ==(Object other) => other is Suspect && other.id == id && other.name == name;
+  bool operator ==(Object other) =>
+      other is Suspect && other.id == id && other.name == name && other.poolIndex == poolIndex;
 
   @override
-  int get hashCode => Object.hash(id, name);
+  int get hashCode => Object.hash(id, name, poolIndex);
 
-  Map<String, Object?> toJson() => {'id': id, 'name': name};
+  Map<String, Object?> toJson() =>
+      {'id': id, 'name': name, 'poolIndex': poolIndex};
 
-  factory Suspect.fromJson(Map<String, Object?> json) =>
-      Suspect(id: json['id'] as String, name: json['name'] as String);
+  factory Suspect.fromJson(Map<String, Object?> json) => Suspect(
+        id: json['id'] as String,
+        name: json['name'] as String,
+        poolIndex: json['poolIndex'] as int? ?? -1,
+      );
 }
 
 class RoomDef {
-  const RoomDef({required this.id, required this.name, required this.cells});
+  const RoomDef({
+    required this.id,
+    required this.name,
+    required this.cells,
+    this.poolIndex = -1,
+  });
 
   final String id; // "r0", "r1", ...
   final String name;
   final List<Pos> cells; // orthogonally contiguous, disjoint
+  final int poolIndex; // index into the localized room pools; -1 = use name
 
   bool contains(Pos p) => cells.contains(p);
 
   @override
   bool operator ==(Object other) =>
-      other is RoomDef && other.id == id && other.name == name && _listsEqual(other.cells, cells);
+      other is RoomDef &&
+      other.id == id &&
+      other.name == name &&
+      other.poolIndex == poolIndex &&
+      _listsEqual(other.cells, cells);
 
   @override
-  int get hashCode => Object.hash(id, name, Object.hashAll(cells));
+  int get hashCode => Object.hash(id, name, poolIndex, Object.hashAll(cells));
 
   Map<String, Object?> toJson() => {
         'id': id,
         'name': name,
         'cells': cells.map(posToJson).toList(),
+        'poolIndex': poolIndex,
       };
 
   factory RoomDef.fromJson(Map<String, Object?> json) => RoomDef(
         id: json['id'] as String,
         name: json['name'] as String,
         cells: (json['cells'] as List).map((c) => posFromJson(c as List)).toList(),
+        poolIndex: json['poolIndex'] as int? ?? -1,
       );
 }
 
