@@ -132,6 +132,16 @@ void main() {
     expect(repo.loadActiveGame(), isNull);
   });
 
+  test('corrupt settings JSON returns defaults instead of throwing', () async {
+    const key = 'murdoku.settings';
+    await prefs.setString(key, '{not json');
+    expect(repo.loadSettings(), const Settings());
+    await prefs.setString(key, '{"themeMode": 42}');
+    expect(repo.loadSettings(), const Settings());
+    await prefs.setString(key, '[]');
+    expect(repo.loadSettings(), const Settings());
+  });
+
   test('corrupt payloads return null instead of throwing', () async {
     const key = 'murdoku.activeGame';
     await prefs.setString(key, '{not json');
@@ -147,3 +157,4 @@ void main() {
     expect(prefs.getString('murdoku.activeGame'), contains('"v":1'));
   });
 }
+// RED (I-3): corrupt settings JSON must return defaults, never throw.

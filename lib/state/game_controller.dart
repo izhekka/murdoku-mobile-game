@@ -286,14 +286,17 @@ class GameNotifier extends Notifier<GameState?> {
     final s = _state;
     if (s == null || s.phase != GamePhase.playing) return;
     if (_hintsUsed >= 2) return;
+    // Only guests whose solution cell is free (never evict a wrongly placed
+    // guest — that would double-occupy a cell and corrupt the board).
     String? unplaced;
     for (final id in _case.suspects.map((x) => x.id)) {
-      if (!_placed.containsKey(id)) {
+      final pos = _case.solution[id]!;
+      if (!_placed.containsKey(id) && !_placed.values.contains(pos)) {
         unplaced = id;
         break;
       }
     }
-    if (unplaced == null) return; // board already full
+    if (unplaced == null) return; // board full or every target cell blocked
     final pos = _case.solution[unplaced]!;
     _xMarks.remove(pos);
     _placed[unplaced] = pos;
@@ -305,6 +308,7 @@ class GameNotifier extends Notifier<GameState?> {
   void hintEliminate() {
     final s = _state;
     if (s == null || s.phase != GamePhase.playing) return;
+    if (_hintsUsed >= 2) return; // shared budget with Hint A
     final innocents = _case.suspects
         .map((x) => x.id)
         .where((id) => id != _case.murdererId && !_eliminated.contains(id))
@@ -312,6 +316,7 @@ class GameNotifier extends Notifier<GameState?> {
     if (innocents.isEmpty) return;
     innocents.shuffle();
     _eliminated.add(innocents.first);
+    _hintsUsed++;
     _afterMove(s);
   }
 

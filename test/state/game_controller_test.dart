@@ -200,24 +200,55 @@ void main() {
     expect(state.hintsUsed, 2, reason: 'only two hints per game');
   });
 
-  test('hintEliminate never eliminates the murderer and is bounded', () async {
+  test('hintEliminate never eliminates the murderer and consumes the budget',
+      () async {
     final container = await makeContainer();
     addTearDown(container.dispose);
     final notifier = container.read(gameControllerProvider.notifier);
     notifier.startNewCase(Difficulty.easy, seed: 3);
 
+    // Two elimination hints (the full shared budget of 2).
     notifier.hintEliminate();
     var state = container.read(gameControllerProvider)!;
     expect(state.eliminatedSuspects, isNotEmpty);
     expect(state.eliminatedSuspects.contains(fixedCase.murdererId), isFalse);
+    expect(state.hintsUsed, 1);
+    final afterFirst = state.eliminatedSuspects.length;
 
-    // Try to eliminate every guest (murderer excluded automatically).
-    for (var i = 0; i < 10; i++) {
-      notifier.hintEliminate();
-    }
+    notifier.hintEliminate();
     state = container.read(gameControllerProvider)!;
-    expect(state.eliminatedSuspects.length, 4,
-        reason: 'only innocents can be eliminated');
+    expect(state.hintsUsed, 2);
+    expect(state.eliminatedSuspects.length, afterFirst + 1);
+
+    // Budget exhausted: further hints are no-ops.
+    notifier.hintEliminate();
+    notifier.hintEliminate();
+    state = container.read(gameControllerProvider)!;
+    expect(state.hintsUsed, 2);
+    expect(state.eliminatedSuspects.length, afterFirst + 1,
+        reason: 'no elimination beyond the 2-hint budget');
+  });
+
+  test('hintPlacement never double-occupies a cell held by a wrong guest',
+      () async {
+    final container = await makeContainer();
+    addTearDown(container.dispose);
+    final notifier = container.read(gameControllerProvider.notifier);
+    notifier.startNewCase(Difficulty.easy, seed: 3);
+
+    // Wrongly place s1 on s0's solution cell.
+    notifier.selectSuspect('s1');
+    notifier.tapCell(fixedCase.solution['s0']!);
+    expect(container.read(gameControllerProvider)!.placed.length, 1);
+
+    notifier.hintPlacement();
+    final state = container.read(gameControllerProvider)!;
+    final positions = state.placed.values.toSet();
+    expect(positions.length, state.placed.length,
+        reason: 'no two suspects may share a cell');
+    expect(state.hintsUsed, 1);
+    // The wrongly placed guest is untouched (no silent eviction).
+    expect(state.placed['s1'], fixedCase.solution['s0']);
   });
 
   test('runCheck reports correct/total', () async {

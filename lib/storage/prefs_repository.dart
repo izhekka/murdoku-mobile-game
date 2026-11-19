@@ -175,7 +175,12 @@ class PrefsRepository {
   Settings loadSettings() {
     final raw = _prefs.getString(_settingsKey);
     if (raw == null) return const Settings();
-    return Settings.fromJson(jsonDecode(raw) as Map<String, Object?>);
+    try {
+      return Settings.fromJson(jsonDecode(raw) as Map<String, Object?>);
+    } catch (e) {
+      debugPrint('settings jsonDecode failed: $e');
+      return const Settings();
+    }
   }
 
   Future<void> saveSettings(Settings s) =>
