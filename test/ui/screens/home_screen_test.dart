@@ -19,6 +19,9 @@ void main() {
   Future<void> pumpHome(WidgetTester tester) async {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
+    // Home layout tests assume the first-launch tutorial is already dismissed;
+    // the tutorial has its own test suite.
+    await PrefsRepository(prefs).saveTutorialSeen(true);
     container = ProviderContainer(overrides: [
       sharedPreferencesProvider.overrideWithValue(prefs),
     ]);

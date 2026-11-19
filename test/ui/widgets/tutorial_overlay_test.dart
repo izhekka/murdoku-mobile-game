@@ -4,7 +4,6 @@ import 'package:material_ui/material_ui.dart';
 import 'package:murdoku/app.dart';
 import 'package:murdoku/l10n/generated/app_localizations.dart';
 import 'package:murdoku/state/providers.dart';
-import 'package:murdoku/storage/prefs_repository.dart';
 import 'package:murdoku/ui/screens/how_to_play_screen.dart';
 import 'package:murdoku/ui/widgets/tutorial_overlay.dart';
 import 'package:go_router/go_router.dart';
