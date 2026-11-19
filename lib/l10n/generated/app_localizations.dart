@@ -129,6 +129,78 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Settings'**
   String get settingsTitle;
+
+  /// No description provided for @continueCase.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue case'**
+  String get continueCase;
+
+  /// No description provided for @newCase.
+  ///
+  /// In en, this message translates to:
+  /// **'New case'**
+  String get newCase;
+
+  /// No description provided for @dailyCase.
+  ///
+  /// In en, this message translates to:
+  /// **'Daily case'**
+  String get dailyCase;
+
+  /// No description provided for @dailyCompleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Completed today'**
+  String get dailyCompleted;
+
+  /// No description provided for @difficultyEasy.
+  ///
+  /// In en, this message translates to:
+  /// **'Easy'**
+  String get difficultyEasy;
+
+  /// No description provided for @difficultyStandard.
+  ///
+  /// In en, this message translates to:
+  /// **'Standard'**
+  String get difficultyStandard;
+
+  /// No description provided for @difficultyHard.
+  ///
+  /// In en, this message translates to:
+  /// **'Hard'**
+  String get difficultyHard;
+
+  /// No description provided for @discardTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Discard current case?'**
+  String get discardTitle;
+
+  /// No description provided for @discardBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Starting a new case discards your current progress.'**
+  String get discardBody;
+
+  /// No description provided for @discard.
+  ///
+  /// In en, this message translates to:
+  /// **'Discard'**
+  String get discard;
+
+  /// No description provided for @cancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get cancel;
+
+  /// No description provided for @chooseDifficulty.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose difficulty'**
+  String get chooseDifficulty;
 }
 
 class _AppLocalizationsDelegate

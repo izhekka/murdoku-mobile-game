@@ -5,5 +5,17 @@
   "howToPlayTitle": "How to play",
   "gameTitle": "Case",
   "statsTitle": "Statistics",
-  "settingsTitle": "Settings"
+  "settingsTitle": "Settings",
+  "continueCase": "Continue case",
+  "newCase": "New case",
+  "dailyCase": "Daily case",
+  "dailyCompleted": "Completed today",
+  "difficultyEasy": "Easy",
+  "difficultyStandard": "Standard",
+  "difficultyHard": "Hard",
+  "discardTitle": "Discard current case?",
+  "discardBody": "Starting a new case discards your current progress.",
+  "discard": "Discard",
+  "cancel": "Cancel",
+  "chooseDifficulty": "Choose difficulty"
 }

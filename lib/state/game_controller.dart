@@ -355,23 +355,30 @@ class GameNotifier extends Notifier<GameState?> {
     _persist();
   }
 
-  void _persist() {
+  /// Synchronous snapshot of the active game for persistence and UI reads.
+  /// Null when no game is running or it is no longer playable.
+  SavedGame? currentSave() {
     final s = _state;
-    if (s == null || s.phase != GamePhase.playing) return;
-    final snapshot = BoardSnapshot(
-      placed: Map.of(_placed),
-      xMarks: Set.of(_xMarks),
-      elapsed: _elapsed,
-      hintsUsed: _hintsUsed,
-      wrongAccusations: _wrongAccusations,
-      eliminatedSuspects: Set.of(_eliminated),
-    );
-    unawaited(ref.read(prefsRepositoryProvider).saveActiveGame(SavedGame(
+    if (s == null || s.phase != GamePhase.playing) return null;
+    return SavedGame(
       caseData: _case,
       isDaily: _isDaily,
       dailyDate: _dailyDate,
-      board: snapshot,
-    )));
+      board: BoardSnapshot(
+        placed: Map.of(_placed),
+        xMarks: Set.of(_xMarks),
+        elapsed: _elapsed,
+        hintsUsed: _hintsUsed,
+        wrongAccusations: _wrongAccusations,
+        eliminatedSuspects: Set.of(_eliminated),
+      ),
+    );
+  }
+
+  void _persist() {
+    final save = currentSave();
+    if (save == null) return;
+    unawaited(ref.read(prefsRepositoryProvider).saveActiveGame(save));
   }
 }
 

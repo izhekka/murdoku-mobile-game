@@ -27,4 +27,41 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsTitle => 'Settings';
+
+  @override
+  String get continueCase => 'Continue case';
+
+  @override
+  String get newCase => 'New case';
+
+  @override
+  String get dailyCase => 'Daily case';
+
+  @override
+  String get dailyCompleted => 'Completed today';
+
+  @override
+  String get difficultyEasy => 'Easy';
+
+  @override
+  String get difficultyStandard => 'Standard';
+
+  @override
+  String get difficultyHard => 'Hard';
+
+  @override
+  String get discardTitle => 'Discard current case?';
+
+  @override
+  String get discardBody =>
+      'Starting a new case discards your current progress.';
+
+  @override
+  String get discard => 'Discard';
+
+  @override
+  String get cancel => 'Cancel';
+
+  @override
+  String get chooseDifficulty => 'Choose difficulty';
 }
