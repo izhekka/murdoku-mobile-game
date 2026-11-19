@@ -428,6 +428,67 @@ class CaseData {
       );
 }
 
+/// Persisted mid-game board state (what the player has done so far).
+class BoardSnapshot {
+  const BoardSnapshot({
+    required this.placed,
+    required this.xMarks,
+    required this.elapsed,
+    required this.hintsUsed,
+    required this.wrongAccusations,
+    this.eliminatedSuspects = const {},
+  });
+
+  final Map<String, Pos> placed; // suspectId -> pos
+  final Set<Pos> xMarks;
+  final Duration elapsed;
+  final int hintsUsed;
+  final int wrongAccusations;
+  final Set<String> eliminatedSuspects; // Hint B exclusions
+
+  @override
+  bool operator ==(Object other) =>
+      other is BoardSnapshot &&
+      _mapsEqual(other.placed, placed) &&
+      _setsEqual(other.xMarks, xMarks) &&
+      other.elapsed == elapsed &&
+      other.hintsUsed == hintsUsed &&
+      other.wrongAccusations == wrongAccusations &&
+      _setsEqual(other.eliminatedSuspects, eliminatedSuspects);
+
+  @override
+  int get hashCode => Object.hash(
+        Object.hashAllUnordered(placed.entries.map((e) => Object.hash(e.key, e.value))),
+        Object.hashAllUnordered(xMarks),
+        elapsed,
+        hintsUsed,
+        wrongAccusations,
+        Object.hashAllUnordered(eliminatedSuspects),
+      );
+
+  Map<String, Object?> toJson() => {
+        'placed': placed.map((k, v) => MapEntry(k, posToJson(v))),
+        'xMarks': xMarks.map(posToJson).toList(),
+        'elapsedSeconds': elapsed.inSeconds,
+        'hintsUsed': hintsUsed,
+        'wrongAccusations': wrongAccusations,
+        'eliminatedSuspects': eliminatedSuspects.toList(),
+      };
+
+  factory BoardSnapshot.fromJson(Map<String, Object?> json) => BoardSnapshot(
+        placed: (json['placed'] as Map<String, Object?>)
+            .map((k, v) => MapEntry(k, posFromJson(v as List))),
+        xMarks: (json['xMarks'] as List).map((v) => posFromJson(v as List)).toSet(),
+        elapsed: Duration(seconds: json['elapsedSeconds'] as int),
+        hintsUsed: json['hintsUsed'] as int,
+        wrongAccusations: json['wrongAccusations'] as int,
+        eliminatedSuspects:
+            (json['eliminatedSuspects'] as List? ?? []).cast<String>().toSet(),
+      );
+}
+
+bool _setsEqual<T>(Set<T> a, Set<T> b) => a.length == b.length && a.containsAll(b);
+
 bool _listsEqual<T>(List<T> a, List<T> b) {
   if (a.length != b.length) return false;
   for (var i = 0; i < a.length; i++) {
