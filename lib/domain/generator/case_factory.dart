@@ -1,6 +1,5 @@
 import 'dart:math';
 
-import '../clue_eval.dart';
 import '../models.dart';
 import '../solver.dart';
 import 'rooms.dart';
@@ -68,7 +67,6 @@ CaseData? _attempt(Difficulty difficulty, int seed, int widen) {
     break;
   }
   if (victimPos == null || victimRoom == null) return null;
-  final vPos = victimPos;
   final vRoom = victimRoom;
   final murdererId = suspects
       .firstWhere((s) => vRoom.contains(solution[s.id]!))
