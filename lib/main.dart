@@ -7,7 +7,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'state/providers.dart';
 
-Future<void> main() async {
+Future<void> main() => murdokuBootstrap();
+
+/// App bootstrap. [forcedSeed] pins the random seed of the next new case —
+/// used by integration tests for determinism.
+@visibleForTesting
+Future<void> murdokuBootstrap({int? forcedSeed}) async {
   WidgetsFlutterBinding.ensureInitialized();
   FlutterError.onError = (details) {
     FlutterError.presentError(details);
@@ -17,7 +22,11 @@ Future<void> main() async {
   await runZonedGuarded(() async {
     final prefs = await SharedPreferences.getInstance();
     runApp(ProviderScope(
-      overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+      overrides: [
+        sharedPreferencesProvider.overrideWithValue(prefs),
+        if (forcedSeed != null)
+          forcedSeedProvider.overrideWithValue(forcedSeed),
+      ],
       child: const MurdokuApp(),
     ));
   }, (error, stack) {

@@ -130,7 +130,9 @@ class GameNotifier extends Notifier<GameState?> {
   void startNewCase(Difficulty difficulty, {int? seed}) {
     _start(generateCase(
         difficulty: difficulty,
-        seed: seed ?? Random().nextInt(1 << 30)),
+        seed: seed ??
+            ref.read(forcedSeedProvider) ??
+            Random().nextInt(1 << 30)),
         isDaily: false,
         dailyDate: '');
   }

@@ -8,5 +8,8 @@ final sharedPreferencesProvider = Provider<SharedPreferences>((ref) {
   throw UnimplementedError('sharedPreferencesProvider must be overridden in main');
 });
 
+/// Optional fixed seed for [startNewCase]; overridden in integration tests.
+final forcedSeedProvider = Provider<int?>((ref) => null);
+
 final prefsRepositoryProvider = Provider<PrefsRepository>(
     (ref) => PrefsRepository(ref.watch(sharedPreferencesProvider)));
