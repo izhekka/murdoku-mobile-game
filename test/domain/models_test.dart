@@ -1,0 +1,94 @@
+import 'package:flutter_test/flutter_test.dart';
+import 'package:murdoku/domain/models.dart';
+
+/// Hand-written 5x5 fixture covering every [Clue] subtype, positive and
+/// negated. Structurally valid: one guest per row/col/room, victim cell
+/// empty, murderer shares the victim's room.
+CaseData fixture() {
+  Pos p(int row, int col) => (row: row, col: col);
+  return CaseData(
+    seed: 42,
+    difficulty: Difficulty.easy,
+    rooms: [
+      RoomDef(id: 'r0', name: 'Hall', cells: [p(0, 0), p(0, 1), p(0, 2), p(1, 0), p(1, 1)]),
+      RoomDef(id: 'r1', name: 'Library', cells: [p(0, 3), p(0, 4), p(1, 2), p(1, 3), p(1, 4)]),
+      RoomDef(id: 'r2', name: 'Kitchen', cells: [p(2, 0), p(2, 1), p(2, 2), p(3, 0), p(3, 1)]),
+      RoomDef(id: 'r3', name: 'Cellar', cells: [p(2, 3), p(2, 4), p(3, 2), p(3, 3), p(3, 4)]),
+      RoomDef(id: 'r4', name: 'Study', cells: [p(4, 0), p(4, 1), p(4, 2), p(4, 3), p(4, 4)]),
+    ],
+    objects: [
+      ObjectDef(id: 'o0', kind: ObjectKind.piano, pos: p(0, 1)),
+      ObjectDef(id: 'o1', kind: ObjectKind.clock, pos: p(4, 4)),
+    ],
+    suspects: [
+      Suspect(id: 's0', name: 'Ash'),
+      Suspect(id: 's1', name: 'Blair'),
+      Suspect(id: 's2', name: 'Casey'),
+      Suspect(id: 's3', name: 'Drew'),
+      Suspect(id: 's4', name: 'Ellis'),
+    ],
+    victimPos: p(2, 2),
+    murdererId: 's2',
+    clues: [
+      InRoom(suspectId: 's0', roomId: 'r0', negated: false),
+      InRoom(suspectId: 's1', roomId: 'r1', negated: true),
+      SameRow(suspectId: 's2', targetId: 'V', negated: false),
+      SameRow(suspectId: 's0', targetId: 's4', negated: true),
+      SameCol(suspectId: 's1', targetId: 's3', negated: false),
+      SameCol(suspectId: 's2', targetId: 'V', negated: true),
+      DirectionClue(
+          suspectId: 's3', targetId: 'V', direction: Direction.north, negated: false),
+      DirectionClue(
+          suspectId: 's4', targetId: 's0', direction: Direction.west, negated: true),
+      Beside(suspectId: 's0', targetId: 's1', negated: false),
+      Beside(suspectId: 's3', targetId: 's4', negated: true),
+      BesideObject(suspectId: 's2', objectId: 'o0', negated: false),
+      BesideObject(suspectId: 's4', objectId: 'o1', negated: true),
+    ],
+    solution: {
+      's0': p(0, 0),
+      's1': p(1, 4),
+      's2': p(2, 1),
+      's3': p(3, 3),
+      's4': p(4, 2),
+    },
+  );
+}
+
+void main() {
+  test('difficulty extension values match the spec table', () {
+    expect(Difficulty.easy.gridSize, 5);
+    expect(Difficulty.standard.gridSize, 6);
+    expect(Difficulty.hard.gridSize, 7);
+    expect(Difficulty.easy.objectCount, 2);
+    expect(Difficulty.standard.objectCount, 3);
+    expect(Difficulty.hard.objectCount, 4);
+    expect(Difficulty.easy.minClues, 6);
+    expect(Difficulty.standard.minClues, 8);
+    expect(Difficulty.hard.minClues, 10);
+    expect(Difficulty.easy.maxClues, 9);
+    expect(Difficulty.standard.maxClues, 12);
+    expect(Difficulty.hard.maxClues, 14);
+  });
+
+  test('CaseData json round-trip preserves every clue subtype', () {
+    final c = fixture();
+    final restored = CaseData.fromJson(c.toJson());
+    expect(restored, equals(c));
+    expect(restored.toJson(), equals(c.toJson()));
+  });
+
+  test('value equality distinguishes different cases', () {
+    final a = fixture();
+    final b = fixture().copyWith(murdererId: 's3');
+    expect(a, equals(fixture()));
+    expect(a, isNot(equals(b)));
+  });
+
+  test('copyWith replaces only the given field', () {
+    final c = fixture();
+    final copy = c.copyWith(seed: 7);
+    expect(copy.seed, 7);
+    expect(copy.copyWith(seed: c.seed), equals(c));
+  });
+}
