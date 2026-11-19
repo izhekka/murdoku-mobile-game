@@ -5,6 +5,10 @@ library;
 /// Row/col position on the case grid. JSON-encoded as `[row, col]`.
 typedef Pos = ({int row, int col});
 
+/// UTC-date → deterministic daily seed, per the design spec §2.5.
+int dailySeedFor(DateTime utcDate) =>
+    utcDate.year * 10000 + utcDate.month * 100 + utcDate.day;
+
 /// The victim marker shown on the map. Never a suspect id.
 const victimId = 'V';
 
