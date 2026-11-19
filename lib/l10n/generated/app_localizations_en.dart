@@ -11,4 +11,20 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get appTitle => 'Murdoku';
+
+  @override
+  String get fatalErrorMessage =>
+      'Something went wrong. Please restart the app.';
+
+  @override
+  String get howToPlayTitle => 'How to play';
+
+  @override
+  String get gameTitle => 'Case';
+
+  @override
+  String get statsTitle => 'Statistics';
+
+  @override
+  String get settingsTitle => 'Settings';
 }

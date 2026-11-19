@@ -1,4 +1,9 @@
 {
   "@@locale": "en",
-  "appTitle": "Murdoku"
+  "appTitle": "Murdoku",
+  "fatalErrorMessage": "Something went wrong. Please restart the app.",
+  "howToPlayTitle": "How to play",
+  "gameTitle": "Case",
+  "statsTitle": "Statistics",
+  "settingsTitle": "Settings"
 }

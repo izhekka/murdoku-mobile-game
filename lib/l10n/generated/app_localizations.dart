@@ -99,6 +99,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Murdoku'**
   String get appTitle;
+
+  /// No description provided for @fatalErrorMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Something went wrong. Please restart the app.'**
+  String get fatalErrorMessage;
+
+  /// No description provided for @howToPlayTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'How to play'**
+  String get howToPlayTitle;
+
+  /// No description provided for @gameTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Case'**
+  String get gameTitle;
+
+  /// No description provided for @statsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Statistics'**
+  String get statsTitle;
+
+  /// No description provided for @settingsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Settings'**
+  String get settingsTitle;
 }
 
 class _AppLocalizationsDelegate
