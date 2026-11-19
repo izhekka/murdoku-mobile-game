@@ -239,7 +239,7 @@ class _Cell extends StatelessWidget {
           );
 
     Widget furniture(IconData icon,
-            {double size = 20, Alignment alignment = Alignment.center}) =>
+            {double size = 24, Alignment alignment = Alignment.center}) =>
         ItemSprite(
           kind: objectHere.first.kind,
           size: size,

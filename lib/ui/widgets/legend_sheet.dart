@@ -89,7 +89,7 @@ class LegendSheet extends StatelessWidget {
                   ),
                   for (final kind in seenKinds)
                     ListTile(
-                      leading: ItemSprite(kind: kind, size: 22),
+                      leading: ItemSprite(kind: kind, size: 28),
                       title: Text(names.objectNom(kind)),
                       subtitle: Text(
                         kindOccupiable(kind)
