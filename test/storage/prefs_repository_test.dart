@@ -1,5 +1,5 @@
-import 'package:flutter/material.dart' show ThemeMode;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart' show ThemeMode;
 import 'package:murdoku/domain/models.dart';
 import 'package:murdoku/storage/prefs_repository.dart';
 import 'package:shared_preferences/shared_preferences.dart';
