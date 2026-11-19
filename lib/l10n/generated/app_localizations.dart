@@ -201,6 +201,84 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Choose difficulty'**
   String get chooseDifficulty;
+
+  /// No description provided for @objectPiano.
+  ///
+  /// In en, this message translates to:
+  /// **'Piano'**
+  String get objectPiano;
+
+  /// No description provided for @objectPlant.
+  ///
+  /// In en, this message translates to:
+  /// **'Plant'**
+  String get objectPlant;
+
+  /// No description provided for @objectArmor.
+  ///
+  /// In en, this message translates to:
+  /// **'Suit of armor'**
+  String get objectArmor;
+
+  /// No description provided for @objectChest.
+  ///
+  /// In en, this message translates to:
+  /// **'Chest'**
+  String get objectChest;
+
+  /// No description provided for @objectClock.
+  ///
+  /// In en, this message translates to:
+  /// **'Clock'**
+  String get objectClock;
+
+  /// No description provided for @objectGlobe.
+  ///
+  /// In en, this message translates to:
+  /// **'Globe'**
+  String get objectGlobe;
+
+  /// No description provided for @objectPortrait.
+  ///
+  /// In en, this message translates to:
+  /// **'Portrait'**
+  String get objectPortrait;
+
+  /// No description provided for @objectFireplace.
+  ///
+  /// In en, this message translates to:
+  /// **'Fireplace'**
+  String get objectFireplace;
+
+  /// No description provided for @victimLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Victim'**
+  String get victimLabel;
+
+  /// No description provided for @cellSemantics.
+  ///
+  /// In en, this message translates to:
+  /// **'Row {row}, column {column}, {room}, {state}'**
+  String cellSemantics(int row, int column, String room, String state);
+
+  /// No description provided for @stateEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'empty'**
+  String get stateEmpty;
+
+  /// No description provided for @stateExcluded.
+  ///
+  /// In en, this message translates to:
+  /// **'marked empty'**
+  String get stateExcluded;
+
+  /// No description provided for @stateVictim.
+  ///
+  /// In en, this message translates to:
+  /// **'victim'**
+  String get stateVictim;
 }
 
 class _AppLocalizationsDelegate

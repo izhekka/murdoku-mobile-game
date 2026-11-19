@@ -17,5 +17,26 @@
   "discardBody": "Starting a new case discards your current progress.",
   "discard": "Discard",
   "cancel": "Cancel",
-  "chooseDifficulty": "Choose difficulty"
+  "chooseDifficulty": "Choose difficulty",
+  "objectPiano": "Piano",
+  "objectPlant": "Plant",
+  "objectArmor": "Suit of armor",
+  "objectChest": "Chest",
+  "objectClock": "Clock",
+  "objectGlobe": "Globe",
+  "objectPortrait": "Portrait",
+  "objectFireplace": "Fireplace",
+  "victimLabel": "Victim",
+  "cellSemantics": "Row {row}, column {column}, {room}, {state}",
+  "@cellSemantics": {
+    "placeholders": {
+      "row": {"type": "int"},
+      "column": {"type": "int"},
+      "room": {"type": "String"},
+      "state": {"type": "String"}
+    }
+  },
+  "stateEmpty": "empty",
+  "stateExcluded": "marked empty",
+  "stateVictim": "victim"
 }

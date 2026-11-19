@@ -64,4 +64,45 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get chooseDifficulty => 'Choose difficulty';
+
+  @override
+  String get objectPiano => 'Piano';
+
+  @override
+  String get objectPlant => 'Plant';
+
+  @override
+  String get objectArmor => 'Suit of armor';
+
+  @override
+  String get objectChest => 'Chest';
+
+  @override
+  String get objectClock => 'Clock';
+
+  @override
+  String get objectGlobe => 'Globe';
+
+  @override
+  String get objectPortrait => 'Portrait';
+
+  @override
+  String get objectFireplace => 'Fireplace';
+
+  @override
+  String get victimLabel => 'Victim';
+
+  @override
+  String cellSemantics(int row, int column, String room, String state) {
+    return 'Row $row, column $column, $room, $state';
+  }
+
+  @override
+  String get stateEmpty => 'empty';
+
+  @override
+  String get stateExcluded => 'marked empty';
+
+  @override
+  String get stateVictim => 'victim';
 }
