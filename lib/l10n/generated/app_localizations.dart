@@ -603,6 +603,72 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Progress reset.'**
   String get progressReset;
+
+  /// No description provided for @rule1Text.
+  ///
+  /// In en, this message translates to:
+  /// **'Each guest appears exactly once in every row, column and room — like a sudoku of suspects.'**
+  String get rule1Text;
+
+  /// No description provided for @rule2Text.
+  ///
+  /// In en, this message translates to:
+  /// **'Every clue is true. Clues are rules, not hints.'**
+  String get rule2Text;
+
+  /// No description provided for @rule3Text.
+  ///
+  /// In en, this message translates to:
+  /// **'The map is evidence — rooms and objects are where the story happens.'**
+  String get rule3Text;
+
+  /// No description provided for @rule4Text.
+  ///
+  /// In en, this message translates to:
+  /// **'One guest shares a room with the victim. That guest is the murderer. Find them last.'**
+  String get rule4Text;
+
+  /// No description provided for @tutorialXHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Use X marks to eliminate cells you know are impossible.'**
+  String get tutorialXHint;
+
+  /// No description provided for @tutorialNext.
+  ///
+  /// In en, this message translates to:
+  /// **'Next'**
+  String get tutorialNext;
+
+  /// No description provided for @tutorialDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Got it'**
+  String get tutorialDone;
+
+  /// No description provided for @glossaryTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Clue glossary'**
+  String get glossaryTitle;
+
+  /// No description provided for @glossaryBeside.
+  ///
+  /// In en, this message translates to:
+  /// **'Beside: directly adjacent (up, down, left, right).'**
+  String get glossaryBeside;
+
+  /// No description provided for @glossaryDirections.
+  ///
+  /// In en, this message translates to:
+  /// **'North is up, south is down, west is left, east is right.'**
+  String get glossaryDirections;
+
+  /// No description provided for @glossaryRowCol.
+  ///
+  /// In en, this message translates to:
+  /// **'Same floor: the same row. Same corridor: the same column.'**
+  String get glossaryRowCol;
 }
 
 class _AppLocalizationsDelegate

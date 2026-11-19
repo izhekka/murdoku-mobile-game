@@ -8,12 +8,42 @@ import '../../l10n/generated/app_localizations.dart';
 import '../../state/clock.dart';
 import '../../state/game_controller.dart';
 import '../../state/providers.dart';
+import '../widgets/tutorial_overlay.dart';
 
-class HomeScreen extends ConsumerWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends ConsumerState<HomeScreen> {
+  bool _tutorialQueued = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _maybeShowTutorial());
+  }
+
+  void _maybeShowTutorial() {
+    if (_tutorialQueued || !mounted) return;
+    if (ref.read(prefsRepositoryProvider).loadTutorialSeen()) return;
+    _tutorialQueued = true;
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => TutorialOverlay(
+        onDismiss: () {
+          Navigator.of(dialogContext).pop();
+          ref.read(prefsRepositoryProvider).saveTutorialSeen(true);
+        },
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final repo = ref.watch(prefsRepositoryProvider);
     // Watch the controller so returning from a won/quit game rebuilds home

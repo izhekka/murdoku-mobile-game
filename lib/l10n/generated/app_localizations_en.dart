@@ -312,4 +312,44 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get progressReset => 'Progress reset.';
+
+  @override
+  String get rule1Text =>
+      'Each guest appears exactly once in every row, column and room — like a sudoku of suspects.';
+
+  @override
+  String get rule2Text => 'Every clue is true. Clues are rules, not hints.';
+
+  @override
+  String get rule3Text =>
+      'The map is evidence — rooms and objects are where the story happens.';
+
+  @override
+  String get rule4Text =>
+      'One guest shares a room with the victim. That guest is the murderer. Find them last.';
+
+  @override
+  String get tutorialXHint =>
+      'Use X marks to eliminate cells you know are impossible.';
+
+  @override
+  String get tutorialNext => 'Next';
+
+  @override
+  String get tutorialDone => 'Got it';
+
+  @override
+  String get glossaryTitle => 'Clue glossary';
+
+  @override
+  String get glossaryBeside =>
+      'Beside: directly adjacent (up, down, left, right).';
+
+  @override
+  String get glossaryDirections =>
+      'North is up, south is down, west is left, east is right.';
+
+  @override
+  String get glossaryRowCol =>
+      'Same floor: the same row. Same corridor: the same column.';
 }

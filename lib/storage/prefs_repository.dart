@@ -170,6 +170,7 @@ class PrefsRepository {
   static const _activeGameKey = 'murdoku.activeGame';
   static const _statsKey = 'murdoku.stats';
   static const _dailyKey = 'murdoku.daily';
+  static const _tutorialKey = 'murdoku.tutorialSeen';
 
   Settings loadSettings() {
     final raw = _prefs.getString(_settingsKey);
@@ -230,6 +231,11 @@ class PrefsRepository {
 
   Future<void> saveDailyState(DailyState d) =>
       _prefs.setString(_dailyKey, jsonEncode(d.toJson()));
+
+  bool loadTutorialSeen() => _prefs.getBool(_tutorialKey) ?? false;
+
+  Future<void> saveTutorialSeen(bool seen) =>
+      _prefs.setBool(_tutorialKey, seen);
 }
 
 bool _statsMapEqual<M extends Enum, V>(Map<M, V> a, Map<M, V> b) {

@@ -299,5 +299,16 @@
   "resetProgress": "Reset all progress",
   "resetConfirmTitle": "Reset all progress?",
   "resetConfirmBody": "This clears saves, statistics and the daily streak. Your settings are kept.",
-  "progressReset": "Progress reset."
+  "progressReset": "Progress reset.",
+  "rule1Text": "Each guest appears exactly once in every row, column and room — like a sudoku of suspects.",
+  "rule2Text": "Every clue is true. Clues are rules, not hints.",
+  "rule3Text": "The map is evidence — rooms and objects are where the story happens.",
+  "rule4Text": "One guest shares a room with the victim. That guest is the murderer. Find them last.",
+  "tutorialXHint": "Use X marks to eliminate cells you know are impossible.",
+  "tutorialNext": "Next",
+  "tutorialDone": "Got it",
+  "glossaryTitle": "Clue glossary",
+  "glossaryBeside": "Beside: directly adjacent (up, down, left, right).",
+  "glossaryDirections": "North is up, south is down, west is left, east is right.",
+  "glossaryRowCol": "Same floor: the same row. Same corridor: the same column."
 }
