@@ -97,6 +97,13 @@ void main() {
         expect(murdererRoom, victimRoom,
             reason: 'seed $seed: murderer not with victim');
 
+        // 5b. every suspect has at least one clue (no empty cards)
+        final suspectsWithClues = c.clues.map((cl) => cl.suspectId).toSet();
+        for (final s in c.suspects) {
+          expect(suspectsWithClues.contains(s.id), isTrue,
+              reason: 'seed $seed: suspect ${s.id} has no clue');
+        }
+
         // 6. clue window
         expect(c.clues.length, greaterThanOrEqualTo(difficulty.minClues),
             reason: 'seed $seed: too few clues (${c.clues.length})');

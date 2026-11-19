@@ -119,6 +119,22 @@ CaseData? _attempt(Difficulty difficulty, int seed, int widen) {
   if (minimized == null) return null;
   final pruned = _prune(minimized, g, rooms, suspectIds(suspects), victimPos, objects);
   var picked = pruned;
+  // Coverage: no suspect may end up without a clue (empty cards confuse
+  // players). Pool clues are all true of the solution, so additions are
+  // uniqueness-safe. InRoom(s, own room) always exists for every suspect.
+  final covered = picked.map((cl) => cl.suspectId).toSet();
+  for (final s in suspects) {
+    if (covered.contains(s.id)) continue;
+    final candidate = pool.firstWhere(
+      (cl) => cl.suspectId == s.id,
+      orElse: () => InRoom(
+          suspectId: s.id,
+          roomId: roomOf(rooms, solution[s.id]!)!,
+          negated: false),
+    );
+    picked.add(candidate);
+  }
+
   if (picked.length > maxClues) return null;
   if (picked.length < difficulty.minClues) {
     final remaining = pool.where((c) => !picked.contains(c)).toList();
