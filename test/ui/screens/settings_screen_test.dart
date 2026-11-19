@@ -50,7 +50,6 @@ void main() {
 
   testWidgets('haptics toggle persists', (tester) async {
     final (_, repo) = await pumpSettings(tester);
-    final l10n = l10nOf(tester);
 
     await tester.tap(find.byType(SwitchListTile));
     await tester.pumpAndSettle();
