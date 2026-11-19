@@ -180,4 +180,80 @@ class AppLocalizationsEn extends AppLocalizations {
   String clueBesideObjectNot(String name, String object) {
     return '$name was not beside the $object.';
   }
+
+  @override
+  String get accuse => 'Accuse';
+
+  @override
+  String get accuseTitle => 'Who did it?';
+
+  @override
+  String alibi(String name) {
+    return '$name has an airtight alibi.';
+  }
+
+  @override
+  String checkResult(int n, int total) {
+    return '$n of $total guests are correctly placed.';
+  }
+
+  @override
+  String get victoryTitle => 'Case closed!';
+
+  @override
+  String victoryTime(String time) {
+    return 'Time: $time';
+  }
+
+  @override
+  String victoryMistakes(int count) {
+    return 'Mistakes: $count';
+  }
+
+  @override
+  String get victoryDone => 'Done';
+
+  @override
+  String get revealSolution => 'Reveal solution';
+
+  @override
+  String get revealConfirmTitle => 'Reveal the solution?';
+
+  @override
+  String get revealConfirmBody => 'This forfeits the case.';
+
+  @override
+  String get quitCase => 'Quit case';
+
+  @override
+  String get quitConfirmTitle => 'Quit this case?';
+
+  @override
+  String get quitConfirmBody => 'Your progress on this case will be lost.';
+
+  @override
+  String get resume => 'Resume';
+
+  @override
+  String get hintTitle => 'Choose a hint';
+
+  @override
+  String get hintPlace => 'Reveal a suspect\'s position';
+
+  @override
+  String get hintEliminate => 'Rule out a suspect';
+
+  @override
+  String hintsLeft(int count) {
+    return 'Hints left: $count';
+  }
+
+  @override
+  String get noActiveCase => 'No active case.';
+
+  @override
+  String get backToHome => 'Back to home';
+
+  @override
+  String get playAgain => 'Play again';
 }

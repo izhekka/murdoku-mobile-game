@@ -381,6 +381,138 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{name} was not beside the {object}.'**
   String clueBesideObjectNot(String name, String object);
+
+  /// No description provided for @accuse.
+  ///
+  /// In en, this message translates to:
+  /// **'Accuse'**
+  String get accuse;
+
+  /// No description provided for @accuseTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Who did it?'**
+  String get accuseTitle;
+
+  /// No description provided for @alibi.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} has an airtight alibi.'**
+  String alibi(String name);
+
+  /// No description provided for @checkResult.
+  ///
+  /// In en, this message translates to:
+  /// **'{n} of {total} guests are correctly placed.'**
+  String checkResult(int n, int total);
+
+  /// No description provided for @victoryTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Case closed!'**
+  String get victoryTitle;
+
+  /// No description provided for @victoryTime.
+  ///
+  /// In en, this message translates to:
+  /// **'Time: {time}'**
+  String victoryTime(String time);
+
+  /// No description provided for @victoryMistakes.
+  ///
+  /// In en, this message translates to:
+  /// **'Mistakes: {count}'**
+  String victoryMistakes(int count);
+
+  /// No description provided for @victoryDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get victoryDone;
+
+  /// No description provided for @revealSolution.
+  ///
+  /// In en, this message translates to:
+  /// **'Reveal solution'**
+  String get revealSolution;
+
+  /// No description provided for @revealConfirmTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Reveal the solution?'**
+  String get revealConfirmTitle;
+
+  /// No description provided for @revealConfirmBody.
+  ///
+  /// In en, this message translates to:
+  /// **'This forfeits the case.'**
+  String get revealConfirmBody;
+
+  /// No description provided for @quitCase.
+  ///
+  /// In en, this message translates to:
+  /// **'Quit case'**
+  String get quitCase;
+
+  /// No description provided for @quitConfirmTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Quit this case?'**
+  String get quitConfirmTitle;
+
+  /// No description provided for @quitConfirmBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Your progress on this case will be lost.'**
+  String get quitConfirmBody;
+
+  /// No description provided for @resume.
+  ///
+  /// In en, this message translates to:
+  /// **'Resume'**
+  String get resume;
+
+  /// No description provided for @hintTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a hint'**
+  String get hintTitle;
+
+  /// No description provided for @hintPlace.
+  ///
+  /// In en, this message translates to:
+  /// **'Reveal a suspect\'s position'**
+  String get hintPlace;
+
+  /// No description provided for @hintEliminate.
+  ///
+  /// In en, this message translates to:
+  /// **'Rule out a suspect'**
+  String get hintEliminate;
+
+  /// No description provided for @hintsLeft.
+  ///
+  /// In en, this message translates to:
+  /// **'Hints left: {count}'**
+  String hintsLeft(int count);
+
+  /// No description provided for @noActiveCase.
+  ///
+  /// In en, this message translates to:
+  /// **'No active case.'**
+  String get noActiveCase;
+
+  /// No description provided for @backToHome.
+  ///
+  /// In en, this message translates to:
+  /// **'Back to home'**
+  String get backToHome;
+
+  /// No description provided for @playAgain.
+  ///
+  /// In en, this message translates to:
+  /// **'Play again'**
+  String get playAgain;
 }
 
 class _AppLocalizationsDelegate

@@ -30,10 +30,18 @@
   "cellSemantics": "Row {row}, column {column}, {room}, {state}",
   "@cellSemantics": {
     "placeholders": {
-      "row": {"type": "int"},
-      "column": {"type": "int"},
-      "room": {"type": "String"},
-      "state": {"type": "String"}
+      "row": {
+        "type": "int"
+      },
+      "column": {
+        "type": "int"
+      },
+      "room": {
+        "type": "String"
+      },
+      "state": {
+        "type": "String"
+      }
     }
   },
   "stateEmpty": "empty",
@@ -45,27 +53,201 @@
   "dirEast": "east",
   "dirWest": "west",
   "clueInRoom": "{name} was in the {room}.",
-  "@clueInRoom": {"placeholders": {"name": {"type": "String"}, "room": {"type": "String"}}},
+  "@clueInRoom": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "room": {
+        "type": "String"
+      }
+    }
+  },
   "clueInRoomNot": "{name} was not in the {room}.",
-  "@clueInRoomNot": {"placeholders": {"name": {"type": "String"}, "room": {"type": "String"}}},
+  "@clueInRoomNot": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "room": {
+        "type": "String"
+      }
+    }
+  },
   "clueSameRow": "{name} was on the same floor as {target}.",
-  "@clueSameRow": {"placeholders": {"name": {"type": "String"}, "target": {"type": "String"}}},
+  "@clueSameRow": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "target": {
+        "type": "String"
+      }
+    }
+  },
   "clueSameRowNot": "{name} was not on the same floor as {target}.",
-  "@clueSameRowNot": {"placeholders": {"name": {"type": "String"}, "target": {"type": "String"}}},
+  "@clueSameRowNot": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "target": {
+        "type": "String"
+      }
+    }
+  },
   "clueSameCol": "{name} was in the same corridor as {target}.",
-  "@clueSameCol": {"placeholders": {"name": {"type": "String"}, "target": {"type": "String"}}},
+  "@clueSameCol": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "target": {
+        "type": "String"
+      }
+    }
+  },
   "clueSameColNot": "{name} was not in the same corridor as {target}.",
-  "@clueSameColNot": {"placeholders": {"name": {"type": "String"}, "target": {"type": "String"}}},
+  "@clueSameColNot": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "target": {
+        "type": "String"
+      }
+    }
+  },
   "clueDirection": "{name} was {direction} of {target}.",
-  "@clueDirection": {"placeholders": {"name": {"type": "String"}, "direction": {"type": "String"}, "target": {"type": "String"}}},
+  "@clueDirection": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "direction": {
+        "type": "String"
+      },
+      "target": {
+        "type": "String"
+      }
+    }
+  },
   "clueDirectionNot": "{name} was not {direction} of {target}.",
-  "@clueDirectionNot": {"placeholders": {"name": {"type": "String"}, "direction": {"type": "String"}, "target": {"type": "String"}}},
+  "@clueDirectionNot": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "direction": {
+        "type": "String"
+      },
+      "target": {
+        "type": "String"
+      }
+    }
+  },
   "clueBeside": "{name} was beside {target}.",
-  "@clueBeside": {"placeholders": {"name": {"type": "String"}, "target": {"type": "String"}}},
+  "@clueBeside": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "target": {
+        "type": "String"
+      }
+    }
+  },
   "clueBesideNot": "{name} was not beside {target}.",
-  "@clueBesideNot": {"placeholders": {"name": {"type": "String"}, "target": {"type": "String"}}},
+  "@clueBesideNot": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "target": {
+        "type": "String"
+      }
+    }
+  },
   "clueBesideObject": "{name} was beside the {object}.",
-  "@clueBesideObject": {"placeholders": {"name": {"type": "String"}, "object": {"type": "String"}}},
+  "@clueBesideObject": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "object": {
+        "type": "String"
+      }
+    }
+  },
   "clueBesideObjectNot": "{name} was not beside the {object}.",
-  "@clueBesideObjectNot": {"placeholders": {"name": {"type": "String"}, "object": {"type": "String"}}}
+  "@clueBesideObjectNot": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "object": {
+        "type": "String"
+      }
+    }
+  },
+  "accuse": "Accuse",
+  "accuseTitle": "Who did it?",
+  "alibi": "{name} has an airtight alibi.",
+  "@alibi": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "checkResult": "{n} of {total} guests are correctly placed.",
+  "@checkResult": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "victoryTitle": "Case closed!",
+  "victoryTime": "Time: {time}",
+  "@victoryTime": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "victoryMistakes": "Mistakes: {count}",
+  "@victoryMistakes": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "victoryDone": "Done",
+  "revealSolution": "Reveal solution",
+  "revealConfirmTitle": "Reveal the solution?",
+  "revealConfirmBody": "This forfeits the case.",
+  "quitCase": "Quit case",
+  "quitConfirmTitle": "Quit this case?",
+  "quitConfirmBody": "Your progress on this case will be lost.",
+  "resume": "Resume",
+  "hintTitle": "Choose a hint",
+  "hintPlace": "Reveal a suspect's position",
+  "hintEliminate": "Rule out a suspect",
+  "hintsLeft": "Hints left: {count}",
+  "@hintsLeft": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "noActiveCase": "No active case.",
+  "backToHome": "Back to home",
+  "playAgain": "Play again"
 }

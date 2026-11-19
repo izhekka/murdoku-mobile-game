@@ -113,7 +113,12 @@ class SuspectPanel extends StatelessWidget {
 
     return LayoutBuilder(builder: (context, constraints) {
       if (constraints.maxWidth >= 600) {
-        return ListView(children: cards);
+        return ListView(
+          children: [
+            for (final card in cards)
+              SizedBox(height: 150, width: double.infinity, child: card),
+          ],
+        );
       }
       return SizedBox(
         height: 150,
@@ -186,14 +191,23 @@ class _SuspectCard extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 4),
-              for (final text in clueTexts)
-                Padding(
-                  padding: const EdgeInsets.only(top: 2),
-                  child: Text(
-                    text,
-                    style: Theme.of(context).textTheme.bodySmall,
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      for (final text in clueTexts)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 2),
+                          child: Text(
+                            text,
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ),
+                    ],
                   ),
                 ),
+              ),
             ],
           ),
         ),

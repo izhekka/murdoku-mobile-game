@@ -70,25 +70,31 @@ void main() {
     await tester.pumpWidget(wrap(onSuspectTap: (id) => tapped = id));
     await tester.pump();
 
-    // The strip is a lazy horizontal ListView: scroll card by card and
-    // assert each card's name and exact clue wording as it appears.
+    // The strip is a lazy horizontal ListView: drag card by card and assert
+    // each card's name and exact clue wording as it appears.
     expect(find.text('Ash'), findsOneWidget);
     expect(find.text('Ash was in the Hall.'), findsOneWidget);
     expect(find.text('Blair'), findsOneWidget);
     expect(find.text('Blair was not on the same floor as the victim.'),
         findsOneWidget);
 
-    await tester.scrollUntilVisible(find.text('Casey'), 150);
-    await tester.pumpAndSettle();
+    final strip = find.byType(ListView);
+    Future<void> dragOnce() async {
+      await tester.drag(strip.first, const Offset(-160, 0));
+      await tester.pumpAndSettle();
+    }
+
+    await dragOnce();
+    expect(find.text('Casey'), findsOneWidget);
     expect(find.text('Casey was in the same corridor as Ellis.'),
         findsOneWidget);
 
-    await tester.scrollUntilVisible(find.text('Drew'), 150);
-    await tester.pumpAndSettle();
+    await dragOnce();
+    expect(find.text('Drew'), findsOneWidget);
     expect(find.text('Drew was not south of the victim.'), findsOneWidget);
 
-    await tester.scrollUntilVisible(find.text('Ellis'), 150);
-    await tester.pumpAndSettle();
+    await dragOnce();
+    expect(find.text('Ellis'), findsOneWidget);
     expect(find.text('Ellis was beside the Clock.'), findsOneWidget);
 
     // Placed suspect is marked.
