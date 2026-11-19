@@ -67,8 +67,19 @@ class LegendSheet extends StatelessWidget {
                               color: Theme.of(context).colorScheme.outline),
                           borderRadius: BorderRadius.circular(4),
                         ),
+                        child: Center(
+                          child: Text(
+                            '${i + 1}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: Theme.of(context).colorScheme.onSurface,
+                            ),
+                          ),
+                        ),
                       ),
-                      title: Text(names.roomNom(caseData.rooms[i].id)),
+                      title: Text(
+                          '${i + 1} — ${names.roomNom(caseData.rooms[i].id)}'),
                     ),
                   const SizedBox(height: 8),
                   Padding(

@@ -54,6 +54,16 @@ class _BoardViewState extends State<BoardView> {
         builder: (context, constraints) {
           final side = constraints.maxWidth;
           final cell = side / g;
+          // Anchor cell of each room (top-left-most, victim cell excluded):
+          // carries the number badge shown in the legend.
+          final anchors = <Pos>{
+            for (final room in widget.caseData.rooms)
+              ([...room.cells]..sort((a, b) => a.row != b.row
+                      ? a.row - b.row
+                      : a.col - b.col))
+                  .firstWhere((cell) => cell != widget.caseData.victimPos),
+          };
+
           return GestureDetector(
             behavior: HitTestBehavior.opaque,
             onPanStart: (details) {
@@ -79,6 +89,12 @@ class _BoardViewState extends State<BoardView> {
                           key: Key('cell_${row}_$col'),
                           caseData: widget.caseData,
                           pos: (row: row, col: col),
+                          roomNumber: anchors.contains((row: row, col: col))
+                              ? widget.caseData.rooms
+                                      .indexWhere((r) =>
+                                          r.contains((row: row, col: col))) +
+                                  1
+                              : null,
                           placed: widget.placed,
                           xMarks: widget.xMarks,
                           selectedSuspectId: widget.selectedSuspectId,
@@ -104,6 +120,7 @@ class _Cell extends StatelessWidget {
     required this.xMarks,
     required this.selectedSuspectId,
     required this.onCellTap,
+    this.roomNumber,
   });
 
   final CaseData caseData;
@@ -112,6 +129,7 @@ class _Cell extends StatelessWidget {
   final Set<Pos> xMarks;
   final String? selectedSuspectId;
   final void Function(Pos) onCellTap;
+  final int? roomNumber;
 
 
   @override
@@ -191,6 +209,35 @@ class _Cell extends StatelessWidget {
     if (state.isEmpty) state = l10n.stateEmpty;
     final label = l10n.cellSemantics(pos.row, pos.col, room.name, state);
 
+    Widget roomBadge() => roomNumber == null
+        ? const SizedBox.shrink()
+        : Align(
+            alignment: Alignment.topRight,
+            child: Padding(
+              padding: const EdgeInsets.all(2),
+              child: Container(
+                width: 16,
+                height: 16,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: scheme.primaryContainer,
+                  border:
+                      Border.all(width: 1, color: scheme.onPrimaryContainer),
+                ),
+                child: Center(
+                  child: Text(
+                    '$roomNumber',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: scheme.onPrimaryContainer,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+
     Widget furniture(IconData icon,
             {double size = 20, Alignment alignment = Alignment.center}) =>
         ItemSprite(
@@ -219,6 +266,7 @@ class _Cell extends StatelessWidget {
           objectHere.isNotEmpty ? objectIcon(objectHere.first.kind) : null;
       content = Stack(
         children: [
+          roomBadge(),
           // Furniture renders under everything in the cell.
           if (itemIcon != null && (suspectIndexHere != null || hasX))
             Align(

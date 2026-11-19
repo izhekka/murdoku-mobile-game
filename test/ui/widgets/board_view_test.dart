@@ -135,6 +135,27 @@ void main() {
     expect(find.byType(ItemSprite), findsWidgets);
   });
 
+  testWidgets('room number badges render on each room anchor cell',
+      (tester) async {
+    await pumpBoard(tester, placed: {}, xMarks: {});
+    for (var i = 0; i < fixture.rooms.length; i++) {
+      final cells = [...fixture.rooms[i].cells]
+        ..sort((a, b) => a.row != b.row
+            ? a.row - b.row
+            : a.col - b.col);
+      // The victim cell can never carry a badge; skip it.
+      final anchor = cells.firstWhere((c) => c != fixture.victimPos);
+      expect(
+        find.descendant(
+          of: find.byKey(Key('cell_${anchor.row}_${anchor.col}')),
+          matching: find.text('${i + 1}'),
+        ),
+        findsOneWidget,
+        reason: 'room ${fixture.rooms[i].id} badge ${i + 1} on its anchor cell',
+      );
+    }
+  });
+
   testWidgets('blocking furniture appears in semantics as unoccupiable',
       (tester) async {
     final blocking = fixture.objects.firstWhere((o) => !o.occupiable);

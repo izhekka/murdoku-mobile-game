@@ -36,9 +36,10 @@ void main() {
     expect(find.text(l10n.legendTitle), findsOneWidget);
     expect(find.text(l10n.legendRooms), findsOneWidget);
     expect(find.text(l10n.legendItems), findsOneWidget);
-    for (final room in fixture.rooms) {
-      expect(find.text(names.roomNom(room.id)), findsOneWidget,
-          reason: 'room ${room.id} named in the legend');
+    for (var i = 0; i < fixture.rooms.length; i++) {
+      expect(find.text('${i + 1} — ${names.roomNom(fixture.rooms[i].id)}'),
+          findsOneWidget,
+          reason: 'room ${fixture.rooms[i].id} numbered in the legend');
     }
   });
 
