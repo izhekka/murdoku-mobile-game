@@ -105,4 +105,79 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get stateVictim => 'victim';
+
+  @override
+  String get victimName => 'the victim';
+
+  @override
+  String get dirNorth => 'north';
+
+  @override
+  String get dirSouth => 'south';
+
+  @override
+  String get dirEast => 'east';
+
+  @override
+  String get dirWest => 'west';
+
+  @override
+  String clueInRoom(String name, String room) {
+    return '$name was in the $room.';
+  }
+
+  @override
+  String clueInRoomNot(String name, String room) {
+    return '$name was not in the $room.';
+  }
+
+  @override
+  String clueSameRow(String name, String target) {
+    return '$name was on the same floor as $target.';
+  }
+
+  @override
+  String clueSameRowNot(String name, String target) {
+    return '$name was not on the same floor as $target.';
+  }
+
+  @override
+  String clueSameCol(String name, String target) {
+    return '$name was in the same corridor as $target.';
+  }
+
+  @override
+  String clueSameColNot(String name, String target) {
+    return '$name was not in the same corridor as $target.';
+  }
+
+  @override
+  String clueDirection(String name, String direction, String target) {
+    return '$name was $direction of $target.';
+  }
+
+  @override
+  String clueDirectionNot(String name, String direction, String target) {
+    return '$name was not $direction of $target.';
+  }
+
+  @override
+  String clueBeside(String name, String target) {
+    return '$name was beside $target.';
+  }
+
+  @override
+  String clueBesideNot(String name, String target) {
+    return '$name was not beside $target.';
+  }
+
+  @override
+  String clueBesideObject(String name, String object) {
+    return '$name was beside the $object.';
+  }
+
+  @override
+  String clueBesideObjectNot(String name, String object) {
+    return '$name was not beside the $object.';
+  }
 }

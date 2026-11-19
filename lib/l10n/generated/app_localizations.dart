@@ -279,6 +279,108 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'victim'**
   String get stateVictim;
+
+  /// No description provided for @victimName.
+  ///
+  /// In en, this message translates to:
+  /// **'the victim'**
+  String get victimName;
+
+  /// No description provided for @dirNorth.
+  ///
+  /// In en, this message translates to:
+  /// **'north'**
+  String get dirNorth;
+
+  /// No description provided for @dirSouth.
+  ///
+  /// In en, this message translates to:
+  /// **'south'**
+  String get dirSouth;
+
+  /// No description provided for @dirEast.
+  ///
+  /// In en, this message translates to:
+  /// **'east'**
+  String get dirEast;
+
+  /// No description provided for @dirWest.
+  ///
+  /// In en, this message translates to:
+  /// **'west'**
+  String get dirWest;
+
+  /// No description provided for @clueInRoom.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} was in the {room}.'**
+  String clueInRoom(String name, String room);
+
+  /// No description provided for @clueInRoomNot.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} was not in the {room}.'**
+  String clueInRoomNot(String name, String room);
+
+  /// No description provided for @clueSameRow.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} was on the same floor as {target}.'**
+  String clueSameRow(String name, String target);
+
+  /// No description provided for @clueSameRowNot.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} was not on the same floor as {target}.'**
+  String clueSameRowNot(String name, String target);
+
+  /// No description provided for @clueSameCol.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} was in the same corridor as {target}.'**
+  String clueSameCol(String name, String target);
+
+  /// No description provided for @clueSameColNot.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} was not in the same corridor as {target}.'**
+  String clueSameColNot(String name, String target);
+
+  /// No description provided for @clueDirection.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} was {direction} of {target}.'**
+  String clueDirection(String name, String direction, String target);
+
+  /// No description provided for @clueDirectionNot.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} was not {direction} of {target}.'**
+  String clueDirectionNot(String name, String direction, String target);
+
+  /// No description provided for @clueBeside.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} was beside {target}.'**
+  String clueBeside(String name, String target);
+
+  /// No description provided for @clueBesideNot.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} was not beside {target}.'**
+  String clueBesideNot(String name, String target);
+
+  /// No description provided for @clueBesideObject.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} was beside the {object}.'**
+  String clueBesideObject(String name, String object);
+
+  /// No description provided for @clueBesideObjectNot.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} was not beside the {object}.'**
+  String clueBesideObjectNot(String name, String object);
 }
 
 class _AppLocalizationsDelegate
