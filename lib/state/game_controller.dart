@@ -4,7 +4,7 @@ import 'dart:math';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../domain/generator/case_factory.dart';
-import '../domain/game_logic.dart' show Tool, boardSolved, canPlace, correctCount;
+import '../domain/game_logic.dart' show Tool, canPlace, correctCount;
 import '../domain/models.dart';
 import '../storage/prefs_repository.dart';
 import 'providers.dart';
