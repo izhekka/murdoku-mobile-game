@@ -249,5 +249,55 @@
   },
   "noActiveCase": "No active case.",
   "backToHome": "Back to home",
-  "playAgain": "Play again"
+  "playAgain": "Play again",
+  "statsSolved": "Solved: {n}",
+  "@statsSolved": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "statsBest": "Best: {time}",
+  "@statsBest": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "statsAverage": "Average: {time}",
+  "@statsAverage": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "currentStreak": "Daily streak: {n}",
+  "@currentStreak": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "totalCasesLabel": "Total cases: {n}",
+  "@totalCasesLabel": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "statsEmpty": "No cases solved yet. Start a new case!",
+  "themeModeLabel": "Theme",
+  "themeSystem": "System",
+  "themeLight": "Light",
+  "themeDark": "Dark",
+  "hapticsLabel": "Haptics",
+  "resetProgress": "Reset all progress",
+  "resetConfirmTitle": "Reset all progress?",
+  "resetConfirmBody": "This clears saves, statistics and the daily streak. Your settings are kept.",
+  "progressReset": "Progress reset."
 }

@@ -256,4 +256,60 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get playAgain => 'Play again';
+
+  @override
+  String statsSolved(int n) {
+    return 'Solved: $n';
+  }
+
+  @override
+  String statsBest(String time) {
+    return 'Best: $time';
+  }
+
+  @override
+  String statsAverage(String time) {
+    return 'Average: $time';
+  }
+
+  @override
+  String currentStreak(int n) {
+    return 'Daily streak: $n';
+  }
+
+  @override
+  String totalCasesLabel(int n) {
+    return 'Total cases: $n';
+  }
+
+  @override
+  String get statsEmpty => 'No cases solved yet. Start a new case!';
+
+  @override
+  String get themeModeLabel => 'Theme';
+
+  @override
+  String get themeSystem => 'System';
+
+  @override
+  String get themeLight => 'Light';
+
+  @override
+  String get themeDark => 'Dark';
+
+  @override
+  String get hapticsLabel => 'Haptics';
+
+  @override
+  String get resetProgress => 'Reset all progress';
+
+  @override
+  String get resetConfirmTitle => 'Reset all progress?';
+
+  @override
+  String get resetConfirmBody =>
+      'This clears saves, statistics and the daily streak. Your settings are kept.';
+
+  @override
+  String get progressReset => 'Progress reset.';
 }

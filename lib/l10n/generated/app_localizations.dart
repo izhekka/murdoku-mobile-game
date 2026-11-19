@@ -513,6 +513,96 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Play again'**
   String get playAgain;
+
+  /// No description provided for @statsSolved.
+  ///
+  /// In en, this message translates to:
+  /// **'Solved: {n}'**
+  String statsSolved(int n);
+
+  /// No description provided for @statsBest.
+  ///
+  /// In en, this message translates to:
+  /// **'Best: {time}'**
+  String statsBest(String time);
+
+  /// No description provided for @statsAverage.
+  ///
+  /// In en, this message translates to:
+  /// **'Average: {time}'**
+  String statsAverage(String time);
+
+  /// No description provided for @currentStreak.
+  ///
+  /// In en, this message translates to:
+  /// **'Daily streak: {n}'**
+  String currentStreak(int n);
+
+  /// No description provided for @totalCasesLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Total cases: {n}'**
+  String totalCasesLabel(int n);
+
+  /// No description provided for @statsEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No cases solved yet. Start a new case!'**
+  String get statsEmpty;
+
+  /// No description provided for @themeModeLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Theme'**
+  String get themeModeLabel;
+
+  /// No description provided for @themeSystem.
+  ///
+  /// In en, this message translates to:
+  /// **'System'**
+  String get themeSystem;
+
+  /// No description provided for @themeLight.
+  ///
+  /// In en, this message translates to:
+  /// **'Light'**
+  String get themeLight;
+
+  /// No description provided for @themeDark.
+  ///
+  /// In en, this message translates to:
+  /// **'Dark'**
+  String get themeDark;
+
+  /// No description provided for @hapticsLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Haptics'**
+  String get hapticsLabel;
+
+  /// No description provided for @resetProgress.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset all progress'**
+  String get resetProgress;
+
+  /// No description provided for @resetConfirmTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset all progress?'**
+  String get resetConfirmTitle;
+
+  /// No description provided for @resetConfirmBody.
+  ///
+  /// In en, this message translates to:
+  /// **'This clears saves, statistics and the daily streak. Your settings are kept.'**
+  String get resetConfirmBody;
+
+  /// No description provided for @progressReset.
+  ///
+  /// In en, this message translates to:
+  /// **'Progress reset.'**
+  String get progressReset;
 }
 
 class _AppLocalizationsDelegate

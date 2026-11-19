@@ -196,6 +196,13 @@ class PrefsRepository {
 
   Future<void> clearActiveGame() => _prefs.remove(_activeGameKey);
 
+  /// Clears saves, statistics and the daily streak; settings are kept.
+  Future<void> resetProgress() async {
+    await _prefs.remove(_activeGameKey);
+    await _prefs.remove(_statsKey);
+    await _prefs.remove(_dailyKey);
+  }
+
   Stats loadStats() {
     final raw = _prefs.getString(_statsKey);
     if (raw == null) return Stats();
