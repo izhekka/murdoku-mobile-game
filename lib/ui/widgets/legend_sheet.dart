@@ -1,4 +1,3 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart' show WidgetRef;
 import 'package:material_ui/material_ui.dart';
 
 import '../../core/theme.dart';
