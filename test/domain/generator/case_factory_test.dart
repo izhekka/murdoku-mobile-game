@@ -16,10 +16,24 @@ void main() {
         // 1. structure
         expect(c.rooms.length, g, reason: 'seed $seed/${difficulty.name}');
         expect(c.suspects.length, g);
-        expect(c.objects.length, difficulty.objectCount);
-        expect(c.objects.map((o) => o.kind).toSet().length,
-            difficulty.objectCount,
-            reason: 'seed $seed: object kinds must be distinct');
+        expect(c.objects.length, difficulty.objectCount,
+            reason: 'seed $seed: furniture count');
+        expect(c.objects.where((o) => o.occupiable).length,
+            difficulty.occupiableCount,
+            reason: 'seed $seed: occupiable count');
+        // No furniture stacking; victim cell always bare.
+        expect(c.objects.map((o) => o.pos).toSet().length, c.objects.length,
+            reason: 'seed $seed: one item per cell');
+        for (final o in c.objects) {
+          expect(o.pos, isNot(c.victimPos),
+              reason: 'seed $seed: victim cell bare');
+          expect(kindOccupiable(o.kind), o.occupiable,
+              reason: 'seed $seed: kind/occupiable consistency');
+        }
+        for (final o in c.objects.where((o) => !o.occupiable)) {
+          expect(c.solution.values.contains(o.pos), isFalse,
+              reason: 'seed $seed: blocking furniture never under a guest');
+        }
         expect(c.solution.values.contains(c.victimPos), isFalse,
             reason: 'seed $seed: victim cell must be empty in solution');
         expect(roomOf(c.rooms, c.victimPos), isNotNull,

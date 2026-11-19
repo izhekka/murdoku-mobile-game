@@ -23,11 +23,8 @@ extension DifficultyX on Difficulty {
         Difficulty.standard => 6,
         Difficulty.hard => 7,
       };
-  int get objectCount => switch (this) {
-        Difficulty.easy => 2,
-        Difficulty.standard => 3,
-        Difficulty.hard => 4,
-      };
+  /// Total furniture items (occupiable + blocking).
+  int get objectCount => occupiableCount + blockingCount;
   int get minClues => switch (this) {
         Difficulty.easy => 6,
         Difficulty.standard => 8,
@@ -37,6 +34,18 @@ extension DifficultyX on Difficulty {
         Difficulty.easy => 9,
         Difficulty.standard => 12,
         Difficulty.hard => 14,
+      };
+  /// Furniture a guest may sit on.
+  int get occupiableCount => switch (this) {
+        Difficulty.easy => 3,
+        Difficulty.standard => 4,
+        Difficulty.hard => 5,
+      };
+  /// Furniture that blocks its cell.
+  int get blockingCount => switch (this) {
+        Difficulty.easy => 5,
+        Difficulty.standard => 6,
+        Difficulty.hard => 9,
       };
 
   static Difficulty fromName(String name) =>
@@ -141,26 +150,51 @@ class RoomDef {
       );
 }
 
+/// Kinds a guest may share a cell with (chairs, sofas). Everything else
+/// blocks the cell.
+const Set<ObjectKind> occupiableKinds = {ObjectKind.chair, ObjectKind.sofa};
+
+/// List form for deterministic shuffling in the factory.
+List<ObjectKind> get occupiableKindsList => occupiableKinds.toList();
+
+bool kindOccupiable(ObjectKind kind) => occupiableKinds.contains(kind);
+
 class ObjectDef {
-  const ObjectDef({required this.id, required this.kind, required this.pos});
+  const ObjectDef({
+    required this.id,
+    required this.kind,
+    required this.pos,
+    this.occupiable = false,
+  });
 
   final String id; // "o0", ...
   final ObjectKind kind;
   final Pos pos;
+  final bool occupiable; // a guest may share this cell
 
   @override
   bool operator ==(Object other) =>
-      other is ObjectDef && other.id == id && other.kind == kind && other.pos == pos;
+      other is ObjectDef &&
+      other.id == id &&
+      other.kind == kind &&
+      other.pos == pos &&
+      other.occupiable == occupiable;
 
   @override
-  int get hashCode => Object.hash(id, kind, pos);
+  int get hashCode => Object.hash(id, kind, pos, occupiable);
 
-  Map<String, Object?> toJson() => {'id': id, 'kind': kind.name, 'pos': posToJson(pos)};
+  Map<String, Object?> toJson() => {
+        'id': id,
+        'kind': kind.name,
+        'pos': posToJson(pos),
+        'occupiable': occupiable,
+      };
 
   factory ObjectDef.fromJson(Map<String, Object?> json) => ObjectDef(
         id: json['id'] as String,
         kind: ObjectKindX.fromName(json['kind'] as String),
         pos: posFromJson(json['pos'] as List),
+        occupiable: json['occupiable'] as bool? ?? false,
       );
 }
 

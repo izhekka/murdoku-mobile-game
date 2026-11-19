@@ -99,6 +99,7 @@ int _search({
       if (cell == victimPos) continue;
       final rid = roomId[row][col];
       if (usedRooms.contains(rid)) continue;
+      if (objects.any((o) => !o.occupiable && o.pos == cell)) continue;
       for (final suspect in suspectIds) {
         if (placement.containsKey(suspect)) continue;
         placement[suspect] = cell;

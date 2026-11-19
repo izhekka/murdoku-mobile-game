@@ -72,19 +72,43 @@ CaseData? _attempt(Difficulty difficulty, int seed, int widen) {
       .firstWhere((s) => vRoom.contains(solution[s.id]!))
       .id;
 
-  // 4. objects on distinct random empty cells, distinct kinds.
+  // 4. furniture. Occupiable items may sit on empty cells or under solution
+  // guests (a guest on a chair); blocking items only on empty cells — the
+  // solution itself never uses one, so uniqueness machinery is unaffected.
+  // Never on the victim cell, at most one item per cell.
   final occupied = solution.values.toSet();
-  final emptyCells = [
+  final allCells = [
     for (final room in rooms)
-      for (final cell in room.cells)
-        if (!occupied.contains(cell) && cell != victimPos) cell,
+      for (final cell in room.cells) cell,
   ]..shuffle(rng);
-  if (emptyCells.length < difficulty.objectCount) return null;
-  final kinds = ObjectKind.values.toList()..shuffle(rng);
-  final objects = [
-    for (var i = 0; i < difficulty.objectCount; i++)
-      ObjectDef(id: 'o$i', kind: kinds[i], pos: emptyCells[i]),
-  ];
+  final used = <Pos>{victimPos};
+  final occupiableKinds = occupiableKindsList..shuffle(rng);
+  final blockingKinds =
+      ObjectKind.values.where((k) => !kindOccupiable(k)).toList()..shuffle(rng);
+  final objects = <ObjectDef>[];
+  for (final cell in allCells) {
+    if (objects.length >= difficulty.occupiableCount) break;
+    if (used.contains(cell)) continue;
+    used.add(cell); // occupiable cells are taken even when under a guest
+    objects.add(ObjectDef(
+      id: 'o${objects.length}',
+      kind: occupiableKinds[objects.length % occupiableKinds.length],
+      pos: cell,
+      occupiable: true,
+    ));
+  }
+  for (final cell in allCells) {
+    if (objects.length >= difficulty.objectCount) break;
+    if (used.contains(cell) || occupied.contains(cell)) continue;
+    used.add(cell);
+    objects.add(ObjectDef(
+      id: 'o${objects.length}',
+      kind: blockingKinds[objects.length % blockingKinds.length],
+      pos: cell,
+      occupiable: false,
+    ));
+  }
+  if (objects.length < difficulty.objectCount) return null;
 
   // 5. clue pool: candidates true of the solution, per type capped at 10.
   final pool = _cluePool(difficulty, suspects, rooms, solution, victimPos, objects, rng);

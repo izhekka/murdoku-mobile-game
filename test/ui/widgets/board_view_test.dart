@@ -119,9 +119,29 @@ void main() {
 
   testWidgets('objects render with icons', (tester) async {
     await pumpBoard(tester, placed: {}, xMarks: {});
-    // Every object of the generated case is visible as an icon.
-    expect(find.byIcon(objectIcon(fixture.objects.first.kind)), findsOneWidget);
-    expect(find.byIcon(objectIcon(fixture.objects.last.kind)), findsOneWidget);
+    // Every object kind of the generated case is visible as an icon (kinds
+    // may repeat across cells, so match at-least-one).
+    expect(find.byIcon(objectIcon(fixture.objects.first.kind)), findsWidgets);
+    expect(find.byIcon(objectIcon(fixture.objects.last.kind)), findsWidgets);
+  });
+
+  testWidgets('occupiable furniture renders under its guest', (tester) async {
+    final occupiable = fixture.objects.firstWhere((o) => o.occupiable);
+    final guest = fixture.suspects.first.id;
+    await pumpBoard(
+        tester, placed: {guest: occupiable.pos}, xMarks: {});
+
+    expect(find.byType(Avatar), findsOneWidget);
+    expect(find.byIcon(objectIcon(occupiable.kind)), findsWidgets);
+  });
+
+  testWidgets('blocking furniture appears in semantics as unoccupiable',
+      (tester) async {
+    final blocking = fixture.objects.firstWhere((o) => !o.occupiable);
+    await pumpBoard(tester, placed: {}, xMarks: {});
+    final cellKey = 'cell_${blocking.pos.row}_${blocking.pos.col}';
+    final semantics = tester.getSemantics(find.byKey(Key(cellKey)));
+    expect(semantics.label, contains('cannot hold a guest'));
   });
 
   testWidgets('cells expose semantics labels', (tester) async {

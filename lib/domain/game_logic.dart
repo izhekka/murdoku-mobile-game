@@ -10,6 +10,9 @@ bool canPlace(CaseData c, Map<String, Pos> placed, String suspectId, Pos pos) {
   for (final entry in placed.entries) {
     if (entry.key != suspectId && entry.value == pos) return false;
   }
+  for (final item in c.objects) {
+    if (item.pos == pos && !item.occupiable) return false;
+  }
   return true;
 }
 

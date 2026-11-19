@@ -191,16 +191,31 @@ class _Cell extends StatelessWidget {
           width: southRoom != room.id ? thick : thin, color: scheme.outline),
     );
 
-    final state = isVictim
+    final furnitureName = objectHere.isNotEmpty
+        ? NameForms.forLocale(l10n.localeName, c).objectNom(objectHere.first.kind)
+        : null;
+    final blocking = objectHere.isNotEmpty && !objectHere.first.occupiable;
+    var state = isVictim
         ? l10n.stateVictim
         : suspectIdHere != null
             ? c.suspects.firstWhere((s) => s.id == suspectIdHere).name
-            : hasX
-                ? l10n.stateExcluded
-                : l10n.stateEmpty;
+            : [
+                if (hasX) l10n.stateExcluded,
+                ?furnitureName,
+                if (blocking) l10n.stateBlocked,
+              ].join(' · ');
+    if (state.isEmpty) state = l10n.stateEmpty;
     final label = l10n.cellSemantics(pos.row, pos.col, room.name, state);
 
-    Widget content = const SizedBox.shrink();
+    Widget furniture(IconData icon,
+            {double size = 20, Alignment alignment = Alignment.center}) =>
+        Icon(
+          icon,
+          size: size,
+          color: scheme.onSurface.withValues(alpha: blocking && !hasX ? 0.55 : 0.7),
+        );
+
+    Widget content;
     if (isVictim) {
       content = Semantics(
         label: '${l10n.victimLabel}: $label',
@@ -215,29 +230,37 @@ class _Cell extends StatelessWidget {
           ),
         ),
       );
-    } else if (suspectIndexHere != null) {
-      content = Center(
-        child: Avatar(
-          color: suspectColor(suspectIndexHere),
-          selected: selectedHere,
-          size: 30,
-        ),
-      );
-    } else if (hasX) {
-      content = Center(
-        child: Icon(Icons.close, color: scheme.error, size: 22),
-      );
-    } else if (objectHere.isNotEmpty) {
-      content = Semantics(
-        label: NameForms.forLocale(l10n.localeName, c)
-            .objectNom(objectHere.first.kind),
-        child: Center(
-          child: Icon(
-            objectIcon(objectHere.first.kind),
-            size: 20,
-            color: scheme.onSurface.withValues(alpha: 0.7),
-          ),
-        ),
+    } else {
+      final itemIcon =
+          objectHere.isNotEmpty ? objectIcon(objectHere.first.kind) : null;
+      content = Stack(
+        children: [
+          // Furniture renders under everything in the cell.
+          if (itemIcon != null && (suspectIndexHere != null || hasX))
+            Align(
+              alignment: Alignment.topLeft,
+              child: Padding(
+                padding: const EdgeInsets.all(2),
+                child: furniture(itemIcon, size: 14),
+              ),
+            ),
+          if (suspectIndexHere != null)
+            Center(
+              child: Avatar(
+                color: suspectColor(suspectIndexHere),
+                selected: selectedHere,
+                size: 30,
+              ),
+            )
+          else if (hasX)
+            Center(
+              child: Icon(Icons.close, color: scheme.error, size: 22),
+            )
+          else if (itemIcon != null)
+            Center(child: furniture(itemIcon))
+          else
+            const SizedBox.shrink(),
+        ],
       );
     }
 

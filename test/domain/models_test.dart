@@ -1,6 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:murdoku/domain/models.dart';
 
+Pos p(int row, int col) => (row: row, col: col);
+
 /// Hand-written 5x5 fixture covering every [Clue] subtype, positive and
 /// negated. Structurally valid: one guest per row/col/room, victim cell
 /// empty, murderer shares the victim's room.
@@ -60,15 +62,44 @@ void main() {
     expect(Difficulty.easy.gridSize, 5);
     expect(Difficulty.standard.gridSize, 6);
     expect(Difficulty.hard.gridSize, 7);
-    expect(Difficulty.easy.objectCount, 2);
-    expect(Difficulty.standard.objectCount, 3);
-    expect(Difficulty.hard.objectCount, 4);
+    // Amended by the furniture addendum: 3+5 / 4+6 / 5+9 items.
+    expect(Difficulty.easy.objectCount, 8);
+    expect(Difficulty.standard.objectCount, 10);
+    expect(Difficulty.hard.objectCount, 14);
     expect(Difficulty.easy.minClues, 6);
     expect(Difficulty.standard.minClues, 8);
     expect(Difficulty.hard.minClues, 10);
     expect(Difficulty.easy.maxClues, 9);
     expect(Difficulty.standard.maxClues, 12);
     expect(Difficulty.hard.maxClues, 14);
+  });
+
+  test('occupiable kinds are chairs and sofas only', () {
+    expect(kindOccupiable(ObjectKind.chair), isTrue);
+    expect(kindOccupiable(ObjectKind.sofa), isTrue);
+    expect(kindOccupiable(ObjectKind.table), isFalse);
+    expect(kindOccupiable(ObjectKind.piano), isFalse);
+    expect(kindOccupiable(ObjectKind.flowers), isFalse);
+  });
+
+  test('furniture counts per difficulty', () {
+    expect(Difficulty.easy.occupiableCount, 3);
+    expect(Difficulty.easy.blockingCount, 5);
+    expect(Difficulty.standard.occupiableCount, 4);
+    expect(Difficulty.standard.blockingCount, 6);
+    expect(Difficulty.hard.occupiableCount, 5);
+    expect(Difficulty.hard.blockingCount, 9);
+    expect(Difficulty.easy.objectCount, 8);
+    expect(Difficulty.standard.objectCount, 10);
+    expect(Difficulty.hard.objectCount, 14);
+  });
+
+  test('ObjectDef occupiable flag round-trips', () {
+    final o = ObjectDef(
+        id: 'o0', kind: ObjectKind.chair, pos: p(0, 1), occupiable: true);
+    final restored = ObjectDef.fromJson(o.toJson());
+    expect(restored, equals(o));
+    expect(restored.occupiable, isTrue);
   });
 
   test('CaseData json round-trip preserves every clue subtype', () {
