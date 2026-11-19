@@ -5,23 +5,7 @@ import '../../domain/localized_names.dart';
 import '../../domain/models.dart';
 import '../../l10n/generated/app_localizations.dart';
 import 'avatar.dart';
-
-IconData objectIcon(ObjectKind kind) => switch (kind) {
-      ObjectKind.piano => Icons.piano,
-      ObjectKind.plant => Icons.local_florist,
-      ObjectKind.armor => Icons.shield,
-      ObjectKind.chest => Icons.inventory_2,
-      ObjectKind.clock => Icons.schedule,
-      ObjectKind.globe => Icons.public,
-      ObjectKind.portrait => Icons.portrait,
-      ObjectKind.fireplace => Icons.local_fire_department,
-      ObjectKind.table => Icons.table_restaurant,
-      ObjectKind.chair => Icons.chair,
-      ObjectKind.flowers => Icons.local_florist,
-      ObjectKind.sofa => Icons.weekend,
-      ObjectKind.bookshelf => Icons.shelves,
-      ObjectKind.lamp => Icons.light,
-    };
+import 'item_sprite.dart';
 
 /// The mansion map: G×G rooms with suspects, the victim, objects and X marks.
 /// Square by construction; scales to any width. All cells are tappable with
@@ -209,10 +193,10 @@ class _Cell extends StatelessWidget {
 
     Widget furniture(IconData icon,
             {double size = 20, Alignment alignment = Alignment.center}) =>
-        Icon(
-          icon,
+        ItemSprite(
+          kind: objectHere.first.kind,
           size: size,
-          color: scheme.onSurface.withValues(alpha: blocking && !hasX ? 0.55 : 0.7),
+          opacity: blocking && !hasX ? 0.85 : 1.0,
         );
 
     Widget content;
@@ -241,7 +225,7 @@ class _Cell extends StatelessWidget {
               alignment: Alignment.topLeft,
               child: Padding(
                 padding: const EdgeInsets.all(2),
-                child: furniture(itemIcon, size: 14),
+                child: furniture(itemIcon, size: 12),
               ),
             ),
           if (suspectIndexHere != null)

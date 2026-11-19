@@ -4,6 +4,7 @@ import 'package:murdoku/domain/generator/case_factory.dart';
 import 'package:murdoku/domain/models.dart';
 import 'package:murdoku/l10n/generated/app_localizations.dart';
 import 'package:murdoku/ui/widgets/avatar.dart';
+import 'package:murdoku/ui/widgets/item_sprite.dart';
 import 'package:murdoku/ui/widgets/board_view.dart';
 
 final CaseData fixture = generateCase(difficulty: Difficulty.easy, seed: 3);
@@ -119,10 +120,9 @@ void main() {
 
   testWidgets('objects render with icons', (tester) async {
     await pumpBoard(tester, placed: {}, xMarks: {});
-    // Every object kind of the generated case is visible as an icon (kinds
-    // may repeat across cells, so match at-least-one).
-    expect(find.byIcon(objectIcon(fixture.objects.first.kind)), findsWidgets);
-    expect(find.byIcon(objectIcon(fixture.objects.last.kind)), findsWidgets);
+    // Every furniture cell renders its sprite (kinds may repeat across
+    // cells, so match counts exactly against the furniture list).
+    expect(find.byType(ItemSprite), findsNWidgets(fixture.objects.length));
   });
 
   testWidgets('occupiable furniture renders under its guest', (tester) async {
@@ -132,7 +132,7 @@ void main() {
         tester, placed: {guest: occupiable.pos}, xMarks: {});
 
     expect(find.byType(Avatar), findsOneWidget);
-    expect(find.byIcon(objectIcon(occupiable.kind)), findsWidgets);
+    expect(find.byType(ItemSprite), findsWidgets);
   });
 
   testWidgets('blocking furniture appears in semantics as unoccupiable',
