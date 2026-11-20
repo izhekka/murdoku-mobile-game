@@ -25,16 +25,17 @@ class AppTheme {
     );
   }
 
-  /// Muted, distinct room tints usable on both light and dark surfaces.
+  /// Vivid, distinct room tints usable on both light and dark surfaces
+  /// (pairwise RGB distance > 9000 for the first 7; HSL lightness 0.45–0.75).
   static const List<Color> _roomPalette = [
-    Color(0xFF7D9D9C), // sage teal
-    Color(0xFFB0885B), // ochre clay
-    Color(0xFF9A8FBF), // dusty indigo
-    Color(0xFFB77B7B), // muted rose
-    Color(0xFF8FAF6E), // olive
-    Color(0xFF6E9EC1), // slate blue
-    Color(0xFFA98BC4), // plum
-    Color(0xFFC4A16E), // sand
+    Color(0xFFE89E3C), // amber
+    Color(0xFF35C290), // teal green
+    Color(0xFF9A4FD0), // violet
+    Color(0xFFD63E2E), // coral red
+    Color(0xFF8FCB3A), // lime
+    Color(0xFF3E86E0), // sky blue
+    Color(0xFFE85890), // pink
+    Color(0xFFD8B26E), // sand
   ];
 
   static List<Color> roomColors(int count) => List.generate(

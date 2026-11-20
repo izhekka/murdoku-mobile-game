@@ -161,7 +161,7 @@ class _Cell extends StatelessWidget {
     final colBlocked = placed.values.any((p) => p.col == pos.col);
 
     final scheme = Theme.of(context).colorScheme;
-    var fill = AppTheme.roomColors(g)[roomIndex].withValues(alpha: 0.35);
+    var fill = AppTheme.roomColors(g)[roomIndex].withValues(alpha: 0.55);
     if (isVictim) fill = scheme.errorContainer;
     if (rowBlocked || colBlocked) {
       fill = Color.alphaBlend(scheme.onSurface.withValues(alpha: 0.10), fill);

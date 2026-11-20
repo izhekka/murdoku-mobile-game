@@ -1,15 +1,16 @@
 import 'package:material_ui/material_ui.dart';
 
-/// Distinct suspect colors (independent from room tints).
+/// Distinct suspect colors (independent from room tints), bright enough to
+/// pop on dark surfaces while keeping ~4:1 contrast under the white glyph.
 const List<Color> suspectColors = [
-  Color(0xFF3E6B8C), // steel blue
-  Color(0xFF8C3E55), // wine
-  Color(0xFF3E8C5A), // forest
-  Color(0xFF6B3E8C), // violet
-  Color(0xFF8C6B3E), // bronze
-  Color(0xFF3E8C8C), // teal
-  Color(0xFF8C553E), // rust
-  Color(0xFF558C3E), // moss
+  Color(0xFF4E86B8), // steel blue
+  Color(0xFFC05A78), // wine
+  Color(0xFF4EA870), // forest
+  Color(0xFF8C5AB8), // violet
+  Color(0xFFC08848), // bronze
+  Color(0xFF48A8A8), // teal
+  Color(0xFFC07048), // rust
+  Color(0xFF74A84C), // moss
 ];
 
 Color suspectColor(int index) =>
