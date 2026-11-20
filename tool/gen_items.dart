@@ -25,21 +25,7 @@ void main() {
   
   final pianoBody = img.ColorRgb8(96, 88, 116); // #605874
 
-  /// Thin outline ring: image 4.x drawCircle is 1px, so layer radii.
-void ring(img.Image image,
-    {required int x,
-    required int y,
-    required int radius,
-    required img.ColorRgb8 color,
-    required int thickness}) {
-  for (var t = 0; t < thickness; t++) {
-    final r = radius - t;
-    if (r < 1) break;
-    img.drawCircle(image, x: x, y: y, radius: r, color: color);
-  }
-}
-
-final sprites = <String, void Function(img.Image)>{
+  final sprites = <String, void Function(img.Image)>{
     'piano': (image) {
       img.fillRect(image, x1: 16, y1: 32, x2: 110, y2: 96, color: pianoBody);
       img.drawRect(image, x1: 16, y1: 32, x2: 110, y2: 96, color: outline, thickness: 4);
