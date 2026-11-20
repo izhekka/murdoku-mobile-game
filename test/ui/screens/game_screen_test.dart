@@ -259,4 +259,28 @@ void main() {
           reason: 'suspect ${s.id} card present at textScale 2.0');
     }
   });
+
+  testWidgets('board sits flush above the suspect grid on phones (UX-6)',
+      (tester) async {
+    await pumpGame(tester, size: const Size(412, 915));
+    expect(tester.takeException(), isNull);
+
+    final boardRect = tester.getRect(find.byKey(const Key('board_view')));
+    final gridRect = tester.getRect(find.byType(GridView));
+    expect(boardRect.bottom, closeTo(gridRect.top, 8),
+        reason: 'no dead vertical gap between board and suspect panel');
+    // The board is the dominant element (at least twice the grid height).
+    expect(boardRect.height, greaterThan(gridRect.height * 1.8));
+  });
+
+  testWidgets('small viewport 320x569 does not overflow (UX-6)',
+      (tester) async {
+    await pumpGame(tester, size: const Size(320, 569));
+    expect(tester.takeException(), isNull);
+
+    final boardRect = tester.getRect(find.byKey(const Key('board_view')));
+    final gridRect = tester.getRect(find.byType(GridView));
+    expect(boardRect.bottom, closeTo(gridRect.top, 8),
+        reason: 'board stays flush with the panel on small screens');
+  });
 }

@@ -167,7 +167,15 @@ class _GameScreenState extends ConsumerState<GameScreen>
           }
           return Column(
             children: [
-              Expanded(flex: 3, child: Center(child: board)),
+              // The square board hugs the suspect grid; leftover vertical
+              // space sits above it (under the app bar), never between the
+              // board and the panel (UX-6).
+              Expanded(
+                child: Align(
+                  alignment: Alignment.bottomCenter,
+                  child: board,
+                ),
+              ),
               SizedBox(
                 height: 205,
                 child: panel,
