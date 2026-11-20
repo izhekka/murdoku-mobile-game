@@ -102,11 +102,19 @@ void main() {
     expect(find.byIcon(Icons.close), findsNWidgets(2));
   });
 
-  testWidgets('victim cell is rendered distinctly with its own label',
+  testWidgets('victim cell is rendered with a chalk-outline sprite',
       (tester) async {
     await pumpBoard(tester, placed: {}, xMarks: {});
     expect(find.byKey(const Key('victim_cell')), findsOneWidget);
-    expect(find.text('V'), findsOneWidget);
+    final victimImage = find.byWidgetPredicate(
+      (w) =>
+          w is Image &&
+          w.image is AssetImage &&
+          (w.image as AssetImage).assetName == 'assets/items/victim.png',
+    );
+    expect(victimImage, findsOneWidget,
+        reason: 'the victim is a graphic, not a letter');
+    expect(find.text('V'), findsNothing);
   });
 
   testWidgets('selected suspect gets a highlight ring', (tester) async {

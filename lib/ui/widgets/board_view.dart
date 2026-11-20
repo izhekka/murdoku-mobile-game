@@ -251,12 +251,20 @@ class _Cell extends StatelessWidget {
       content = Semantics(
         label: '${l10n.victimLabel}: $label',
         child: Center(
-          child: Text(
-            'V',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: scheme.onErrorContainer,
+          child: Image.asset(
+            'assets/items/victim.png',
+            width: 40,
+            height: 40,
+            filterQuality: FilterQuality.medium,
+            // Chalk outline always beats a letter — the letter is a
+            // last-resort fallback if the asset is missing.
+            errorBuilder: (_, _, _) => Text(
+              'V',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: scheme.onErrorContainer,
+              ),
             ),
           ),
         ),

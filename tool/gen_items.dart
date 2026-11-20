@@ -132,6 +132,28 @@ final sprites = <String, void Function(img.Image)>{
       img.fillCircle(image, x: 64, y: 56, radius: 14, color: metalDark);
       img.fillRect(image, x1: 48, y1: 72, x2: 80, y2: 96, color: fabric);
     },
+    'victim': (image) {
+      // Classic chalk body outline: head + spine + splayed arms/legs.
+      final chalk = img.ColorRgba8(238, 233, 218, 235);
+      void chalkLine(int x1, int y1, int x2, int y2) {
+        img.drawLine(image, x1: x1, y1: y1, x2: x2, y2: y2,
+            color: chalk, thickness: 6);
+        // Slight offset pass for a hand-drawn chalk feel.
+        img.drawLine(image, x1: x1 + 2, y1: y1 - 1, x2: x2 + 2, y2: y2 - 1,
+            color: img.ColorRgba8(238, 233, 218, 120), thickness: 3);
+      }
+      // Head
+      img.drawCircle(image, x: 34, y: 64, radius: 14, color: chalk);
+      img.drawCircle(image, x: 34, y: 64, radius: 13, color: chalk);
+      // Spine
+      chalkLine(50, 64, 80, 64);
+      // Arms
+      chalkLine(58, 62, 68, 36);
+      chalkLine(58, 66, 68, 92);
+      // Legs
+      chalkLine(80, 64, 112, 44);
+      chalkLine(80, 64, 112, 84);
+    },
     'fireplace': (image) {
       img.fillRect(image, x1: 16, y1: 24, x2: 110, y2: 112, color: metalDark);
       img.drawRect(image, x1: 16, y1: 24, x2: 110, y2: 112, color: outline, thickness: 6);
