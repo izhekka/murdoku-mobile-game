@@ -12,6 +12,26 @@
 > This plan fixes real usability findings from a live review of the running game
 > (mobile viewport 412×915) plus the human owner's explicit complaints.
 
+
+## Handoff (2026-11-21): item sprites changed owner — read before UX-4/UX-7
+
+Commit `4d8001e` replaced the 11 procedural item sprites with **Kenney CC0
+tiles** (extracted via `tool/extract_items.dart` from the committed sheet in
+`tool/assets_src/`), and the factory now emits only sprite-backed blocking
+kinds (`spriteBackedBlockingKinds` in `lib/domain/models.dart`).
+
+Consequences for the remaining tasks:
+- **UX-4 is superseded for those 11 kinds**: do NOT regenerate item sprites via
+  `tool/gen_items.dart` — it only owns `piano.png` and `victim.png` (chalk
+  outline) now. A bright procedural piano is already committed there.
+- If you adjust item graphics, change the tile mapping in
+  `tool/extract_items.dart` or the piano/victim drawing in `tool/gen_items.dart`,
+  run the script, and commit the resulting PNGs.
+- The Kenney tiles are brighter and game-styled already; the palette work in
+  UX-3 (room tints, avatars) still applies.
+- New kinds must be added to `spriteBackedBlockingKinds` + both arb files +
+  `ruObjectForms` (localized names) or they will not appear in generated cases.
+
 ## Findings this plan addresses (evidence from live review)
 
 - **F-0 (P0 BUG):** `case_factory.dart` builds `RoomDef`/`Suspect` **without

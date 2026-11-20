@@ -16,3 +16,17 @@ blocks pin public APIs across tasks — never rename them.
 - All user-facing strings go through AppLocalizations (arb files).
 - Never edit generated output: `lib/l10n/generated/**`, `**/.dart_tool/**`, `*.g.dart`.
 - "Murdoku" is a working title — trademark risk; rename before store submission (Task 17).
+
+## Item sprites (ownership)
+
+- `assets/items/*.png` for 11 kinds (table, chair, flowers, sofa, bookshelf,
+  lamp, plant, chest, clock, portrait, fireplace) are **Kenney CC0 tiles**,
+  extracted by `tool/extract_items.dart` from the committed sheet in
+  `tool/assets_src/`. Do NOT redraw or regenerate them with gen_items.dart.
+- `tool/gen_items.dart` only generates the two procedural sprites:
+  `piano.png` and `victim.png` (chalk outline).
+- The case factory emits only sprite-backed blocking kinds
+  (`spriteBackedBlockingKinds` in `lib/domain/models.dart`).
+- To change an item graphic: edit the tile mapping in `tool/extract_items.dart`
+  (or the drawing in `tool/gen_items.dart` for piano/victim), run it, commit
+  the PNG.
