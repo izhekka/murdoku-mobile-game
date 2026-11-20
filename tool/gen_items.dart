@@ -11,18 +11,18 @@ import 'package:image/image.dart' as img;
 void main() {
   const size = 128;
   final outline = img.ColorRgb8(45, 42, 52); // #2D2A34
-  final wood = img.ColorRgb8(201, 138, 75); // #C98A4B
-  final woodDark = img.ColorRgb8(169, 113, 61); // #A9713D
-  final fabric = img.ColorRgb8(127, 168, 224); // #7FA8E0
-  final fabricDark = img.ColorRgb8(98, 137, 204); // #6289CC
-  final leaf = img.ColorRgb8(111, 191, 90); // #6FBF5A
-  final leafDark = img.ColorRgb8(82, 160, 62); // #52A03E
-  final metal = img.ColorRgb8(184, 190, 201); // #B8BEC9
-  final metalDark = img.ColorRgb8(143, 150, 166); // #8F96A6
+  
+  
+  
+  
+  
+  
+  
+  
   final cream = img.ColorRgb8(226, 221, 205); // #E2DDCD
   final amber = img.ColorRgb8(240, 178, 74); // #F0B24A
-  final red = img.ColorRgb8(224, 90, 90); // #E05A5A
-  final blue = img.ColorRgb8(111, 174, 232); // #6FAEE8
+  
+  
   final pianoBody = img.ColorRgb8(96, 88, 116); // #605874
 
   /// Thin outline ring: image 4.x drawCircle is 1px, so layer radii.
@@ -75,7 +75,7 @@ final sprites = <String, void Function(img.Image)>{
 
   Directory('assets/items').createSync(recursive: true);
   for (final entry in sprites.entries) {
-    final image = img.Image(width: size, height: size);
+    final image = img.Image(width: size, height: size, numChannels: 4);
     entry.value(image);
     File('assets/items/${entry.key}.png')
         .writeAsBytesSync(img.encodePng(image));
