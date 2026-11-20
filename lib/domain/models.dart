@@ -154,9 +154,8 @@ class RoomDef {
 /// blocks the cell.
 const Set<ObjectKind> occupiableKinds = {ObjectKind.chair, ObjectKind.sofa};
 
-/// Blocking kinds with Kenney-backed sprites (see tool/extract_items.dart).
-/// Globe/armor/piano keep procedural fallbacks for old saves but are not
-/// emitted into new cases.
+/// Every blocking kind has a game-icons.net sprite
+/// (tool/build_item_icons.sh -> `assets/items/<kind>.png`).
 const Set<ObjectKind> spriteBackedBlockingKinds = {
   ObjectKind.table,
   ObjectKind.flowers,
@@ -167,6 +166,9 @@ const Set<ObjectKind> spriteBackedBlockingKinds = {
   ObjectKind.clock,
   ObjectKind.portrait,
   ObjectKind.fireplace,
+  ObjectKind.globe,
+  ObjectKind.armor,
+  ObjectKind.piano,
 };
 
 /// List form for deterministic shuffling in the factory.

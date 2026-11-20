@@ -77,6 +77,14 @@ class SettingsScreen extends ConsumerWidget {
             title: Text(l10n.resetProgress),
             onTap: () => _resetProgress(context, ref, l10n),
           ),
+          const SizedBox(height: 12),
+          Center(
+            child: Text(
+              'Item icons: game-icons.net (Lorc, Delapouite, caro-asercion) — CC BY 3.0',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ),
         ],
       ),
     );

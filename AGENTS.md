@@ -19,14 +19,10 @@ blocks pin public APIs across tasks — never rename them.
 
 ## Item sprites (ownership)
 
-- `assets/items/*.png` for 11 kinds (table, chair, flowers, sofa, bookshelf,
-  lamp, plant, chest, clock, portrait, fireplace) are **Kenney CC0 tiles**,
-  extracted by `tool/extract_items.dart` from the committed sheet in
-  `tool/assets_src/`. Do NOT redraw or regenerate them with gen_items.dart.
-- `tool/gen_items.dart` only generates the two procedural sprites:
-  `piano.png` and `victim.png` (chalk outline).
-- The case factory emits only sprite-backed blocking kinds
-  (`spriteBackedBlockingKinds` in `lib/domain/models.dart`).
-- To change an item graphic: edit the tile mapping in `tool/extract_items.dart`
-  (or the drawing in `tool/gen_items.dart` for piano/victim), run it, commit
-  the PNG.
+- ALL `assets/items/*.png` (15 files: 14 item kinds + victim) are built by
+  `tool/build_item_icons.sh` from game-icons.net SVGs (CC BY 3.0 — attribution
+  line is in the Settings screen and README). Do NOT hand-draw or replace them
+  with other sources without keeping that attribution.
+- `tool/preview_items.dart` renders a labeled preview of the whole set.
+- To change an item graphic: edit the icon path/color in
+  `tool/build_item_icons.sh`, run it, commit the PNG.
