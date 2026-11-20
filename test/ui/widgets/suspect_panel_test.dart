@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:murdoku/domain/generator/case_factory.dart';
 import 'package:murdoku/domain/models.dart';
 import 'package:murdoku/l10n/generated/app_localizations.dart';
 import 'package:murdoku/ui/widgets/suspect_panel.dart';
@@ -47,9 +48,49 @@ final CaseData fixture = CaseData(
   },
 );
 
-Widget wrap({required void Function(String) onSuspectTap}) => MaterialApp(
-      // The panel test pins English: it asserts exact en clue wording with
-      // declension forms (see localization_test.dart for the ru grammar).
+/// Stateful harness so taps move the selection like the real game does.
+class Harness extends StatefulWidget {
+  const Harness({super.key, this.onSuspectTap});
+
+  final void Function(String)? onSuspectTap;
+
+  @override
+  State<Harness> createState() => _HarnessState();
+}
+
+class _HarnessState extends State<Harness> {
+  String? _selected = 's0';
+
+  @override
+  Widget build(BuildContext context) => MaterialApp(
+        // The panel test pins English: it asserts exact en clue wording with
+        // declension forms (see localization_test.dart for the ru grammar).
+        locale: const Locale('en'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: SizedBox(
+            width: 320,
+            child: SuspectPanel(
+              caseData: fixture,
+              placed: {'s2': fixture.solution['s2']!},
+              selectedSuspectId: _selected,
+              onSuspectTap: (id) {
+                widget.onSuspectTap?.call(id);
+                setState(() => _selected = _selected == id ? null : id);
+              },
+            ),
+          ),
+        ),
+      );
+}
+
+Widget generatedWrap(
+  CaseData c, {
+  String? selectedSuspectId,
+  void Function(String)? onSuspectTap,
+}) =>
+    MaterialApp(
       locale: const Locale('en'),
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
@@ -57,10 +98,10 @@ Widget wrap({required void Function(String) onSuspectTap}) => MaterialApp(
         body: SizedBox(
           width: 320,
           child: SuspectPanel(
-            caseData: fixture,
-            placed: {'s2': fixture.solution['s2']!},
-            selectedSuspectId: 's0',
-            onSuspectTap: onSuspectTap,
+            caseData: c,
+            placed: const {},
+            selectedSuspectId: selectedSuspectId,
+            onSuspectTap: onSuspectTap ?? (_) {},
           ),
         ),
       ),
@@ -70,33 +111,20 @@ void main() {
   testWidgets('every suspect card shows its name and its clue sentences',
       (tester) async {
     String? tapped;
-    await tester.pumpWidget(wrap(onSuspectTap: (id) => tapped = id));
+    await tester.pumpWidget(Harness(onSuspectTap: (id) => tapped = id));
     await tester.pump();
 
-    // The strip is a lazy horizontal ListView: drag card by card and assert
-    // each card's name and exact clue wording as it appears.
+    // The grid shows all cards at once; assert each name and exact en wording.
     expect(find.text('Ash'), findsOneWidget);
     expect(find.text('Ash was in the Hall.'), findsOneWidget);
     expect(find.text('Blair'), findsOneWidget);
     expect(find.text('Blair was not on the same floor as the victim.'),
         findsOneWidget);
-
-    final strip = find.byType(ListView);
-    Future<void> dragOnce() async {
-      await tester.drag(strip.first, const Offset(-160, 0));
-      await tester.pumpAndSettle();
-    }
-
-    await dragOnce();
     expect(find.text('Casey'), findsOneWidget);
     expect(find.text('Casey was in the same corridor as Ellis.'),
         findsOneWidget);
-
-    await dragOnce();
     expect(find.text('Drew'), findsOneWidget);
     expect(find.text('Drew was not south of the victim.'), findsOneWidget);
-
-    await dragOnce();
     expect(find.text('Ellis'), findsOneWidget);
     expect(find.text('Ellis was beside the Clock.'), findsOneWidget);
 
@@ -106,5 +134,69 @@ void main() {
     // Tapping a card selects that suspect.
     await tester.tap(find.text('Drew'));
     expect(tapped, 's3');
+  });
+
+  testWidgets('suspects render as a 3x2 grid; no horizontal strip (UX-2)',
+      (tester) async {
+    final c = generateCase(difficulty: Difficulty.easy, seed: 3);
+    await tester.pumpWidget(generatedWrap(c));
+    await tester.pump();
+
+    expect(find.byType(GridView), findsOneWidget);
+    final grid = tester.widget<GridView>(find.byType(GridView));
+    expect(grid.physics, isA<NeverScrollableScrollPhysics>(),
+        reason: '5 suspects fit the grid; no scrolling needed');
+    final delegate =
+        grid.gridDelegate as SliverGridDelegateWithFixedCrossAxisCount;
+    expect(delegate.crossAxisCount, 3, reason: '3 columns');
+    final childrenDelegate = grid.childrenDelegate as SliverChildListDelegate;
+    expect(childrenDelegate.children.length, 6,
+        reason: '5 cards + 1 empty decorative slot = 6 slots (2 rows)');
+    for (final s in c.suspects) {
+      expect(find.text(s.name), findsOneWidget,
+          reason: 'all 5 cards visible at once');
+    }
+    expect(find.byType(ListView), findsNothing,
+        reason: 'the horizontally scrolling strip is gone');
+  });
+
+  testWidgets('selected card shows full clues; others cap at 2 lines (UX-2)',
+      (tester) async {
+    await tester.pumpWidget(const Harness());
+    await tester.pump();
+
+    // Initially Ash (s0) is selected: uncapped clue text.
+    final ashSelected =
+        tester.widget<Text>(find.text('Ash was in the Hall.'));
+    expect(ashSelected.maxLines, isNull);
+
+    // Unselected cards cap at two lines with ellipsis.
+    final blairCapped = tester
+        .widget<Text>(find.text('Blair was not on the same floor as the victim.'));
+    expect(blairCapped.maxLines, 2);
+    expect(blairCapped.overflow, TextOverflow.ellipsis);
+
+    // Tap Blair -> selection moves; Blair expands, Ash caps.
+    await tester.tap(find.text('Blair'));
+    await tester.pump();
+
+    final blairSelected = tester
+        .widget<Text>(find.text('Blair was not on the same floor as the victim.'));
+    expect(blairSelected.maxLines, isNull);
+    final ashCapped = tester.widget<Text>(find.text('Ash was in the Hall.'));
+    expect(ashCapped.maxLines, 2);
+    expect(ashCapped.overflow, TextOverflow.ellipsis);
+  });
+
+  testWidgets('each card is a semantic button labelled name + first clue (UX-2)',
+      (tester) async {
+    final semantics = tester.ensureSemantics();
+    await tester.pumpWidget(const Harness());
+    await tester.pump();
+
+    final node = tester.getSemantics(find.text('Ash'));
+    expect(node.flagsCollection.isButton, isTrue);
+    expect(node.label, contains('Ash was in the Hall.'));
+    semantics.dispose();
   });
 }

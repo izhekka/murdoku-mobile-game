@@ -67,8 +67,9 @@ String describeClue(
   }
 }
 
-/// The suspects bar: portrait, name and clue cards per suspect. A horizontal
-/// scroll strip on phones, a vertical column on wide layouts.
+/// The suspects panel: a 3x2 grid of compact cards on phones (the selected
+/// card expands to show its full clues; the others cap at two lines), a
+/// vertical column on wide layouts.
 class SuspectPanel extends StatelessWidget {
   const SuspectPanel({
     super.key,
@@ -96,8 +97,8 @@ class SuspectPanel extends StatelessWidget {
       for (var i = 0; i < caseData.suspects.length; i++)
         _SuspectCard(
           suspect: caseData.suspects[i],
+          displayName: names.nom(caseData.suspects[i].id),
           color: suspectColor(i),
-          clues: cluesBySuspect[caseData.suspects[i].id] ?? const [],
           clueTexts: [
             for (final clue in cluesBySuspect[caseData.suspects[i].id] ?? const <Clue>[])
               describeClue(clue, caseData, l10n, names),
@@ -117,22 +118,62 @@ class SuspectPanel extends StatelessWidget {
           ],
         );
       }
-      return SizedBox(
-        height: 150,
-        child: ListView(
-          scrollDirection: Axis.horizontal,
-          children: cards,
-        ),
+      const columns = 3;
+      const hPad = 4.0;
+      const spacing = 4.0;
+      const rows = 2;
+      final cardWidth =
+          (constraints.maxWidth - 2 * hPad - (columns - 1) * spacing) / columns;
+      // Default card proportions ~1.05; when the host pins a tight height
+      // (the game screen's fixed panel slot), size the two rows to fill the
+      // slot exactly so nothing clips and no dead space is left.
+      var rowHeight = cardWidth / 1.05;
+      if (constraints.maxHeight.isFinite &&
+          constraints.maxHeight == constraints.minHeight) {
+        rowHeight = (constraints.maxHeight - 2 * hPad - (rows - 1) * spacing) /
+            rows;
+      }
+      return GridView.count(
+        crossAxisCount: columns,
+        shrinkWrap: true,
+        physics: caseData.suspects.length <= 6
+            ? const NeverScrollableScrollPhysics()
+            : const ClampingScrollPhysics(),
+        childAspectRatio: cardWidth / rowHeight,
+        padding: const EdgeInsets.all(hPad),
+        mainAxisSpacing: spacing,
+        crossAxisSpacing: spacing,
+        children: [
+          ...cards,
+          const _EmptySlot(),
+        ],
       );
     });
+  }
+}
+
+/// Fills the sixth grid slot when the case has 5 suspects.
+class _EmptySlot extends StatelessWidget {
+  const _EmptySlot();
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      margin: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: scheme.outlineVariant),
+      ),
+    );
   }
 }
 
 class _SuspectCard extends StatelessWidget {
   const _SuspectCard({
     required this.suspect,
+    required this.displayName,
     required this.color,
-    required this.clues,
     required this.clueTexts,
     required this.selected,
     required this.isPlaced,
@@ -140,8 +181,8 @@ class _SuspectCard extends StatelessWidget {
   });
 
   final Suspect suspect;
+  final String displayName;
   final Color color;
-  final List<Clue> clues;
   final List<String> clueTexts;
   final bool selected;
   final bool isPlaced;
@@ -150,62 +191,78 @@ class _SuspectCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.all(4),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          width: 150,
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            color: selected
-                ? scheme.secondaryContainer
-                : scheme.surfaceContainerHighest,
-            border: Border.all(
-              color: selected ? scheme.primary : Colors.transparent,
-              width: 2,
+    final a11yLabel = clueTexts.isEmpty
+        ? '$displayName.'
+        : '$displayName. ${clueTexts.first}';
+    return Semantics(
+      button: true,
+      label: a11yLabel,
+      child: Padding(
+        padding: const EdgeInsets.all(4),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              color: selected
+                  ? scheme.secondaryContainer
+                  : scheme.surfaceContainerHighest,
+              border: Border.all(
+                color: selected ? scheme.primary : Colors.transparent,
+                width: 2,
+              ),
             ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Avatar(color: color, selected: selected, size: 32),
-                  const SizedBox(width: 6),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Avatar(color: color, selected: selected, size: 24),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        displayName,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.titleSmall,
+                      ),
+                    ),
+                    if (isPlaced)
+                      Icon(Icons.check_circle,
+                          size: 18, color: scheme.primary),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                if (selected)
+                  Expanded(
+                    child: SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          for (final text in clueTexts)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 2),
+                              child: Text(
+                                text,
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  )
+                else
                   Expanded(
                     child: Text(
-                      suspect.name,
+                      clueTexts.join('\n'),
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.titleSmall,
+                      style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ),
-                  if (isPlaced)
-                    Icon(Icons.check_circle,
-                        size: 18, color: scheme.primary),
-                ],
-              ),
-              const SizedBox(height: 4),
-              Expanded(
-                child: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      for (final text in clueTexts)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 2),
-                          child: Text(
-                            text,
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

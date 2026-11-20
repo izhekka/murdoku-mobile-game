@@ -164,7 +164,7 @@ class _GameScreenState extends ConsumerState<GameScreen>
             children: [
               Expanded(flex: 3, child: Center(child: board)),
               SizedBox(
-                height: 160,
+                height: 205,
                 child: panel,
               ),
               _toolbar(l10n, state),
