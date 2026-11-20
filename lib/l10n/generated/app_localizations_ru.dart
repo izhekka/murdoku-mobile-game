@@ -187,6 +187,32 @@ class AppLocalizationsRu extends AppLocalizations {
   String get accuseTitle => 'Кто убийца?';
 
   @override
+  String get toolPlace => 'Поставить';
+
+  @override
+  String get toolMark => 'Крестик';
+
+  @override
+  String get toolErase => 'Стереть';
+
+  @override
+  String get toolUndo => 'Отменить';
+
+  @override
+  String get toolCheck => 'Проверить';
+
+  @override
+  String get toolHint => 'Подсказка';
+
+  @override
+  String get toolAccuse => 'Обвинить';
+
+  @override
+  String timerSemantics(String difficulty, String time) {
+    return '$difficulty, прошло $time';
+  }
+
+  @override
   String alibi(String name) {
     return 'У $name железное алиби.';
   }

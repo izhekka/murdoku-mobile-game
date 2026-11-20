@@ -3,7 +3,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:murdoku/app.dart';
+import 'package:murdoku/core/format.dart';
 import 'package:murdoku/domain/generator/case_factory.dart';
+import 'package:murdoku/domain/localized_names.dart';
 import 'package:murdoku/domain/models.dart';
 import 'package:murdoku/l10n/generated/app_localizations.dart';
 import 'package:murdoku/state/game_controller.dart';
@@ -18,13 +20,23 @@ final CaseData fixedCase = generateCase(difficulty: Difficulty.easy, seed: 3);
 
 late ProviderContainer container;
 
-Future<void> pumpGame(WidgetTester tester) async {
+Future<void> pumpGame(
+  WidgetTester tester, {
+  Size size = const Size(800, 600),
+  double textScale = 1.0,
+}) async {
   SharedPreferences.setMockInitialValues({});
   final prefs = await SharedPreferences.getInstance();
   container = ProviderContainer(overrides: [
     sharedPreferencesProvider.overrideWithValue(prefs),
   ]);
   addTearDown(container.dispose);
+  tester.view.physicalSize = size;
+  tester.view.devicePixelRatio = 1.0;
+  addTearDown(tester.view.resetPhysicalSize);
+  addTearDown(tester.view.resetDevicePixelRatio);
+  tester.platformDispatcher.textScaleFactorTestValue = textScale;
+  addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
   container.read(gameControllerProvider.notifier).startNewCase(
         Difficulty.easy,
         seed: 3,
@@ -182,5 +194,69 @@ void main() {
     final state = container.read(gameControllerProvider)!;
     expect(state.phase, GamePhase.revealed);
     expect(state.placed, fixedCase.solution);
+  });
+
+  testWidgets('toolbar buttons show visible labels (UX-5)', (tester) async {
+    await pumpGame(tester);
+    final l10n = l10nOf(tester);
+    for (final label in [
+      l10n.toolPlace,
+      l10n.toolMark,
+      l10n.toolErase,
+      l10n.toolUndo,
+      l10n.toolCheck,
+      l10n.toolHint,
+      l10n.toolAccuse,
+    ]) {
+      expect(find.text(label), findsWidgets,
+          reason: 'toolbar label "$label" must be visible under the icon');
+    }
+  });
+
+  testWidgets('toolbar buttons expose semantic button labels (UX-5)',
+      (tester) async {
+    final semantics = tester.ensureSemantics();
+    await pumpGame(tester);
+    final l10n = l10nOf(tester);
+
+    final node = tester.getSemantics(find.text(l10n.toolAccuse));
+    expect(node.flagsCollection.isButton, isTrue);
+    expect(node.label, contains(l10n.toolAccuse));
+    semantics.dispose();
+  });
+
+  testWidgets('timer text exposes difficulty + time semantics (UX-5)',
+      (tester) async {
+    final semantics = tester.ensureSemantics();
+    await pumpGame(tester);
+    final l10n = l10nOf(tester);
+
+    final timerNode =
+        tester.getSemantics(find.textContaining('·').first);
+    expect(timerNode.label,
+        l10n.timerSemantics(l10n.difficultyEasy, formatDuration(Duration.zero)));
+    semantics.dispose();
+  });
+
+  testWidgets('whole game screen at textScale 2.0 has no overflow (F-7)',
+      (tester) async {
+    // Phone viewport, scale 2.0: the suspect grid's clue text must
+    // ellipsize (never overflow), toolbar labels shrink, board keeps its
+    // layout. Any RenderFlex overflow throws and fails this test.
+    await pumpGame(
+      tester,
+      size: const Size(412, 915),
+      textScale: 2.0,
+    );
+    expect(tester.takeException(), isNull);
+
+    // The suspect panel still shows every card (clue text truncated, not
+    // hidden behind an exception). Names resolve through the active locale.
+    final l10n = l10nOf(tester);
+    final names = NameForms.forLocale(l10n.localeName, fixedCase);
+    for (final s in fixedCase.suspects) {
+      expect(find.text(names.nom(s.id)), findsWidgets,
+          reason: 'suspect ${s.id} card present at textScale 2.0');
+    }
   });
 }

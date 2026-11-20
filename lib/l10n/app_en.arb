@@ -192,6 +192,24 @@
   },
   "accuse": "Accuse",
   "accuseTitle": "Who did it?",
+  "toolPlace": "Place",
+  "toolMark": "Mark",
+  "toolErase": "Erase",
+  "toolUndo": "Undo",
+  "toolCheck": "Check",
+  "toolHint": "Hint",
+  "toolAccuse": "Accuse",
+  "timerSemantics": "{difficulty}, elapsed {time}",
+  "@timerSemantics": {
+    "placeholders": {
+      "difficulty": {
+        "type": "String"
+      },
+      "time": {
+        "type": "String"
+      }
+    }
+  },
   "alibi": "{name} has an airtight alibi.",
   "@alibi": {
     "placeholders": {

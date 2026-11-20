@@ -128,7 +128,12 @@ class _GameScreenState extends ConsumerState<GameScreen>
           onPressed: () => _confirmQuit(l10n),
           tooltip: l10n.quitCase,
         ),
-        title: Text('$difficultyLabel · ${formatDuration(state.elapsed)}'),
+        title: Semantics(
+          label: l10n.timerSemantics(
+              difficultyLabel, formatDuration(state.elapsed)),
+          excludeSemantics: true,
+          child: Text('$difficultyLabel · ${formatDuration(state.elapsed)}'),
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.menu_book),
@@ -179,14 +184,63 @@ class _GameScreenState extends ConsumerState<GameScreen>
     final notifier = ref.read(gameControllerProvider.notifier);
     final hintsLeft = 2 - state.hintsUsed;
 
-    Widget toolButton(Tool tool, IconData icon, String tooltip) => IconButton(
-          icon: Icon(icon),
-          tooltip: tooltip,
-          onPressed: () => notifier.setTool(tool),
-          style: IconButton.styleFrom(
-            backgroundColor:
-                state.tool == tool ? Theme.of(context).colorScheme.primaryContainer : null,
+    /// Two-line mini button: icon over a visible label (UX-5). Minimum 48dp
+    /// wide / 52dp tall target; the label shrinks instead of overflowing.
+    Widget miniButton({
+      required IconData icon,
+      required String label,
+      required String tooltip,
+      required VoidCallback onPressed,
+      bool active = false,
+    }) =>
+        Semantics(
+          label: label,
+          button: true,
+          child: Tooltip(
+            message: tooltip,
+            child: InkWell(
+              onTap: onPressed,
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                constraints:
+                    const BoxConstraints(minWidth: 48, minHeight: 52),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  color: active
+                      ? Theme.of(context).colorScheme.primaryContainer
+                      : Colors.transparent,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(icon, size: 22),
+                    const SizedBox(height: 2),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        label,
+                        maxLines: 1,
+                        style: const TextStyle(fontSize: 10),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
+        );
+
+    Widget toolButton(Tool tool, IconData icon, String label,
+            {required String tooltip}) =>
+        miniButton(
+          icon: icon,
+          label: label,
+          tooltip: tooltip,
+          active: state.tool == tool,
+          onPressed: () => notifier.setTool(tool),
         );
 
     return Padding(
@@ -194,28 +248,49 @@ class _GameScreenState extends ConsumerState<GameScreen>
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          toolButton(Tool.place, Icons.person, l10n.newCase),
-          toolButton(Tool.markX, Icons.close, l10n.stateExcluded),
-          toolButton(Tool.erase, Icons.auto_fix_normal, l10n.cancel),
-          IconButton(
-            icon: const Icon(Icons.undo),
-            tooltip: l10n.cancel,
-            onPressed: () => notifier.undo(),
+          Expanded(
+            child: toolButton(Tool.place, Icons.person, l10n.toolPlace,
+                tooltip: l10n.newCase),
           ),
-          IconButton(
-            icon: const Icon(Icons.fact_check),
-            tooltip: l10n.checkResult(0, 0),
-            onPressed: () => _runCheck(l10n),
+          Expanded(
+            child: toolButton(Tool.markX, Icons.close, l10n.toolMark,
+                tooltip: l10n.stateExcluded),
           ),
-          IconButton(
-            icon: const Icon(Icons.lightbulb),
-            tooltip: l10n.hintsLeft(hintsLeft),
-            onPressed: () => _showHintSheet(l10n, hintsLeft),
+          Expanded(
+            child: toolButton(Tool.erase, Icons.auto_fix_normal, l10n.toolErase,
+                tooltip: l10n.cancel),
           ),
-          IconButton(
-            icon: const Icon(Icons.gavel),
-            tooltip: l10n.accuse,
-            onPressed: () => showAccuseSheet(),
+          Expanded(
+            child: miniButton(
+              icon: Icons.undo,
+              label: l10n.toolUndo,
+              tooltip: l10n.cancel,
+              onPressed: () => notifier.undo(),
+            ),
+          ),
+          Expanded(
+            child: miniButton(
+              icon: Icons.fact_check,
+              label: l10n.toolCheck,
+              tooltip: l10n.checkResult(0, 0),
+              onPressed: () => _runCheck(l10n),
+            ),
+          ),
+          Expanded(
+            child: miniButton(
+              icon: Icons.lightbulb,
+              label: l10n.toolHint,
+              tooltip: l10n.hintsLeft(hintsLeft),
+              onPressed: () => _showHintSheet(l10n, hintsLeft),
+            ),
+          ),
+          Expanded(
+            child: miniButton(
+              icon: Icons.gavel,
+              label: l10n.toolAccuse,
+              tooltip: l10n.accuse,
+              onPressed: () => showAccuseSheet(),
+            ),
           ),
         ],
       ),

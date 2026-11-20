@@ -188,6 +188,32 @@ class AppLocalizationsEn extends AppLocalizations {
   String get accuseTitle => 'Who did it?';
 
   @override
+  String get toolPlace => 'Place';
+
+  @override
+  String get toolMark => 'Mark';
+
+  @override
+  String get toolErase => 'Erase';
+
+  @override
+  String get toolUndo => 'Undo';
+
+  @override
+  String get toolCheck => 'Check';
+
+  @override
+  String get toolHint => 'Hint';
+
+  @override
+  String get toolAccuse => 'Accuse';
+
+  @override
+  String timerSemantics(String difficulty, String time) {
+    return '$difficulty, elapsed $time';
+  }
+
+  @override
   String alibi(String name) {
     return '$name has an airtight alibi.';
   }

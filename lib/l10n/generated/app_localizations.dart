@@ -398,6 +398,54 @@ abstract class AppLocalizations {
   /// **'Who did it?'**
   String get accuseTitle;
 
+  /// No description provided for @toolPlace.
+  ///
+  /// In en, this message translates to:
+  /// **'Place'**
+  String get toolPlace;
+
+  /// No description provided for @toolMark.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark'**
+  String get toolMark;
+
+  /// No description provided for @toolErase.
+  ///
+  /// In en, this message translates to:
+  /// **'Erase'**
+  String get toolErase;
+
+  /// No description provided for @toolUndo.
+  ///
+  /// In en, this message translates to:
+  /// **'Undo'**
+  String get toolUndo;
+
+  /// No description provided for @toolCheck.
+  ///
+  /// In en, this message translates to:
+  /// **'Check'**
+  String get toolCheck;
+
+  /// No description provided for @toolHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Hint'**
+  String get toolHint;
+
+  /// No description provided for @toolAccuse.
+  ///
+  /// In en, this message translates to:
+  /// **'Accuse'**
+  String get toolAccuse;
+
+  /// No description provided for @timerSemantics.
+  ///
+  /// In en, this message translates to:
+  /// **'{difficulty}, elapsed {time}'**
+  String timerSemantics(String difficulty, String time);
+
   /// No description provided for @alibi.
   ///
   /// In en, this message translates to:
