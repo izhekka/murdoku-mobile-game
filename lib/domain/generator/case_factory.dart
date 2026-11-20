@@ -18,6 +18,11 @@ const _roomNames = [
 
 const _retryBudget = 40;
 
+/// Public aliases for tests: the localized pools in localized_names.dart are
+/// index-aligned with these.
+const suspectNamePool = _suspectNames;
+const roomNamePool = _roomNames;
+
 /// Deterministic: same [difficulty] and [seed] produce an identical case.
 /// Tries seeds [seed]..seed+39; if none yields a unique puzzle inside the
 /// difficulty's clue window, widens the window's max by +1 and retries the
@@ -38,16 +43,29 @@ CaseData? _attempt(Difficulty difficulty, int seed, int widen) {
   final g = difficulty.gridSize;
   final maxClues = difficulty.maxClues + widen;
 
-  // 1. rooms with themed names; suspects with themed names.
+  // 1. rooms with themed names; suspects with themed names. Index lists are
+  // shuffled (not name copies) so each entry keeps the pool slot its name
+  // came from — poolIndex must index the localized pools (UX-1). Same list
+  // lengths as before, so the rng stream and the drawn names are unchanged.
   final rawRooms = generateRooms(gridSize: g, rng: rng);
-  final roomNames = [..._roomNames]..shuffle(rng);
-  final suspectNames = [..._suspectNames]..shuffle(rng);
+  final roomSlots = List.generate(_roomNames.length, (i) => i)..shuffle(rng);
+  final suspectSlots =
+      List.generate(_suspectNames.length, (i) => i)..shuffle(rng);
   final rooms = [
     for (var i = 0; i < g; i++)
-      RoomDef(id: rawRooms[i].id, name: roomNames[i], cells: rawRooms[i].cells),
+      RoomDef(
+        id: rawRooms[i].id,
+        name: _roomNames[roomSlots[i]],
+        cells: rawRooms[i].cells,
+        poolIndex: roomSlots[i],
+      ),
   ];
   final suspects = [
-    for (var i = 0; i < g; i++) Suspect(id: 's$i', name: suspectNames[i]),
+    for (var i = 0; i < g; i++)
+      Suspect(
+          id: 's$i',
+          name: _suspectNames[suspectSlots[i]],
+          poolIndex: suspectSlots[i]),
   ];
 
   // 2. random placement search: first valid assignment is the solution.

@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:murdoku/domain/clue_eval.dart';
 import 'package:murdoku/domain/generator/case_factory.dart';
+import 'package:murdoku/domain/localized_names.dart';
 import 'package:murdoku/domain/models.dart';
 import 'package:murdoku/domain/solver.dart';
 
@@ -43,6 +44,35 @@ void main() {
         expect(c.suspects.map((s) => s.id).toList(),
             List.generate(g, (i) => 's$i'));
         expect(c.rooms.map((r) => r.id).toSet(), Set.from(List.generate(g, (i) => 'r$i')));
+
+        // 1b. poolIndex: names must resolve through the localized pools
+        // (UX-1). -1 would render English names in the ru UI.
+        expect(
+          c.suspects.every((s) => s.poolIndex >= 0 && s.poolIndex < 16),
+          isTrue,
+          reason:
+              'seed $seed/${difficulty.name}: suspect poolIndex out of pool range',
+        );
+        expect(
+          c.rooms.every((r) => r.poolIndex >= 0 && r.poolIndex < 16),
+          isTrue,
+          reason:
+              'seed $seed/${difficulty.name}: room poolIndex out of pool range',
+        );
+        // name and poolIndex must agree: poolIndex points at the pool slot
+        // holding this entry's name, so en and ru show the same identity.
+        expect(
+          c.suspects.every((s) => suspectNamePool[s.poolIndex] == s.name),
+          isTrue,
+          reason:
+              'seed $seed/${difficulty.name}: suspect name/poolIndex mismatch',
+        );
+        expect(
+          c.rooms.every((r) => roomNamePool[r.poolIndex] == r.name),
+          isTrue,
+          reason:
+              'seed $seed/${difficulty.name}: room name/poolIndex mismatch',
+        );
 
         // 2. solution validity: one guest per row / col / room
         expect(c.solution.values.map((p) => p.row).toSet().length, g);
@@ -128,5 +158,40 @@ void main() {
     // must differ.
     final c = generateCase(difficulty: Difficulty.easy, seed: 1000);
     expect(a.toJson() == c.toJson(), isFalse);
+  });
+
+  test('generated cases render Russian names from the pools (UX-1)', () {
+    final c = generateCase(difficulty: Difficulty.easy, seed: 1);
+    final names = NameForms.forLocale('ru', c);
+    for (final r in c.rooms) {
+      expect(names.roomPrep(r.id), ruRoomForms[r.poolIndex].$2,
+          reason: 'room ${r.id} (${r.name}) prep phrase must come from the pool');
+      expect(names.roomPrep(r.id), isNot('в ${r.name}'),
+          reason:
+              'room ${r.id} (${r.name}) must not fall back to the stored name');
+    }
+    for (final s in c.suspects) {
+      expect(names.nom(s.id), ruSuspectForms[s.poolIndex].nom,
+          reason: 'suspect ${s.id} (${s.name}) nom must come from the pool');
+      expect(names.nom(s.id), isNot(s.name),
+          reason:
+              'suspect ${s.id} (${s.name}) must not fall back to the stored name');
+    }
+  });
+
+  test('generated rooms draw from the whole pool, not constants (UX-1)', () {
+    // The plan pinned seed 1 easy to poolIndex 1, but the shipped name
+    // permutation for that seed is [10,15,5,9,7] — distribution is proven
+    // instead: distinct slots within a case, wide coverage across seeds.
+    final seen = <int>{};
+    for (var seed = 1; seed <= 5; seed++) {
+      final c = generateCase(difficulty: Difficulty.easy, seed: seed);
+      final idx = c.rooms.map((r) => r.poolIndex).toSet();
+      expect(idx.length, c.rooms.length,
+          reason: 'seed $seed: room poolIndex values repeat');
+      seen.addAll(idx);
+    }
+    expect(seen.length, greaterThanOrEqualTo(10),
+        reason: '5 cases only cover ${seen.length} of 16 pool slots');
   });
 }
