@@ -23,7 +23,7 @@ void main() {
   final amber = img.ColorRgb8(240, 178, 74); // #F0B24A
   final red = img.ColorRgb8(224, 90, 90); // #E05A5A
   final blue = img.ColorRgb8(111, 174, 232); // #6FAEE8
-  final pianoBody = img.ColorRgb8(58, 54, 72); // #3A3648
+  final pianoBody = img.ColorRgb8(96, 88, 116); // #605874
 
   /// Thin outline ring: image 4.x drawCircle is 1px, so layer radii.
 void ring(img.Image image,
@@ -85,12 +85,13 @@ final sprites = <String, void Function(img.Image)>{
       img.fillCircle(image, x: 64, y: 42, radius: 14, color: cream);
     },
     'piano': (image) {
-      img.fillRect(image, x1: 12, y1: 28, x2: 114, y2: 100, color: pianoBody);
-      img.drawRect(image, x1: 12, y1: 28, x2: 114, y2: 100, color: outline, thickness: 2);
-      img.fillRect(image, x1: 20, y1: 80, x2: 106, y2: 92, color: cream);
-      for (var x = 14; x <= 50; x += 6) {
-        img.fillRect(image, x1: x, y1: 80, x2: x + 1, y2: 92, color: outline);
+      img.fillRect(image, x1: 16, y1: 32, x2: 110, y2: 96, color: pianoBody);
+      img.drawRect(image, x1: 16, y1: 32, x2: 110, y2: 96, color: outline, thickness: 4);
+      img.fillRect(image, x1: 24, y1: 76, x2: 102, y2: 88, color: cream);
+      for (var x = 28; x <= 100; x += 8) {
+        img.fillRect(image, x1: x, y1: 76, x2: x + 2, y2: 88, color: outline);
       }
+      img.fillRect(image, x1: 24, y1: 40, x2: 102, y2: 68, color: amber);
     },
     'plant': (image) {
       img.fillRect(image, x1: 40, y1: 78, x2: 86, y2: 114, color: red);

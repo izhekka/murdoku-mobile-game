@@ -101,8 +101,10 @@ CaseData? _attempt(Difficulty difficulty, int seed, int widen) {
   ]..shuffle(rng);
   final used = <Pos>{victimPos};
   final occupiableKinds = occupiableKindsList..shuffle(rng);
-  final blockingKinds =
-      ObjectKind.values.where((k) => !kindOccupiable(k)).toList()..shuffle(rng);
+  final blockingKinds = ObjectKind.values
+      .where((k) => !kindOccupiable(k) && spriteBackedBlockingKinds.contains(k))
+      .toList()
+    ..shuffle(rng);
   final objects = <ObjectDef>[];
   for (final cell in allCells) {
     if (objects.length >= difficulty.occupiableCount) break;

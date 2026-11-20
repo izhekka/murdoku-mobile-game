@@ -154,6 +154,21 @@ class RoomDef {
 /// blocks the cell.
 const Set<ObjectKind> occupiableKinds = {ObjectKind.chair, ObjectKind.sofa};
 
+/// Blocking kinds with Kenney-backed sprites (see tool/extract_items.dart).
+/// Globe/armor/piano keep procedural fallbacks for old saves but are not
+/// emitted into new cases.
+const Set<ObjectKind> spriteBackedBlockingKinds = {
+  ObjectKind.table,
+  ObjectKind.flowers,
+  ObjectKind.bookshelf,
+  ObjectKind.lamp,
+  ObjectKind.plant,
+  ObjectKind.chest,
+  ObjectKind.clock,
+  ObjectKind.portrait,
+  ObjectKind.fireplace,
+};
+
 /// List form for deterministic shuffling in the factory.
 List<ObjectKind> get occupiableKindsList => occupiableKinds.toList();
 
