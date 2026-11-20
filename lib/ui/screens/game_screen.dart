@@ -6,6 +6,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../core/format.dart';
 import '../../domain/game_logic.dart' show Tool, boardSolved;
+import '../../domain/localized_names.dart';
 import '../../domain/models.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../state/game_controller.dart';
@@ -339,11 +340,10 @@ class _GameScreenState extends ConsumerState<GameScreen>
       );
       if (mounted) context.go('/');
     } else {
-      final name = state.caseData.suspects
-          .firstWhere((s) => s.id == accused)
-          .name;
+      final l10n = AppLocalizations.of(context)!;
+      final names = NameForms.forLocale(l10n.localeName, state.caseData);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(AppLocalizations.of(context)!.alibi(name))),
+        SnackBar(content: Text(l10n.alibi(names.nom(accused)))),
       );
     }
   }

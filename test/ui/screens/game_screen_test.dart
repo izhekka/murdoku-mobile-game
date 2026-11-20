@@ -94,9 +94,8 @@ void main() {
     }
     await tester.pumpAndSettle();
 
-    final murdererName = fixedCase.suspects
-        .firstWhere((s) => s.id == fixedCase.murdererId)
-        .name;
+    final names = NameForms.forLocale(l10n.localeName, fixedCase);
+    final murdererName = names.nom(fixedCase.murdererId);
     await tester.tap(find.text(murdererName).last);
     await tester.pumpAndSettle();
 
@@ -106,10 +105,31 @@ void main() {
     expect(find.text(l10n.victoryMistakes(0)), findsOneWidget);
   });
 
+  testWidgets('accuse sheet lists suspects by their localized names (review)',
+      (tester) async {
+    await pumpGame(tester);
+    final l10n = l10nOf(tester);
+    final names = NameForms.forLocale(l10n.localeName, fixedCase);
+
+    await tester.tap(find.byIcon(Icons.gavel));
+    await tester.pumpAndSettle();
+    expect(find.byType(AccuseSheet), findsOneWidget);
+    for (final s in fixedCase.suspects) {
+      expect(
+        find.descendant(
+            of: find.byType(AccuseSheet),
+            matching: find.text(names.nom(s.id))),
+        findsOneWidget,
+        reason: 'accuse tile for ${s.id} shows the localized name',
+      );
+    }
+  });
+
   testWidgets('wrong accusation shows the alibi snackbar and bumps mistakes',
       (tester) async {
     await pumpGame(tester);
     final l10n = l10nOf(tester);
+    final names = NameForms.forLocale(l10n.localeName, fixedCase);
 
     final innocent = fixedCase.suspects
         .map((s) => s.id)
@@ -117,13 +137,12 @@ void main() {
 
     await tester.tap(find.byIcon(Icons.gavel));
     await tester.pumpAndSettle();
-    final innocentName =
-        fixedCase.suspects.firstWhere((s) => s.id == innocent).name;
+    final innocentName = names.nom(innocent);
     expect(find.byType(AccuseSheet), findsOneWidget);
     final sheetName = find.descendant(
         of: find.byType(AccuseSheet), matching: find.text(innocentName));
     expect(sheetName.evaluate().length, 1,
-        reason: 'debug: innocent tile count in sheet');
+        reason: 'innocent tile appears exactly once in the sheet');
     await tester.tap(sheetName.first);
     await tester.pumpAndSettle();
 

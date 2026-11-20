@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../../domain/localized_names.dart';
 import '../../domain/models.dart';
 import '../../l10n/generated/app_localizations.dart';
 import 'avatar.dart';
@@ -19,6 +20,7 @@ class AccuseSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final names = NameForms.forLocale(l10n.localeName, caseData);
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -37,7 +39,7 @@ class AccuseSheet extends StatelessWidget {
                 shrinkWrap: true,
                 children: [
                   for (var i = 0; i < caseData.suspects.length; i++)
-                    _accuseTile(context, i),
+                    _accuseTile(context, i, names),
                 ],
               ),
             ),
@@ -47,7 +49,7 @@ class AccuseSheet extends StatelessWidget {
     );
   }
 
-  Widget _accuseTile(BuildContext context, int index) {
+  Widget _accuseTile(BuildContext context, int index, NameForms names) {
     final l10n = AppLocalizations.of(context)!;
     final suspect = caseData.suspects[index];
     final eliminated = eliminatedSuspects.contains(suspect.id);
@@ -55,7 +57,7 @@ class AccuseSheet extends StatelessWidget {
       enabled: !eliminated,
       leading: Avatar(color: suspectColor(index), selected: false, size: 32),
       title: Text(
-        suspect.name,
+        names.nom(suspect.id),
         style: eliminated
             ? TextStyle(
                 decoration: TextDecoration.lineThrough,
