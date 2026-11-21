@@ -1,7 +1,8 @@
 import 'models.dart';
 
 /// A Russian name in the two grammatical forms the clue templates need:
-/// nominative (subject) and genitive (около/севернее ...).
+/// nominative (subject) and an oblique form — genitive for suspects
+/// (около/севернее ...) and instrumental for items (в комнате с ...).
 typedef NameForm = ({String nom, String gen});
 
 /// Suspect name pool, index-aligned with the factory's English pool.
@@ -45,22 +46,23 @@ const List<(String, String)> ruRoomForms = [
   ('Обсерватория', 'в обсерватории'),
 ];
 
-/// Item names by kind: nominative + genitive (около стола).
+/// Item names by kind: nominative + instrumental (в комнате с ...); the
+/// same-room item clue (UX-8) replaced the old genitive forms (около ...).
 const Map<ObjectKind, NameForm> ruObjectForms = {
   ObjectKind.piano: (nom: 'Пианино', gen: 'Пианино'),
-  ObjectKind.plant: (nom: 'Растение', gen: 'Растения'),
-  ObjectKind.armor: (nom: 'Доспехи', gen: 'Доспехов'),
-  ObjectKind.chest: (nom: 'Сундук', gen: 'Сундука'),
-  ObjectKind.clock: (nom: 'Часы', gen: 'Часов'),
-  ObjectKind.globe: (nom: 'Глобус', gen: 'Глобуса'),
-  ObjectKind.portrait: (nom: 'Портрет', gen: 'Портрета'),
-  ObjectKind.fireplace: (nom: 'Камин', gen: 'Камина'),
-  ObjectKind.table: (nom: 'Стол', gen: 'Стола'),
-  ObjectKind.chair: (nom: 'Стул', gen: 'Стула'),
-  ObjectKind.flowers: (nom: 'Цветы', gen: 'Цветов'),
-  ObjectKind.sofa: (nom: 'Диван', gen: 'Дивана'),
-  ObjectKind.bookshelf: (nom: 'Стеллаж', gen: 'Стеллажа'),
-  ObjectKind.lamp: (nom: 'Лампа', gen: 'Лампы'),
+  ObjectKind.plant: (nom: 'Растение', gen: 'Растением'),
+  ObjectKind.armor: (nom: 'Доспехи', gen: 'Доспехами'),
+  ObjectKind.chest: (nom: 'Сундук', gen: 'Сундуком'),
+  ObjectKind.clock: (nom: 'Часы', gen: 'Часами'),
+  ObjectKind.globe: (nom: 'Глобус', gen: 'Глобусом'),
+  ObjectKind.portrait: (nom: 'Портрет', gen: 'Портретом'),
+  ObjectKind.fireplace: (nom: 'Камин', gen: 'Камином'),
+  ObjectKind.table: (nom: 'Стол', gen: 'Столом'),
+  ObjectKind.chair: (nom: 'Стул', gen: 'Стулом'),
+  ObjectKind.flowers: (nom: 'Цветы', gen: 'Цветами'),
+  ObjectKind.sofa: (nom: 'Диван', gen: 'Диваном'),
+  ObjectKind.bookshelf: (nom: 'Стеллаж', gen: 'Стеллажом'),
+  ObjectKind.lamp: (nom: 'Лампа', gen: 'Лампой'),
 };
 
 const String victimNomRu = 'жертва';
@@ -135,7 +137,8 @@ class NameForms {
     if (_ru) {
       return ruObjectForms[kind]?.gen ?? objectNom(kind);
     }
-    // The en templates already carry the article ("beside the {object}").
+    // The en templates already carry the article
+    // ("in the same room as the {object}").
     return _capitalized(kind.name);
   }
 

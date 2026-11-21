@@ -13,7 +13,7 @@ final List<RoomDef> rooms = [
 ];
 
 final List<ObjectDef> objects = [
-  ObjectDef(id: 'o0', kind: ObjectKind.piano, pos: p(0, 1)),
+  ObjectDef(id: 'o0', kind: ObjectKind.piano, pos: p(0, 2)),
 ];
 
 final Pos victimPos = p(2, 2);
@@ -110,11 +110,28 @@ void main() {
   });
 
   group('BesideObject', () {
-    test('true at Manhattan distance 1 from the object', () {
-      // (0,0) is beside piano (0,1).
+    test('true when the guest is in the object room, even far from it', () {
+      // s0 (0,0) and piano (0,2) share room r0.
       expect(eval(BesideObject(
           suspectId: 's0', objectId: 'o0', negated: false)), isTrue);
-      // (2,1) is not beside piano (0,1).
+      // (1,0) is also r0: same room, Manhattan 3 from the item — still true.
+      expect(
+          eval(BesideObject(suspectId: 's1', objectId: 'o0', negated: false),
+              at: {...placement, 's1': p(1, 0)}),
+          isTrue);
+      // Sitting on the item's cell (occupiable item) is the same room too.
+      expect(
+          eval(BesideObject(suspectId: 's1', objectId: 'o0', negated: false),
+              at: {...placement, 's1': p(0, 2)}),
+          isTrue);
+    });
+    test('false in an adjacent cell of another room (behind the wall)', () {
+      // (0,3) is r1: Manhattan 1 from piano (0,2) but through the wall.
+      expect(
+          eval(BesideObject(suspectId: 's1', objectId: 'o0', negated: false),
+              at: {...placement, 's1': p(0, 3)}),
+          isFalse);
+      // (2,1) is r2: different room; negation inverts.
       expect(eval(BesideObject(
           suspectId: 's2', objectId: 'o0', negated: false)), isFalse);
       expect(eval(BesideObject(

@@ -168,7 +168,7 @@
       }
     }
   },
-  "clueBesideObject": "{name} was beside the {object}.",
+  "clueBesideObject": "{name} was in the same room as the {object}.",
   "@clueBesideObject": {
     "placeholders": {
       "name": {
@@ -179,7 +179,7 @@
       }
     }
   },
-  "clueBesideObjectNot": "{name} was not beside the {object}.",
+  "clueBesideObjectNot": "{name} was not in the same room as the {object}.",
   "@clueBesideObjectNot": {
     "placeholders": {
       "name": {

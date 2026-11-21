@@ -173,12 +173,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String clueBesideObject(String name, String object) {
-    return '$name was beside the $object.';
+    return '$name was in the same room as the $object.';
   }
 
   @override
   String clueBesideObjectNot(String name, String object) {
-    return '$name was not beside the $object.';
+    return '$name was not in the same room as the $object.';
   }
 
   @override

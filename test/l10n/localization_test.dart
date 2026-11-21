@@ -31,7 +31,10 @@ CaseData poolFixture() => CaseData(
         RoomDef(
             id: 'r2', name: 'Kitchen', cells: [p(1, 0), p(1, 1), p(1, 3)], poolIndex: 2),
       ],
-      objects: const [],
+      objects: [
+        // In r0 with s0's solution cell: a truthful same-room item clue.
+        const ObjectDef(id: 'o0', kind: ObjectKind.table, pos: (row: 0, col: 2)),
+      ],
       suspects: const [
         Suspect(id: 's0', name: 'Jack', poolIndex: 9),
         Suspect(id: 's1', name: 'Vera', poolIndex: 15),
@@ -47,6 +50,7 @@ CaseData poolFixture() => CaseData(
             suspectId: 's2', targetId: 's0', direction: Direction.west, negated: false),
         const Beside(suspectId: 's0', targetId: 'V', negated: false),
         const InRoom(suspectId: 's2', roomId: 'r1', negated: true),
+        const BesideObject(suspectId: 's0', objectId: 'o0', negated: false),
       ],
       solution: {'s0': p(0, 0), 's1': p(0, 3), 's2': p(1, 2)},
     );
@@ -102,6 +106,40 @@ void main() {
         reason: 'Beside uses genitive victim');
     expect(describeClue(c.clues[5], c, l10n, names), 'Эллис — не на чердаке.',
         reason: 'negated InRoom with prep phrase');
+    expect(describeClue(c.clues[6], c, l10n, names), 'Джек — в комнате с Столом.',
+        reason: 'BesideObject uses the instrumental item form');
+    expect(
+        describeClue(
+            const BesideObject(suspectId: 's0', objectId: 'o0', negated: true),
+            c, l10n, names),
+        'Джек — не в комнате с Столом.',
+        reason: 'negated BesideObject');
+  });
+
+  test('ru item clue uses instrumental forms for every object kind (UX-8)', () {
+    final names = NameForms.forLocale('ru', poolFixture());
+    const instrumental = {
+      ObjectKind.table: 'Столом',
+      ObjectKind.chair: 'Стулом',
+      ObjectKind.flowers: 'Цветами',
+      ObjectKind.piano: 'Пианино',
+      ObjectKind.plant: 'Растением',
+      ObjectKind.armor: 'Доспехами',
+      ObjectKind.chest: 'Сундуком',
+      ObjectKind.clock: 'Часами',
+      ObjectKind.globe: 'Глобусом',
+      ObjectKind.portrait: 'Портретом',
+      ObjectKind.fireplace: 'Камином',
+      ObjectKind.sofa: 'Диваном',
+      ObjectKind.bookshelf: 'Стеллажом',
+      ObjectKind.lamp: 'Лампой',
+    };
+    expect(instrumental.keys.toSet(), equals(ObjectKind.values.toSet()),
+        reason: 'the instrumental pool must cover every object kind');
+    for (final entry in instrumental.entries) {
+      expect(names.objectGen(entry.key), entry.value,
+          reason: '${entry.key.name} instrumental form');
+    }
   });
 
   test('en clue grammar unchanged; names resolve from case data', () {
@@ -112,6 +150,13 @@ void main() {
     expect(describeClue(c.clues[0], c, l10n, names), 'Jack was in the Library.');
     expect(describeClue(c.clues[3], c, l10n, names), 'Ellis was west of Jack.');
     expect(describeClue(c.clues[4], c, l10n, names), 'Jack was beside the victim.');
+    expect(describeClue(c.clues[6], c, l10n, names),
+        'Jack was in the same room as the Table.');
+    expect(
+        describeClue(
+            const BesideObject(suspectId: 's0', objectId: 'o0', negated: true),
+            c, l10n, names),
+        'Jack was not in the same room as the Table.');
   });
 
   test('entries without poolIndex fall back to stored names', () {

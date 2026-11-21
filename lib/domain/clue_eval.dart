@@ -60,7 +60,9 @@ bool evaluateClue(
       }
       raw = _manhattan(suspectPos, posOf(targetId)) == 1;
     case BesideObject(:final objectId):
-      raw = _manhattan(suspectPos, objectById(objectId).pos) == 1;
+      // UX-8 / ADR 0004: the item clue means the guest shares the item's
+      // room, not Manhattan-adjacency through a wall.
+      raw = roomOf(rooms, suspectPos) == roomOf(rooms, objectById(objectId).pos);
   }
   return clue.negated ? !raw : raw;
 }

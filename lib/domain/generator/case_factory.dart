@@ -158,7 +158,16 @@ CaseData? _attempt(Difficulty difficulty, int seed, int widen) {
   if (picked.length > maxClues) return null;
   if (picked.length < difficulty.minClues) {
     final remaining = pool.where((c) => !picked.contains(c)).toList();
-    for (final clue in remaining) {
+    // Prefer clue types the case doesn't have yet so every type (e.g. the
+    // same-room item clue, UX-8/ADR 0004) can appear on cards even when it
+    // never contributes to uniqueness (a same-room BesideObject is
+    // logically an InRoom clue: one guest per room).
+    final present = picked.map((c) => c.typeName).toSet();
+    final ordered = [
+      ...remaining.where((c) => !present.contains(c.typeName)),
+      ...remaining.where((c) => present.contains(c.typeName)),
+    ];
+    for (final clue in ordered) {
       if (picked.length >= difficulty.minClues) break;
       picked.add(clue); // adding clues preserves uniqueness
     }
@@ -296,7 +305,9 @@ List<Clue> _cluePool(
       byType['beside']!.add(Beside(suspectId: s, targetId: victimId, negated: false));
     }
     for (final obj in objects) {
-      if (manhattan(sp, obj.pos) == 1) {
+      // UX-8 / ADR 0004: propose the full same-room relation, matching the
+      // new BesideObject semantics (not just Manhattan-1 cells).
+      if (roomOf(rooms, sp) == roomOf(rooms, obj.pos)) {
         byType['besideObject']!
             .add(BesideObject(suspectId: s, objectId: obj.id, negated: false));
       }

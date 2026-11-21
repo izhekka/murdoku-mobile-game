@@ -172,12 +172,12 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String clueBesideObject(String name, String object) {
-    return '$name — около $object.';
+    return '$name — в комнате с $object.';
   }
 
   @override
   String clueBesideObjectNot(String name, String object) {
-    return '$name — не около $object.';
+    return '$name — не в комнате с $object.';
   }
 
   @override

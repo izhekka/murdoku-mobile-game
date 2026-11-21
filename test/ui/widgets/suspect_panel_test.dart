@@ -126,7 +126,7 @@ void main() {
     expect(find.text('Drew'), findsOneWidget);
     expect(find.text('Drew was not south of the victim.'), findsOneWidget);
     expect(find.text('Ellis'), findsOneWidget);
-    expect(find.text('Ellis was beside the Clock.'), findsOneWidget);
+    expect(find.text('Ellis was in the same room as the Clock.'), findsOneWidget);
 
     // Placed suspect is marked.
     expect(find.byIcon(Icons.check_circle), findsOneWidget);

@@ -377,13 +377,13 @@ abstract class AppLocalizations {
   /// No description provided for @clueBesideObject.
   ///
   /// In en, this message translates to:
-  /// **'{name} was beside the {object}.'**
+  /// **'{name} was in the same room as the {object}.'**
   String clueBesideObject(String name, String object);
 
   /// No description provided for @clueBesideObjectNot.
   ///
   /// In en, this message translates to:
-  /// **'{name} was not beside the {object}.'**
+  /// **'{name} was not in the same room as the {object}.'**
   String clueBesideObjectNot(String name, String object);
 
   /// No description provided for @accuse.

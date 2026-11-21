@@ -148,6 +148,42 @@ void main() {
     }
   });
 
+  test('property: every generated BesideObject clue has the guest in the item room (UX-8)', () {
+    for (final difficulty in Difficulty.values) {
+      for (var seed = 1; seed <= 50; seed++) {
+        final c = generateCase(difficulty: difficulty, seed: seed);
+        for (final clue in c.clues.whereType<BesideObject>()) {
+          final obj = c.objects.firstWhere((o) => o.id == clue.objectId);
+          expect(roomOf(c.rooms, c.solution[clue.suspectId]!),
+              roomOf(c.rooms, obj.pos),
+              reason: 'seed $seed/${difficulty.name}: '
+                  'guest not in item room: ${clue.toJson()}');
+        }
+      }
+    }
+  });
+
+  test('property: generation uses the full same-room relation for item clues (UX-8)', () {
+    // The candidate pool must propose same-room candidates, not only
+    // Manhattan-1 ones: across 150 cases at least one item clue pairs a
+    // guest with an item in its room but NOT adjacent to it (ADR 0004:
+    // generation changes together with evaluation).
+    int nonAdjacent = 0;
+    for (final difficulty in Difficulty.values) {
+      for (var seed = 1; seed <= 50; seed++) {
+        final c = generateCase(difficulty: difficulty, seed: seed);
+        for (final clue in c.clues.whereType<BesideObject>()) {
+          final guest = c.solution[clue.suspectId]!;
+          final obj = c.objects.firstWhere((o) => o.id == clue.objectId);
+          final d = (guest.row - obj.pos.row).abs() + (guest.col - obj.pos.col).abs();
+          if (d != 1) nonAdjacent++;
+        }
+      }
+    }
+    expect(nonAdjacent, greaterThan(0),
+        reason: 'same-room item clues never appear beyond Manhattan-1');
+  });
+
   test('different seeds produce different cases (sanity)', () {
     // Under seed retry, case.seed is the successful seed, not the requested
     // one — so assert on determinism and cross-seed difference instead.
@@ -182,15 +218,22 @@ void main() {
   test('generated rooms draw from the whole pool, not constants (UX-1)', () {
     // The plan pinned seed 1 easy to poolIndex 1, but the shipped name
     // permutation for that seed is [10,15,5,9,7] — distribution is proven
-    // instead: distinct slots within a case, wide coverage across seeds.
+    // instead: distinct slots within a case, wide coverage across cases.
+    // Same-room item clues (UX-8) made uniqueness retries frequent, so
+    // several requested seeds can return the same successful seed; sample
+    // until 5 DISTINCT cases (bounded scan) rather than 5 requested seeds.
     final seen = <int>{};
-    for (var seed = 1; seed <= 5; seed++) {
+    final distinctCases = <int>{};
+    for (var seed = 1; seed <= 60 && distinctCases.length < 5; seed++) {
       final c = generateCase(difficulty: Difficulty.easy, seed: seed);
+      if (!distinctCases.add(c.seed)) continue;
       final idx = c.rooms.map((r) => r.poolIndex).toSet();
       expect(idx.length, c.rooms.length,
-          reason: 'seed $seed: room poolIndex values repeat');
+          reason: 'case ${c.seed}: room poolIndex values repeat');
       seen.addAll(idx);
     }
+    expect(distinctCases.length, 5,
+        reason: 'bounded scan should find 5 distinct easy cases');
     expect(seen.length, greaterThanOrEqualTo(10),
         reason: '5 cases only cover ${seen.length} of 16 pool slots');
   });
