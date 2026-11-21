@@ -1,0 +1,57 @@
+# Agent factory
+#
+# Canonical agent definitions live in .agents/agents/ (portable core: name,
+# description, optional tools, body). `make init <zcode|claude>` projects them
+# into each harness's native directory:
+#
+#   make init zcode  -> .zcode/agents/   (adds ZCode-only `color` chip)
+#   make init claude -> .claude/agents/  (tools array -> Claude's comma form)
+#
+# Both projections are committed real files, not symlinks: ZCode scans only
+# .zcode/agents/ for agents (no .agents/agents fallback, and its scanner skips
+# symlinks), while Claude Code scans .claude/agents/. Re-run after editing
+# anything in .agents/agents/.
+
+AGENTS_SRC := .agents/agents
+ZCODE_DST  := .zcode/agents
+CLAUDE_DST := .claude/agents
+
+# ZCode-only frontmatter key: UI chip color per agent (name=color)
+ZCODE_COLORS := task-executor=green issue-triage=orange code-reviewer=cyan ux-verifier=purple
+
+.PHONY: init zcode claude
+
+init: ## usage: make init <zcode|claude> — project .agents/agents/ into a harness dir
+	@if [ -z "$(filter-out init,$(MAKECMDGOALS))" ]; then \
+		echo "usage: make init <zcode|claude>" >&2; exit 2; \
+	fi
+
+zcode: ## project canonical agents into .zcode/agents/
+	@mkdir -p $(ZCODE_DST)
+	@found=0; \
+	for f in $(AGENTS_SRC)/*.md; do \
+		[ -e "$$f" ] || continue; \
+		found=1; \
+		n=$$(basename "$$f" .md); \
+		c=""; \
+		for kv in $(ZCODE_COLORS); do \
+			[ "$${kv%%=*}" = "$$n" ] && c="$${kv##*=}"; \
+		done; \
+		awk -v color="$$c" 'BEGIN{fm=0;cl=0} !cl && /^---[[:space:]]*$$/{if(fm){if(color!="")print "color: " color; print "---"; cl=1; next} fm=1; print "---"; next} !cl && fm {if($$1=="name:"||$$1=="description:"||$$1=="tools:")print; next} {print}' "$$f" > "$(ZCODE_DST)/$$n.md" || exit 1; \
+		echo "  zcode: $$n.md"; \
+	done; \
+	[ "$$found" = 1 ] || { echo "no agents found in $(AGENTS_SRC)/" >&2; exit 1; }
+	@echo "ZCode agents projected into $(ZCODE_DST)/"
+
+claude: ## project canonical agents into .claude/agents/
+	@mkdir -p $(CLAUDE_DST)
+	@found=0; \
+	for f in $(AGENTS_SRC)/*.md; do \
+		[ -e "$$f" ] || continue; \
+		found=1; \
+		n=$$(basename "$$f" .md); \
+		awk 'BEGIN{fm=0;cl=0} !cl && /^---[[:space:]]*$$/{if(fm){print "---"; cl=1; next} fm=1; print "---"; next} !cl && fm {if($$1=="name:"||$$1=="description:")print; if($$1=="tools:"){t=$$0; sub(/^tools:[[:space:]]*\[/,"",t); sub(/\][[:space:]]*$$/,"",t); print "tools: " t} next} {print}' "$$f" > "$(CLAUDE_DST)/$$n.md" || exit 1; \
+		echo "  claude: $$n.md"; \
+	done; \
+	[ "$$found" = 1 ] || { echo "no agents found in $(AGENTS_SRC)/" >&2; exit 1; }
+	@echo "Claude Code agents projected into $(CLAUDE_DST)/"

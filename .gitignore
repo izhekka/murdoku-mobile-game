@@ -46,3 +46,14 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# ZCode local client state (agent projections regenerate via `make init zcode`)
+/.zcode/
+
+# Claude Code local state (agent projections regenerate via `make init claude`)
+/.claude/
+
+# Superpowers plans are local working docs (agents write new ones there;
+# untracked by owner decision 2026-11-21)
+docs/superpowers/
+

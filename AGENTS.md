@@ -5,6 +5,12 @@ This repository is built by executing the plan at
 (Task 0 … Task 17). The plan's §2 Game Design Spec is binding; its *Interfaces*
 blocks pin public APIs across tasks — never rename them.
 
+## Guides
+
+| Topic | Guide |
+|-------|-------|
+| Branches, commits | [docs/git-workflow.md](docs/git-workflow.md) |
+
 ## Guardrails (summary of plan §1)
 
 - Work task-by-task, TDD: failing test first, then minimal implementation, then green.
