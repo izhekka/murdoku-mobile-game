@@ -45,6 +45,7 @@ dart run tool/preview_items.dart                          # render a labeled pre
 | Topic | Guide |
 |-------|-------|
 | Branches, commits | [docs/git-workflow.md](docs/git-workflow.md) |
+| Decision records | [docs/spec/README.md](docs/spec/README.md) |
 
 ## Guardrails (summary of plan §1)
 
