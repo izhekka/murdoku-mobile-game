@@ -190,3 +190,74 @@ construction, ~line 47), `test/domain/generator/case_factory_test.dart`.
 
 Sound/music, animations beyond Material defaults, new game mechanics, new
 dependencies, iOS build.
+
+---
+
+## Addendum (раунд обратной связи 2, 2026-11-21): задачи UX-8 … UX-10
+
+Обратная связь игрока после живого теста (скриншот усечённой карточки приложен
+к исходному запросу):
+- **F-8:** текст улик на карточках обрезается (2 строки + многоточие).
+- **F-9:** слишком большой пустой зазор над картой; если убрать его, карточки
+  станут выше — это же решает F-8.
+- **F-10 (ПРАВИЛО ИГРЫ):** улика «{гость} — около {предмета}» должна означать,
+  что гость находится **в той же комнате**, что и предмет, а не в соседней
+  клетке за стеной. Семантика типа BesideObject меняется: та же комната, не
+  смежная клетка. Улика между двумя гостями («рядом с {гостем}») остаётся
+  смежной клеткой (не трогать).
+
+### UX-8 (P1, правило игры): BesideObject = та же комната, что и предмет
+
+**Files:** `lib/domain/clue_eval.dart`, `lib/domain/localized_names.dart`
+(ру-формы предметов получают инструментальный падеж), `lib/l10n/app_en.arb`,
+`lib/l10n/app_ru.arb`, `lib/ui/widgets/suspect_panel.dart` (шаблон), тесты:
+`test/domain/clue_eval_test.dart`, `test/domain/generator/case_factory_test.dart`,
+`test/l10n/localization_test.dart`.
+
+- [ ] **RED:** clue_eval тест — BesideObject истинна, когда гость и предмет в
+  одной комнате; ложна, когда соседняя клетка через стену (гость (0,0), предмет
+  (0,2) — одна комната ✓; гость (0,3), предмет (0,2) — соседняя клетка другой
+  комнаты ✗). Обновить существующие тесты BesideObject (прежняя семантика
+  Manhattan-1) — они меняются на новую.
+- [ ] **GREEN:** `clue_eval.dart` — ветка `BesideObject`:
+  `roomOf(rooms, suspectPos) == roomOf(rooms, item.pos)` (требуется rooms в
+  evaluateClue — параметр уже есть).
+- [ ] **RED:** generator property тест — каждая BesideObject-улика: комната
+  гостя == комната ячейки предмета; лексика шаблона меняется (см. ниже);
+  ru-формы предметов получают инструментальный падеж (стол→столом, стул→стулом,
+  цветы→цветами, пианино→пианино, растение→растением, доспехи→доспехами,
+  сундук→сундуком, часы→часами, глобус→глобусом, портрет→портретом,
+  камин→камином, диван→диваном, стеллаж→стеллажом, лампа→лампой).
+- [ ] **GREEN:** `tool/build_item_icons.sh` не меняется; шаблоны:
+  en `"{name} was in the same room as the {object}."`; ru
+  `"{name} — в комнате с {object}."` (ключи clueBesideObject/clueBesideObjectNot —
+  формулировка меняется в обоих arb; старая «около …» удаляется).
+- [ ] Внимание: улика между гостями («рядом с {гость}») остаётся
+  Manhattan-смежной — не менять. Если игрок later попросит то же для гостей —
+  отдельная задача.
+- [ ] **Коммит:** `feat(game): item clue means same room as the item`
+
+### UX-9 (P1): убрать пустоту над картой, карточки выше — полный текст улик
+
+**Files:** `lib/ui/screens/game_screen.dart` (panel = Expanded вместо фиксированной
+высоты), `lib/ui/widgets/suspect_panel.dart` (GridView растягивается; карточки
+выше; clue Text без обрезки), `test/ui/screens/game_screen_test.dart`,
+`test/ui/widgets/suspect_panel_test.dart`.
+
+- [ ] **RED:** layout тест — высота панели подозреваемых ≥ 240px на 412×915;
+  полный текст самой длинной улики виден без обрезки (find.text(полная улика)
+  findsOneWidget на раскрытой карточке); зазор между доской и панелью ≤ 8px.
+- [ ] **GREEN:** game_screen: Column [Expanded(board), Expanded(flex → panel),
+  toolbar] — панель занимает всё пространство под доской; suspect_panel:
+  GridView заполняет высоту, карточки растягиваются; clue Text — без maxLines
+  (высота карточки ограничивает, переполнение исключено проверкой текст-скейла).
+- [ ] Тест текст-скейла 2.0 на весь game screen остаётся зелёным.
+- [ ] **Коммит:** `feat(ui): no dead space above map, tall cards with full clue text`
+
+### UX-10: регрессия + проверка на устройстве
+
+- [ ] Полный гейт (analyze 0 + все тесты), smoke на эмуляторе.
+- [ ] Скриншот-ревью: карточки без обрезки, «в комнате с …» в уликах, пустота
+  исчезла. Сервер предпросмотра нужно перезапустить
+  (`flutter run -d web-server --web-hostname 0.0.0.0 --web-port 8321`).
+- [ ] **Коммит:** `test: regression pass for UX-8/9`
