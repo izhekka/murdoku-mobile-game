@@ -57,3 +57,9 @@ app.*.map.json
 # untracked by owner decision 2026-11-21)
 docs/superpowers/
 
+# Codegraph local index state (daemon DB + socket; regenerated locally)
+.codegraph/
+
+# Superpowers local SDD state (scratch/progress; regenerated per task)
+.superpowers/
+
