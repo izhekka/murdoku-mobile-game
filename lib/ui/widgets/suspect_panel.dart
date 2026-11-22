@@ -188,10 +188,11 @@ class SuspectPanel extends StatelessWidget {
     final direction = Directionality.of(context);
     // Card insets: 4 outer padding + 8 container padding + 2 border per side.
     final textWidth = math.max(cardWidth - 2 * (4 + 8 + 2), 1.0);
-    // The name row's text width: avatar (24) plus its 6px gap; placed cards
-    // narrow it further with the 18px check icon, but scale-down names grow
-    // *smaller* in a narrower row, so this wider (unplaced) bound yields the
-    // taller name row and the avatar floors the height in the common case.
+    // The name row's text width: avatar (24) plus its 6px gap. The placed
+    // check icon is a badge on the avatar's corner (issue 18), so placed and
+    // unplaced rows share this width; scale-down names grow *smaller* in a
+    // narrower row, so this bound yields the taller name row and the avatar
+    // floors the height in the common case.
     final nameWidth = math.max(textWidth - 24 - 6, 1.0);
 
     double measure(String text, TextStyle? style, double width) {
@@ -306,16 +307,41 @@ class _SuspectCard extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    Avatar(color: color, selected: selected, size: 24),
+                    // Placed marker (issue 18): the check icon rides the
+                    // avatar's corner as a badge instead of taking an inline
+                    // row slot — an inline 18px icon squeezed the placed name
+                    // to ~18.7px at the 300px side panel, scaling the widest
+                    // pool names ('Морган'/'Харпер') to ~0.37. Badged, the
+                    // layout width stays exactly the avatar's 24dp (the badge
+                    // paints past the stack bounds via Clip.none), so placed
+                    // and unplaced rows share the same ~36.7px name slot in
+                    // every layout; unplaced cards are untouched.
+                    SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          Avatar(color: color, selected: selected, size: 24),
+                          if (isPlaced)
+                            Positioned(
+                              right: -4,
+                              bottom: -4,
+                              child: Icon(Icons.check_circle,
+                                  size: 12, color: scheme.primary),
+                            ),
+                        ],
+                      ),
+                    ),
                     const SizedBox(width: 6),
                     // Name renders in full on the wide side panel (issue
                     // 15): no ellipsis cap — the name lays out at its
                     // natural width and scales down to fit the row, so
                     // single-word names (which cannot wrap) are never
-                    // truncated and never bleed over the placed check
-                    // icon. Where the name already fits (narrow phones),
-                    // scaleDown renders it at 1.0 — narrow layout
-                    // unchanged.
+                    // truncated. Where the name already fits (narrow
+                    // phones), scaleDown renders it at 1.0. With the placed
+                    // check badged onto the avatar (issue 18) this row keeps
+                    // the same slot whether the card is placed or not.
                     Expanded(
                       child: FittedBox(
                         fit: BoxFit.scaleDown,
@@ -326,9 +352,6 @@ class _SuspectCard extends StatelessWidget {
                         ),
                       ),
                     ),
-                    if (isPlaced)
-                      Icon(Icons.check_circle,
-                          size: 18, color: scheme.primary),
                   ],
                 ),
                 const SizedBox(height: 4),

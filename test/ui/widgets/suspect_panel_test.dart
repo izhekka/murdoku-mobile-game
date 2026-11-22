@@ -1,3 +1,6 @@
+import 'dart:math' as math;
+
+import 'package:cupertino_ui/cupertino_ui.dart' show GlobalCupertinoLocalizations;
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
@@ -77,6 +80,20 @@ final CaseData longNameFixture = fixture.copyWith(
   suspects: [
     const Suspect(id: 's0', name: 'Mercedes Ann Vane'),
     ...fixture.suspects.skip(1),
+  ],
+);
+
+/// Same board and clues as [fixture], but every suspect carries one of the
+/// widest pool names (6 glyphs in both locales: 'Harper'/'Morgan'/'Oakley'
+/// en, 'Харпер'/'Морган' ru) and every card is placed, so the check marker
+/// squeezes the name row at its worst case (issue 18).
+final CaseData poolNameFixture = fixture.copyWith(
+  suspects: [
+    const Suspect(id: 's0', name: 'Harper', poolIndex: 7),
+    const Suspect(id: 's1', name: 'Morgan', poolIndex: 12),
+    const Suspect(id: 's2', name: 'Oakley', poolIndex: 14),
+    const Suspect(id: 's3', name: 'Frank', poolIndex: 5),
+    const Suspect(id: 's4', name: 'Ellis', poolIndex: 4),
   ],
 );
 
@@ -160,11 +177,22 @@ Widget wideWrap(CaseData c) => MaterialApp(
 
 /// The 300px side slot exactly as the wide game screen hosts the panel:
 /// bounded but loose height, so the panel renders the grid branch and
-/// grows content-sized rows (issue 15).
-Widget sidePanelWrap(CaseData c, {Map<String, Pos> placed = const {}}) =>
+/// grows content-sized rows (issue 15). [locale] pins the l10n under test
+/// (pool names resolve through the localized pools, issue 18); the delegate
+/// list mirrors the app's (lib/app.dart): material_ui's own Material/Cupertino
+/// delegates must come last or non-English locales warn.
+Widget sidePanelWrap(
+  CaseData c, {
+  Map<String, Pos> placed = const {},
+  Locale locale = const Locale('en'),
+}) =>
     MaterialApp(
-      locale: const Locale('en'),
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      locale: locale,
+      localizationsDelegates: [
+        ...AppLocalizations.localizationsDelegates,
+        GlobalMaterialLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
       supportedLocales: AppLocalizations.supportedLocales,
       home: Scaffold(
         body: Align(
@@ -395,5 +423,72 @@ void main() {
             'name of ${s.id} ("${s.name}") is not truncated on the 300px card',
       );
     }
+  });
+
+  /// Pumps [poolNameFixture] with every suspect placed at the 300px side
+  /// slot and asserts each placed name renders at a readable scale
+  /// (issue 18).
+  Future<void> expectPlacedNamesAtReadableScale(
+      WidgetTester tester, Locale locale) async {
+    await tester.pumpWidget(sidePanelWrap(
+      poolNameFixture,
+      locale: locale,
+      placed: {
+        for (final s in poolNameFixture.suspects)
+          s.id: poolNameFixture.solution[s.id]!,
+      },
+    ));
+    await tester.pump();
+
+    final names = NameForms.forLocale(locale.languageCode, poolNameFixture);
+    for (final s in poolNameFixture.suspects) {
+      final displayed = names.nom(s.id);
+      final paragraph =
+          tester.renderObject<RenderParagraph>(find.text(displayed));
+      final fitted = tester.renderObject<RenderFittedBox>(
+        find.ancestor(of: find.text(displayed), matching: find.byType(FittedBox)),
+      );
+      // FittedBox(scaleDown) lays its child out unconstrained, so the
+      // paragraph's size is the name's natural, unscaled size; the painted
+      // scale is slot width / natural width (capped at 1 by scaleDown).
+      final slot = fitted.constraints.maxWidth;
+      final scale = math.min(1.0, slot / paragraph.size.width);
+      // The bug (issue 18): the inline 18px check icon left the placed name
+      // only ~18.7px at the 300px side slot — in this renderer's metrics
+      // (Ahem: 1em advance per glyph, titleSmall 14px) the 6-glyph pool
+      // names scale to ~0.22. The badge keeps them the unplaced ~36.7px
+      // slot.
+      expect(
+        scale,
+        greaterThan(0.35),
+        reason: 'placed name "$displayed" ($locale) renders at scale $scale',
+      );
+      // The AC's explicit slot floor: the placed name keeps ~36px.
+      expect(
+        slot,
+        greaterThanOrEqualTo(36.0),
+        reason: 'placed name "$displayed" ($locale) slot is $slot px',
+      );
+      // The #15 no-truncation guarantee still holds on placed cards in both
+      // locales: the paragraph lays out at its natural (unellipsized) width.
+      expect(
+        paragraph.size.width,
+        greaterThanOrEqualTo(
+            paragraph.getMinIntrinsicWidth(paragraph.size.height) - 0.5),
+        reason: 'placed name "$displayed" ($locale) is not truncated',
+      );
+    }
+  }
+
+  testWidgets(
+      'side panel at 300px: placed names render at a readable scale '
+      '(issue 18, en)', (tester) async {
+    await expectPlacedNamesAtReadableScale(tester, const Locale('en'));
+  });
+
+  testWidgets(
+      'side panel at 300px: placed names render at a readable scale '
+      '(issue 18, ru)', (tester) async {
+    await expectPlacedNamesAtReadableScale(tester, const Locale('ru'));
   });
 }
