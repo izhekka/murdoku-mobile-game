@@ -1,6 +1,5 @@
 import 'dart:math' as math;
 
-import 'package:cupertino_ui/cupertino_ui.dart' show GlobalCupertinoLocalizations;
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
@@ -9,6 +8,8 @@ import 'package:murdoku/domain/localized_names.dart';
 import 'package:murdoku/domain/models.dart';
 import 'package:murdoku/l10n/generated/app_localizations.dart';
 import 'package:murdoku/ui/widgets/suspect_panel.dart';
+
+import '../../support/localized_test_app.dart';
 
 Pos p(int row, int col) => (row: row, col: col);
 
@@ -178,32 +179,23 @@ Widget wideWrap(CaseData c) => MaterialApp(
 /// The 300px side slot exactly as the wide game screen hosts the panel:
 /// bounded but loose height, so the panel renders the grid branch and
 /// grows content-sized rows (issue 15). [locale] pins the l10n under test
-/// (pool names resolve through the localized pools, issue 18); the delegate
-/// list mirrors the app's (lib/app.dart): material_ui's own Material/Cupertino
-/// delegates must come last or non-English locales warn.
+/// (pool names resolve through the localized pools, issue 18); the
+/// localization setup comes from the shared helper (issue 21).
 Widget sidePanelWrap(
   CaseData c, {
   Map<String, Pos> placed = const {},
   Locale locale = const Locale('en'),
 }) =>
-    MaterialApp(
+    localizedTestApp(
       locale: locale,
-      localizationsDelegates: [
-        ...AppLocalizations.localizationsDelegates,
-        GlobalMaterialLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-      ],
-      supportedLocales: AppLocalizations.supportedLocales,
-      home: Scaffold(
-        body: Align(
-          child: SizedBox(
-            width: 300,
-            child: SuspectPanel(
-              caseData: c,
-              placed: placed,
-              selectedSuspectId: null,
-              onSuspectTap: (_) {},
-            ),
+      child: Align(
+        child: SizedBox(
+          width: 300,
+          child: SuspectPanel(
+            caseData: c,
+            placed: placed,
+            selectedSuspectId: null,
+            onSuspectTap: (_) {},
           ),
         ),
       ),
