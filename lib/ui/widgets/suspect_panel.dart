@@ -72,7 +72,9 @@ String describeClue(
 /// The suspects panel: a 3x2 grid of compact cards on phones (tall enough to
 /// show each card's full clue text, uncapped), a vertical column on wide
 /// layouts. Wherever the host leaves the height loose, cards grow to fit
-/// their full clue text instead of clipping it.
+/// their full clue text instead of clipping it. Guest names never
+/// ellipsize: they render at full size where they fit and scale down to
+/// their row where they don't (issue 15).
 class SuspectPanel extends StatelessWidget {
   const SuspectPanel({
     super.key,
@@ -187,8 +189,9 @@ class SuspectPanel extends StatelessWidget {
     // Card insets: 4 outer padding + 8 container padding + 2 border per side.
     final textWidth = math.max(cardWidth - 2 * (4 + 8 + 2), 1.0);
     // The name row's text width: avatar (24) plus its 6px gap; placed cards
-    // narrow it further with the 18px check icon, but names are short and
-    // the avatar floors the row height in the common case.
+    // narrow it further with the 18px check icon, but scale-down names grow
+    // *smaller* in a narrower row, so this wider (unplaced) bound yields the
+    // taller name row and the avatar floors the height in the common case.
     final nameWidth = math.max(textWidth - 24 - 6, 1.0);
 
     double measure(String text, TextStyle? style, double width) {
@@ -202,10 +205,26 @@ class SuspectPanel extends StatelessWidget {
       return height;
     }
 
+    // Scale-down-to-fit name row (issue 15): the name lays out at its
+    // natural width on one line, then shrinks to the row width — the row
+    // height is the scaled one-line height, floored by the 24dp avatar.
+    double fittedNameHeight(String text, TextStyle? style, double width) {
+      final painter = TextPainter(
+        text: TextSpan(text: text, style: base.merge(style)),
+        textDirection: direction,
+        textScaler: scaler,
+      )..layout(maxWidth: double.infinity);
+      final naturalWidth = painter.width;
+      final naturalHeight = painter.height;
+      painter.dispose();
+      final scale = math.min(1.0, width / math.max(naturalWidth, 1.0));
+      return naturalHeight * scale;
+    }
+
     var maxHeight = 0.0;
     for (final suspect in caseData.suspects) {
-      final nameHeight =
-          measure(nameOf(suspect.id), theme.textTheme.titleSmall, nameWidth);
+      final nameHeight = fittedNameHeight(
+          nameOf(suspect.id), theme.textTheme.titleSmall, nameWidth);
       final joined =
           (clueTextsBySuspect[suspect.id] ?? const <String>[]).join('\n');
       final clueHeight = joined.isEmpty
@@ -289,11 +308,22 @@ class _SuspectCard extends StatelessWidget {
                   children: [
                     Avatar(color: color, selected: selected, size: 24),
                     const SizedBox(width: 6),
+                    // Name renders in full on the wide side panel (issue
+                    // 15): no ellipsis cap — the name lays out at its
+                    // natural width and scales down to fit the row, so
+                    // single-word names (which cannot wrap) are never
+                    // truncated and never bleed over the placed check
+                    // icon. Where the name already fits (narrow phones),
+                    // scaleDown renders it at 1.0 — narrow layout
+                    // unchanged.
                     Expanded(
-                      child: Text(
-                        displayName,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.titleSmall,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          displayName,
+                          style: Theme.of(context).textTheme.titleSmall,
+                        ),
                       ),
                     ),
                     if (isPlaced)

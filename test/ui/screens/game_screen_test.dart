@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -11,6 +13,7 @@ import 'package:murdoku/domain/models.dart';
 import 'package:murdoku/l10n/generated/app_localizations.dart';
 import 'package:murdoku/state/game_controller.dart';
 import 'package:murdoku/state/providers.dart';
+import 'package:murdoku/storage/prefs_repository.dart';
 import 'package:murdoku/ui/screens/home_screen.dart';
 import 'package:murdoku/ui/widgets/accuse_sheet.dart';
 import 'package:murdoku/ui/widgets/dialogs.dart';
@@ -27,8 +30,11 @@ Future<void> pumpGame(
   WidgetTester tester, {
   Size size = const Size(800, 600),
   double textScale = 1.0,
+  LanguageSetting language = LanguageSetting.russian,
 }) async {
-  SharedPreferences.setMockInitialValues({});
+  SharedPreferences.setMockInitialValues({
+    'murdoku.settings': jsonEncode(Settings(language: language).toJson()),
+  });
   final prefs = await SharedPreferences.getInstance();
   container = ProviderContainer(overrides: [
     sharedPreferencesProvider.overrideWithValue(prefs),
@@ -91,6 +97,35 @@ double idealParagraphHeight(RenderParagraph paragraph) {
   final height = painter.height;
   painter.dispose();
   return height;
+}
+
+/// Issue 15 no-clipping property for a name row paragraph: the box must be
+/// at least the name's ideal height at its laid-out width, and no word may
+/// be width-cut (single-word pool names cannot wrap).
+void expectNameParagraphInFull(
+  WidgetTester tester,
+  String name, {
+  required String suspectId,
+}) {
+  final paragraph = tester.renderObject<RenderParagraph>(
+    find.descendant(
+      of: find.byType(SuspectPanel),
+      matching: find.text(name),
+    ),
+  );
+  expect(
+    paragraph.size.height,
+    greaterThanOrEqualTo(idealParagraphHeight(paragraph) - 0.5),
+    reason:
+        'name of $suspectId ("$name") renders in full on the wide side panel',
+  );
+  expect(
+    paragraph.size.width,
+    greaterThanOrEqualTo(
+        paragraph.getMinIntrinsicWidth(paragraph.size.height) - 0.5),
+    reason:
+        'name of $suspectId ("$name") is not truncated on the wide side panel',
+  );
 }
 
 void main() {
@@ -445,6 +480,43 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text(longest.text), findsOneWidget,
         reason: 'the longest clue is fully rendered on the expanded card');
+  });
+
+  testWidgets(
+      'wide side panel renders every guest name in full, unclipped (issue 15)',
+      (tester) async {
+    await pumpGame(tester, size: const Size(1200, 896));
+    expect(tester.takeException(), isNull);
+
+    final l10n = l10nOf(tester);
+    final names = NameForms.forLocale(l10n.localeName, fixedCase);
+    for (final s in fixedCase.suspects) {
+      expectNameParagraphInFull(tester, names.nom(s.id), suspectId: s.id);
+    }
+
+    // A placed card carries the 18px check icon; its name row gets ~18px
+    // less width — the name must still render in full.
+    await placeFirstGuest(tester);
+    final first = fixedCase.solution.entries.first.key;
+    expectNameParagraphInFull(tester, names.nom(first), suspectId: first);
+  });
+
+  testWidgets(
+      'wide side panel renders every en guest name in full, unclipped '
+      '(issue 15)', (tester) async {
+    await pumpGame(
+      tester,
+      size: const Size(1200, 896),
+      language: LanguageSetting.english,
+    );
+    expect(tester.takeException(), isNull);
+
+    final l10n = l10nOf(tester);
+    expect(l10n.localeName, 'en', reason: 'the en settings choice applies');
+    final names = NameForms.forLocale(l10n.localeName, fixedCase);
+    for (final s in fixedCase.suspects) {
+      expectNameParagraphInFull(tester, names.nom(s.id), suspectId: s.id);
+    }
   });
 
   testWidgets('pause menu opens from the toolbar; Resume closes it (issue 11)',

@@ -69,6 +69,17 @@ final CaseData multiClueFixture = buildFixture([
   BesideObject(suspectId: 's4', objectId: 'o1', negated: false),
 ]);
 
+/// Same board and clues as [fixture], but s0 carries a long multi-word
+/// display name (stored/custom cases may carry arbitrary names) and s1 is
+/// placed (its check icon narrows the name row): both stress the name row
+/// at the 300px side-panel card width (issue 15).
+final CaseData longNameFixture = fixture.copyWith(
+  suspects: [
+    const Suspect(id: 's0', name: 'Mercedes Ann Vane'),
+    ...fixture.suspects.skip(1),
+  ],
+);
+
 /// Stateful harness so taps move the selection like the real game does.
 class Harness extends StatefulWidget {
   const Harness({super.key, this.onSuspectTap});
@@ -142,6 +153,29 @@ Widget wideWrap(CaseData c) => MaterialApp(
             placed: const {},
             selectedSuspectId: null,
             onSuspectTap: (_) {},
+          ),
+        ),
+      ),
+    );
+
+/// The 300px side slot exactly as the wide game screen hosts the panel:
+/// bounded but loose height, so the panel renders the grid branch and
+/// grows content-sized rows (issue 15).
+Widget sidePanelWrap(CaseData c, {Map<String, Pos> placed = const {}}) =>
+    MaterialApp(
+      locale: const Locale('en'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: Scaffold(
+        body: Align(
+          child: SizedBox(
+            width: 300,
+            child: SuspectPanel(
+              caseData: c,
+              placed: placed,
+              selectedSuspectId: null,
+              onSuspectTap: (_) {},
+            ),
           ),
         ),
       ),
@@ -325,6 +359,40 @@ void main() {
         paragraph.size.height,
         greaterThanOrEqualTo(idealParagraphHeight(paragraph) - 0.5),
         reason: 'clues of ${entry.key} render in full on the wide card',
+      );
+    }
+  });
+
+  testWidgets(
+      'side panel at 300px: guest names render in full, unclipped (issue 15)',
+      (tester) async {
+    await tester.pumpWidget(sidePanelWrap(
+      longNameFixture,
+      placed: {'s1': longNameFixture.solution['s1']!},
+    ));
+    await tester.pump();
+
+    for (final s in longNameFixture.suspects) {
+      final paragraph =
+          tester.renderObject<RenderParagraph>(find.text(s.name));
+      // Height: the box must be at least the name's ideal height at its
+      // laid-out width — shorter means the name row clipped the text (the
+      // issue's no-clipping property applied to the name row).
+      expect(
+        paragraph.size.height,
+        greaterThanOrEqualTo(idealParagraphHeight(paragraph) - 0.5),
+        reason:
+            'name of ${s.id} ("${s.name}") renders in full on the 300px card',
+      );
+      // Width: pool names are single words and cannot wrap, so nothing may
+      // cut them either — the paragraph must lay out at its natural width
+      // (today's ellipsis truncates it inside a ~36.7px box).
+      expect(
+        paragraph.size.width,
+        greaterThanOrEqualTo(
+            paragraph.getMinIntrinsicWidth(paragraph.size.height) - 0.5),
+        reason:
+            'name of ${s.id} ("${s.name}") is not truncated on the 300px card',
       );
     }
   });
