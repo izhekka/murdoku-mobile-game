@@ -24,6 +24,12 @@ Pos p(int row, int col) => (row: row, col: col);
 
 final CaseData fixedCase = generateCase(difficulty: Difficulty.easy, seed: 3);
 
+/// Standard cases always carry a negated clue (issue #10 caps it at 1);
+/// issue 16 proves the negated clue template renders on the real game
+/// screen, not just in hand-built suspect-panel fixtures.
+final CaseData standardCase =
+    generateCase(difficulty: Difficulty.standard, seed: 3);
+
 late ProviderContainer container;
 
 Future<void> pumpGame(
@@ -31,6 +37,8 @@ Future<void> pumpGame(
   Size size = const Size(800, 600),
   double textScale = 1.0,
   LanguageSetting language = LanguageSetting.russian,
+  Difficulty difficulty = Difficulty.easy,
+  int seed = 3,
 }) async {
   SharedPreferences.setMockInitialValues({
     'murdoku.settings': jsonEncode(Settings(language: language).toJson()),
@@ -47,8 +55,8 @@ Future<void> pumpGame(
   tester.platformDispatcher.textScaleFactorTestValue = textScale;
   addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
   container.read(gameControllerProvider.notifier).startNewCase(
-        Difficulty.easy,
-        seed: 3,
+        difficulty,
+        seed: seed,
       );
   await tester.pumpWidget(UncontrolledProviderScope(
     container: container,
@@ -627,5 +635,59 @@ void main() {
     expect(find.byType(HomeScreen), findsOneWidget);
     expect(container.read(gameControllerProvider), isNull,
         reason: 'confirming abandon quits the case');
+  });
+
+  testWidgets('a negated clue renders on the game screen (issue 16)',
+      (tester) async {
+    await pumpGame(tester, difficulty: Difficulty.standard);
+    final l10n = l10nOf(tester);
+    final names = NameForms.forLocale(l10n.localeName, standardCase);
+
+    final negated = standardCase.clues.where((c) => c.negated).toList();
+    expect(negated, isNotEmpty,
+        reason: 'standard cases always carry a negated clue (issue #10)');
+    final text = describeClue(negated.first, standardCase, l10n, names);
+    expect(negated.first.negated, isTrue);
+
+    // The positive counterpart of the same predicate must render through the
+    // *Not template, not the plain one: both strings differ only by the
+    // negation («не»), so finding the negated one and not the positive one
+    // proves the negated rendering path is what ran.
+    final positive = switch (negated.first) {
+      InRoom(:final suspectId, :final roomId) =>
+        InRoom(suspectId: suspectId, roomId: roomId, negated: false),
+      SameRow(:final suspectId, :final targetId) =>
+        SameRow(suspectId: suspectId, targetId: targetId, negated: false),
+      SameCol(:final suspectId, :final targetId) =>
+        SameCol(suspectId: suspectId, targetId: targetId, negated: false),
+      DirectionClue(
+        :final suspectId,
+        :final targetId,
+        :final direction,
+      ) =>
+        DirectionClue(
+            suspectId: suspectId,
+            targetId: targetId,
+            direction: direction,
+            negated: false),
+      Beside(:final suspectId, :final targetId) =>
+        Beside(suspectId: suspectId, targetId: targetId, negated: false),
+      BesideObject(:final suspectId, :final objectId) =>
+        BesideObject(suspectId: suspectId, objectId: objectId, negated: false),
+    };
+    final positiveText = describeClue(positive, standardCase, l10n, names);
+    expect(positiveText, isNot(text),
+        reason: 'the negated and positive templates must differ');
+
+    container
+        .read(gameControllerProvider.notifier)
+        .selectSuspect(negated.first.suspectId);
+    await tester.pumpAndSettle();
+
+    expect(find.text(text), findsOneWidget,
+        reason: 'the negated clue template renders on the real game screen');
+    expect(find.text(positiveText), findsNothing,
+        reason: 'the plain (non-negated) template of the same predicate '
+            'must not stand in for the negated one');
   });
 }
