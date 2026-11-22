@@ -30,6 +30,11 @@ final CaseData fixedCase = generateCase(difficulty: Difficulty.easy, seed: 3);
 final CaseData standardCase =
     generateCase(difficulty: Difficulty.standard, seed: 3);
 
+/// The case `pumpGame` actually started for the current test (issue 19).
+/// Tap helpers derive grid geometry and solution entries from it so a
+/// screen-level test can combine them with any difficulty/seed.
+CaseData currentCase = fixedCase;
+
 late ProviderContainer container;
 
 Future<void> pumpGame(
@@ -58,6 +63,9 @@ Future<void> pumpGame(
         difficulty,
         seed: seed,
       );
+  // The helpers (tapCell, placeFirstGuest) must target the case actually
+  // started, not the fixed easy fixture (issue 19).
+  currentCase = container.read(gameControllerProvider)!.caseData;
   await tester.pumpWidget(UncontrolledProviderScope(
     container: container,
     child: const MurdokuApp(),
@@ -73,7 +81,7 @@ AppLocalizations l10nOf(WidgetTester tester) =>
 
 Future<void> tapCell(WidgetTester tester, int row, int col) async {
   final boardRect = tester.getRect(find.byKey(const Key('board_view')));
-  final cell = boardRect.width / fixedCase.gridSize;
+  final cell = boardRect.width / currentCase.gridSize;
   await tester.tapAt(Offset(
     boardRect.left + (col + 0.5) * cell,
     boardRect.top + (row + 0.5) * cell,
@@ -84,7 +92,7 @@ Future<void> tapCell(WidgetTester tester, int row, int col) async {
 /// Places the first solution guest through the real select + tap flow.
 Future<void> placeFirstGuest(WidgetTester tester) async {
   final notifier = container.read(gameControllerProvider.notifier);
-  final first = fixedCase.solution.entries.first;
+  final first = currentCase.solution.entries.first;
   notifier.selectSuspect(first.key);
   await tester.pumpAndSettle();
   await tapCell(tester, first.value.row, first.value.col);
@@ -393,15 +401,16 @@ void main() {
     // A guest can actually be placed in the bottom row through a real tap.
     // Pick a bottom-row cell the case leaves empty (not the victim's, not
     // under an object) so the place tool accepts it.
-    final lastRow = fixedCase.gridSize - 1;
+    final lastRow = currentCase.gridSize - 1;
     final freeCol = [
-      for (var col = 0; col < fixedCase.gridSize; col++)
-        if (fixedCase.victimPos != (row: lastRow, col: col) &&
-            fixedCase.objects.every((o) => o.pos != (row: lastRow, col: col)))
+      for (var col = 0; col < currentCase.gridSize; col++)
+        if (currentCase.victimPos != (row: lastRow, col: col) &&
+            currentCase.objects
+                .every((o) => o.pos != (row: lastRow, col: col)))
           col,
     ].first;
-    final cell = boardRect.width / fixedCase.gridSize;
-    final firstId = fixedCase.suspects.first.id;
+    final cell = boardRect.width / currentCase.gridSize;
+    final firstId = currentCase.suspects.first.id;
     container.read(gameControllerProvider.notifier).selectSuspect(firstId);
     await tester.pumpAndSettle();
     await tester.tapAt(Offset(
@@ -720,5 +729,31 @@ void main() {
     expect(find.text(positiveText), findsNothing,
         reason: 'the plain (non-negated) template of the same predicate '
             'must not stand in for the negated one');
+  });
+
+  testWidgets(
+      'tap helpers place into the cell of the case pumpGame started (issue 19)',
+      (tester) async {
+    await pumpGame(tester, difficulty: Difficulty.standard);
+    final notifier = container.read(gameControllerProvider.notifier);
+
+    // placeFirstGuest must drive the started case's first solution guest,
+    // not the easy fixture's (standard s0 solves (0,2)).
+    await placeFirstGuest(tester);
+    final first = standardCase.solution.entries.first;
+    expect(container.read(gameControllerProvider)!.placed[first.key],
+        first.value,
+        reason: 'placeFirstGuest targets the case pumpGame started');
+
+    // A last-column cell proves the 6x6 geometry: with the stale fixed-5
+    // cell size the tap point lands at 1.1 board widths — off the board.
+    final last = standardCase.solution.entries
+        .firstWhere((e) => e.value.col == standardCase.gridSize - 1);
+    notifier.selectSuspect(last.key);
+    await tester.pumpAndSettle();
+    await tapCell(tester, last.value.row, last.value.col);
+    expect(container.read(gameControllerProvider)!.placed[last.key],
+        last.value,
+        reason: 'tapCell derives its cell size from the started case');
   });
 }
