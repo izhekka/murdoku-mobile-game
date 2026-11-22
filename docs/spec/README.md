@@ -2,11 +2,21 @@
 
 Committed, append-only history of decisions that bind future work.
 
-Scope test: **would a fresh contributor or a future agent violate
-something by not knowing this?** If yes, it gets a record. Routine
-per-task design details live in their issues instead; decisions whose
-rationale is already fully written in AGENTS.md only get a record when
-they change.
+Scope test: **does the decision change the app's architecture, domain
+data flow, screen wiring, or CI pipeline design? If yes, it gets a
+record.** Routine per-task design details live in their issues
+instead; decisions whose rationale is already fully written in
+AGENTS.md only get a record when they change.
+
+## What does NOT get a record
+
+- SDLC/agent/skill/plan/process decisions
+- Git workflow and history rules
+- Naming/branding chores
+- Build-tool chores
+
+Those live in AGENTS.md, docs/git-workflow.md, or the task issue
+itself.
 
 ## Process
 
@@ -55,10 +65,6 @@ they change.
 
 | # | Title | Date | Status |
 |---|-------|------|--------|
-| 0001 | Item sprites come only from the game-icons.net pipeline | 2026-11-21 | accepted |
-| 0002 | Plans and specs are local working docs | 2026-11-21 | accepted |
-| 0003 | Agent factory: canonical .agents/agents/ + make init projections | 2026-11-21 | accepted |
 | 0004 | BesideObject clues mean the same room | 2026-11-21 | accepted |
-| 0005 | Git history was rewritten once; never rewrite it again | 2026-11-21 | accepted |
-| 0006 | "Murdoku" is a working title — rename before store submission | 2026-11-19 | accepted |
-| 0007 | Binding decisions are recorded here (this process) | 2026-11-22 | accepted |
+
+Scope narrowed 2026-11-22: non-architecture records 0001–0003 and 0005–0007 were removed — recoverable from git history.
