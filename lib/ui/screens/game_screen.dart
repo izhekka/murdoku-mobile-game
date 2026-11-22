@@ -269,7 +269,7 @@ class _GameScreenState extends ConsumerState<GameScreen>
         children: [
           Expanded(
             child: toolButton(Tool.place, Icons.person, l10n.toolPlace,
-                tooltip: l10n.newCase),
+                tooltip: l10n.toolPlace),
           ),
           Expanded(
             child: toolButton(Tool.markX, Icons.close, l10n.toolMark,
@@ -277,13 +277,13 @@ class _GameScreenState extends ConsumerState<GameScreen>
           ),
           Expanded(
             child: toolButton(Tool.erase, Icons.auto_fix_normal, l10n.toolErase,
-                tooltip: l10n.cancel),
+                tooltip: l10n.toolErase),
           ),
           Expanded(
             child: miniButton(
               icon: Icons.undo,
               label: l10n.toolUndo,
-              tooltip: l10n.cancel,
+              tooltip: l10n.toolUndo,
               onPressed: () => notifier.undo(),
             ),
           ),
@@ -291,7 +291,7 @@ class _GameScreenState extends ConsumerState<GameScreen>
             child: miniButton(
               icon: Icons.fact_check,
               label: l10n.toolCheck,
-              tooltip: l10n.checkResult(0, 0),
+              tooltip: l10n.toolCheckTooltip,
               onPressed: () => _runCheck(l10n),
             ),
           ),

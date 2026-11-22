@@ -637,6 +637,37 @@ void main() {
         reason: 'confirming abandon quits the case');
   });
 
+  testWidgets('toolbar tooltips describe their own buttons (issue 17)',
+      (tester) async {
+    for (final language in [LanguageSetting.russian, LanguageSetting.english]) {
+      await pumpGame(tester, language: language);
+      final l10n = l10nOf(tester);
+
+      String tooltipOf(String label) => tester
+          .widget<Tooltip>(find
+              .ancestor(of: find.text(label), matching: find.byType(Tooltip))
+              .first)
+          .message!;
+
+      expect(tooltipOf(l10n.toolPlace), l10n.toolPlace,
+          reason: 'Place announces its own action ($language)');
+      expect(tooltipOf(l10n.toolMark), l10n.stateExcluded,
+          reason: 'Mark keeps its state description ($language)');
+      expect(tooltipOf(l10n.toolErase), l10n.toolErase,
+          reason: 'Erase announces its own action ($language)');
+      expect(tooltipOf(l10n.toolUndo), l10n.toolUndo,
+          reason: 'Undo announces its own action ($language)');
+      expect(tooltipOf(l10n.toolCheck), l10n.toolCheckTooltip,
+          reason: 'Check has a dedicated tooltip ($language)');
+      expect(tooltipOf(l10n.toolHint), l10n.hintsLeft(2),
+          reason: 'Hint keeps its hints-left tooltip ($language)');
+      expect(tooltipOf(l10n.toolAccuse), l10n.accuse,
+          reason: 'Accuse announces its own action ($language)');
+      expect(tooltipOf(l10n.pauseMenuTitle), l10n.pauseMenuTitle,
+          reason: 'Pause announces its own action ($language)');
+    }
+  });
+
   testWidgets('a negated clue renders on the game screen (issue 16)',
       (tester) async {
     await pumpGame(tester, difficulty: Difficulty.standard);

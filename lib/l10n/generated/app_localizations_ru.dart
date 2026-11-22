@@ -208,6 +208,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get toolAccuse => 'Обвинить';
 
   @override
+  String get toolCheckTooltip => 'Проверить расстановку гостей';
+
+  @override
   String timerSemantics(String difficulty, String time) {
     return '$difficulty, прошло $time';
   }

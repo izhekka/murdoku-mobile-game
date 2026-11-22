@@ -199,6 +199,7 @@
   "toolCheck": "Check",
   "toolHint": "Hint",
   "toolAccuse": "Accuse",
+  "toolCheckTooltip": "Check how many guests are placed",
   "timerSemantics": "{difficulty}, elapsed {time}",
   "@timerSemantics": {
     "placeholders": {

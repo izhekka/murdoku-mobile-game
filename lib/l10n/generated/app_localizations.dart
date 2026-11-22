@@ -440,6 +440,12 @@ abstract class AppLocalizations {
   /// **'Accuse'**
   String get toolAccuse;
 
+  /// No description provided for @toolCheckTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Check how many guests are placed'**
+  String get toolCheckTooltip;
+
   /// No description provided for @timerSemantics.
   ///
   /// In en, this message translates to:

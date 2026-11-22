@@ -209,6 +209,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get toolAccuse => 'Accuse';
 
   @override
+  String get toolCheckTooltip => 'Check how many guests are placed';
+
+  @override
   String timerSemantics(String difficulty, String time) {
     return '$difficulty, elapsed $time';
   }
