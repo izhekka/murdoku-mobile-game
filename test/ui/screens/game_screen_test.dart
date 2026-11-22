@@ -457,29 +457,28 @@ void main() {
 
     final l10n = l10nOf(tester);
     final names = NameForms.forLocale(l10n.localeName, fixedCase);
-    // Per suspect, the exact string its unselected card renders:
-    // clueTexts.join('\n').
-    final joinedBySuspect = <String, String>{};
-    for (final clue in fixedCase.clues) {
-      final text = describeClue(clue, fixedCase, l10n, names);
-      joinedBySuspect[clue.suspectId] = joinedBySuspect[clue.suspectId] == null
-          ? text
-          : '${joinedBySuspect[clue.suspectId]}\n$text';
-    }
+    // Per clue, the exact sentence its card renders inside its own chip
+    // (issue 26): every clue is its own Text now, not a joined paragraph.
+    final renderedClues = [
+      for (final clue in fixedCase.clues)
+        (suspectId: clue.suspectId,
+            text: describeClue(clue, fixedCase, l10n, names)),
+    ];
 
-    // No suspect is selected yet: every card shows its clue paragraph.
-    // The paragraph box must be at least the text's ideal height — anything
+    // No suspect is selected yet: every card shows its clue sentences.
+    // Each paragraph box must be at least the text's ideal height — anything
     // shorter means the card clipped the text (the pre-fix ~90px tiles did).
     // (Expanded stretches short paragraphs to fill the card, so the box may
     // legitimately be taller than the text.)
-    for (final entry in joinedBySuspect.entries) {
+    for (final clue in renderedClues) {
       final paragraph = tester.renderObject<RenderParagraph>(
-        find.text(entry.value),
+        find.text(clue.text),
       );
       expect(
         paragraph.size.height,
         greaterThanOrEqualTo(idealParagraphHeight(paragraph) - 0.5),
-        reason: 'clue of ${entry.key} renders in full on the wide side panel',
+        reason:
+            'clue of ${clue.suspectId} renders in full on the wide side panel',
       );
     }
 

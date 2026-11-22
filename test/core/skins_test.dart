@@ -139,6 +139,23 @@ void main() {
     }
   });
 
+  test('every cartoon skin exposes the mockup clue chip (issue 26)', () {
+    for (final t in [candyTokens, stickerTokens, comicTokens]) {
+      expect(t.chip, isNotNull, reason: '${t.skin} chip token');
+      expect(t.chip!.background, c(0xFFF1F3F5), reason: '${t.skin} chip color');
+      expect(t.chip!.radius, 12, reason: '${t.skin} chip radius');
+      expect(
+          t.chip!.padding,
+          const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          reason: '${t.skin} chip padding');
+      expect(t.chip!.gap, 6, reason: '${t.skin} chip gap');
+    }
+  });
+
+  test('classic keeps the pre-existing plain clue look (issue 26)', () {
+    expect(skinTokensFor(SkinSetting.classic, scheme).chip, isNull);
+  });
+
   test('classic tokens derive from the resolved scheme (issue 23)', () {
     final t = skinTokensFor(SkinSetting.classic, scheme);
     expect(t.skin, SkinSetting.classic);

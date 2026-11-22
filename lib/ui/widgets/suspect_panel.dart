@@ -158,7 +158,7 @@ class SuspectPanel extends StatelessWidget {
       rowHeight = math.max(
         rowHeight,
         _contentRowHeight(context, cardWidth, clueTextsBySuspect, names.nom,
-            cardBorderWidth),
+            cardBorderWidth, skin?.chip),
       );
       }
       return GridView.count(
@@ -182,13 +182,17 @@ class SuspectPanel extends StatelessWidget {
   /// Minimum row height that fits every card's full content (name row plus
   /// all clue lines at the card's text width), measured with the same style
   /// and text scale the cards render with. Used when the host leaves the
-  /// height loose: cards grow instead of clipping text (UX-9).
+  /// height loose: cards grow instead of clipping text (UX-9). [chip] is the
+  /// skin's clue-chip token (issue 26); when non-null each clue measures at
+  /// the chip's inner width plus the chip's vertical padding and gaps, so
+  /// the grown rows fit the rendered chips exactly.
   double _contentRowHeight(
     BuildContext context,
     double cardWidth,
     Map<String, List<String>> clueTextsBySuspect,
     String Function(String) nameOf,
     double borderWidth,
+    SkinChip? chip,
   ) {
     final base = DefaultTextStyle.of(context).style;
     final theme = Theme.of(context);
@@ -196,6 +200,10 @@ class SuspectPanel extends StatelessWidget {
     final direction = Directionality.of(context);
     // Card insets: 4 outer padding + 8 container padding + border per side.
     final textWidth = math.max(cardWidth - 2 * (4 + 8 + borderWidth), 1.0);
+    // Chip inner width (issue 26): each clue sentence wraps inside the
+    // chip's horizontal padding.
+    final chipInnerWidth =
+        chip == null ? textWidth : math.max(textWidth - chip.padding.horizontal, 1.0);
     // The name row's text width: avatar (24) plus its 6px gap. The placed
     // check icon is a badge on the avatar's corner (issue 18), so placed and
     // unplaced rows share this width; scale-down names grow *smaller* in a
@@ -234,11 +242,29 @@ class SuspectPanel extends StatelessWidget {
     for (final suspect in caseData.suspects) {
       final nameHeight = fittedNameHeight(
           nameOf(suspect.id), theme.textTheme.titleSmall, nameWidth);
-      final joined =
-          (clueTextsBySuspect[suspect.id] ?? const <String>[]).join('\n');
-      final clueHeight = joined.isEmpty
-          ? 0.0
-          : measure(joined, theme.textTheme.bodySmall, textWidth);
+      final texts =
+          clueTextsBySuspect[suspect.id] ?? const <String>[];
+      double clueHeight;
+      if (texts.isEmpty) {
+        clueHeight = 0.0;
+      } else if (chip == null) {
+        // Classic: the card renders the clues joined into one paragraph at
+        // the card's text width.
+        clueHeight =
+            measure(texts.join('\n'), theme.textTheme.bodySmall, textWidth);
+      } else {
+        // Chip mode (issue 26): every clue is its own chip — the text wraps
+        // at the chip's inner width, each chip adds its vertical padding,
+        // and consecutive chips are separated by the token gap. Exactly the
+        // structure the card's chip column renders.
+        clueHeight = 0.0;
+        for (var i = 0; i < texts.length; i++) {
+          if (i > 0) clueHeight += chip.gap;
+          clueHeight += measure(
+                  texts[i], theme.textTheme.bodySmall, chipInnerWidth) +
+              chip.padding.vertical;
+        }
+      }
       // 2 * (4 outer padding + 8 container padding + border) + name row
       // (the 24dp avatar floors its height) + 4 gap + clue text block.
       final cardHeight =
@@ -293,6 +319,10 @@ class _SuspectCard extends StatelessWidget {
     // scheme styling.
     final tokens = SkinScope.maybeOf(context);
     final cartoon = tokens != null && tokens.isCartoon;
+    // Clue chip (issue 26): a non-null chip token renders every clue
+    // sentence in its own rounded chip (mockups); null — classic and bare
+    // harnesses — keeps the pre-existing plain clue rendering below.
+    final chip = cartoon ? tokens.chip : null;
     final a11yLabel = clueTexts.isEmpty
         ? '$displayName.'
         : '$displayName. ${clueTexts.first}';
@@ -383,7 +413,40 @@ class _SuspectCard extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 4),
-                if (selected)
+                if (chip != null)
+                  // Each clue sentence in its own rounded token chip (issue
+                  // 26), selected and unselected alike. The scroll view is
+                  // the same escape hatch the selected card already had:
+                  // when the host pins a slot shorter than the content
+                  // (narrow layout), the chips scroll instead of throwing a
+                  // RenderFlex overflow; the row-height math below grows the
+                  // rows wherever the host leaves the height loose, so this
+                  // scrolls only when there is genuinely no room (UX-9).
+                  Expanded(
+                    child: SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          for (final (i, text) in clueTexts.indexed)
+                            Container(
+                              margin: EdgeInsets.only(top: i == 0 ? 0 : chip.gap),
+                              padding: chip.padding,
+                              decoration: BoxDecoration(
+                                color: chip.background,
+                                borderRadius:
+                                    BorderRadius.circular(chip.radius),
+                              ),
+                              child: Text(
+                                text,
+                                style:
+                                    Theme.of(context).textTheme.bodySmall,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  )
+                else if (selected)
                   Expanded(
                     child: SingleChildScrollView(
                       child: Column(

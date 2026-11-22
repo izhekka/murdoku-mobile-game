@@ -177,6 +177,32 @@ Widget wideWrap(CaseData c) => MaterialApp(
       ),
     );
 
+/// The panel under a skin scope at the 320px narrow width (issue 23's
+/// builder-level scoping, mirroring lib/app.dart); [selectedId] mirrors the
+/// real panel's selection state.
+Widget skinWrap(
+  SkinTokens tokens, {
+  String? selectedId,
+  CaseData? c,
+}) =>
+    MaterialApp(
+      locale: const Locale('en'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      builder: (context, child) => SkinScope(tokens: tokens, child: child!),
+      home: Scaffold(
+        body: SizedBox(
+          width: 320,
+          child: SuspectPanel(
+            caseData: c ?? fixture,
+            placed: const {},
+            selectedSuspectId: selectedId,
+            onSuspectTap: (_) {},
+          ),
+        ),
+      ),
+    );
+
 /// The 300px side slot exactly as the wide game screen hosts the panel:
 /// bounded but loose height, so the panel renders the grid branch and
 /// grows content-sized rows (issue 15). [locale] pins the l10n under test
@@ -195,6 +221,45 @@ Widget sidePanelWrap(
           child: SuspectPanel(
             caseData: c,
             placed: placed,
+            selectedSuspectId: null,
+            onSuspectTap: (_) {},
+          ),
+        ),
+      ),
+    );
+
+/// The 300px side slot under a skin scope: same loose-height hosting as
+/// [sidePanelWrap], with the skin's tokens live (issue 26).
+Widget skinSidePanelWrap(SkinTokens tokens, CaseData c) =>
+    localizedTestApp(
+      child: SkinScope(
+        tokens: tokens,
+        child: Align(
+          child: SizedBox(
+            width: 300,
+            child: SuspectPanel(
+              caseData: c,
+              placed: const {},
+              selectedSuspectId: null,
+              onSuspectTap: (_) {},
+            ),
+          ),
+        ),
+      ),
+    );
+
+/// The panel's own wide branch (>=600px) under a skin scope (issue 26).
+Widget skinWideWrap(SkinTokens tokens, CaseData c) => MaterialApp(
+      locale: const Locale('en'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      builder: (context, child) => SkinScope(tokens: tokens, child: child!),
+      home: Scaffold(
+        body: SizedBox(
+          width: 600,
+          child: SuspectPanel(
+            caseData: c,
+            placed: const {},
             selectedSuspectId: null,
             onSuspectTap: (_) {},
           ),
@@ -517,5 +582,190 @@ void main() {
     expect(decoration.border?.top.color, stickerTokens.card.borderColor);
     expect(decoration.border?.top.width, stickerTokens.card.borderWidth);
     expect(decoration.boxShadow?.single, stickerTokens.card.shadow);
+  });
+
+  /// The exact en clue sentences the [fixture] cards render (see the first
+  /// test's wording asserts).
+  const clueSentences = {
+    'Ash was in the Hall.',
+    'Blair was not on the same floor as the victim.',
+    'Casey was in the same corridor as Ellis.',
+    'Drew was not south of the victim.',
+    'Ellis was in the same room as the Clock.',
+  };
+
+  Iterable<Container> chipContainers(WidgetTester tester, SkinTokens tokens) =>
+      tester.widgetList<Container>(
+        find.byWidgetPredicate((w) =>
+            w is Container &&
+            w.decoration is BoxDecoration &&
+            (w.decoration as BoxDecoration).color == tokens.chip!.background),
+      );
+
+  testWidgets('every clue sentence sits in the skin chip on selected and '
+      'unselected cards (issue 26)', (tester) async {
+    for (final tokens in [candyTokens, stickerTokens, comicTokens]) {
+      // Selected s0 (expanded card) and unselected cards both chip their
+      // clues, exactly like the mockups' expanded card.
+      await tester.pumpWidget(skinWrap(tokens, selectedId: 's0'));
+      await tester.pumpAndSettle();
+
+      var chips = chipContainers(tester, tokens).toList();
+      expect(chips.length, fixture.clues.length,
+          reason: '${tokens.skin}: every clue gets its own chip');
+      expect(
+        chips.map((c) => (c.child! as Text).data!).toSet(),
+        clueSentences,
+        reason: '${tokens.skin}: the chips carry the clue sentences',
+      );
+      for (final chip in chips) {
+        expect(chip.padding, tokens.chip!.padding,
+            reason: '${tokens.skin}: chip padding comes from the token');
+        expect((chip.decoration as BoxDecoration).borderRadius,
+            BorderRadius.circular(tokens.chip!.radius),
+            reason: '${tokens.skin}: chip radius comes from the token');
+      }
+
+      // Unselected rendering chips its clue too.
+      await tester.pumpWidget(skinWrap(tokens, selectedId: null));
+      await tester.pumpAndSettle();
+      chips = chipContainers(tester, tokens).toList();
+      expect(chips.length, fixture.clues.length,
+          reason: '${tokens.skin}: unselected cards chip their clues too');
+    }
+  });
+
+  testWidgets('classic keeps the pre-existing plain clue rendering (issue 26)',
+      (tester) async {
+    await tester.pumpWidget(const Harness());
+    await tester.pump();
+
+    expect(
+      chipContainers(tester, stickerTokens),
+      isEmpty,
+      reason: 'no chip containers without a cartoon skin scope',
+    );
+    // The clue sentences still render (joined plain text, as shipped).
+    expect(find.text('Ash was in the Hall.'), findsOneWidget);
+  });
+
+  /// Describes [multiClueFixture]'s clues in the panel under test: s0's four
+  /// clue sentences come first (the fixture lists them first).
+  List<String> describeMultiClueSentences(WidgetTester tester) {
+    final context = tester.element(find.byType(SuspectPanel));
+    final l10n = AppLocalizations.of(context)!;
+    final names = NameForms.forLocale(l10n.localeName, multiClueFixture);
+    return [
+      for (final clue in multiClueFixture.clues)
+        describeClue(clue, multiClueFixture, l10n, names),
+    ];
+  }
+
+  testWidgets(
+      'side panel at 300px: chip clues render in full and rows grow to the '
+      'chip content (UX-9, issue 26)', (tester) async {
+    // A tall surface: the chip rows grow past the default 600px test
+    // viewport, and the shrink-wrap grid never builds off-screen rows.
+    tester.view.physicalSize = const Size(800, 2200);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(skinSidePanelWrap(stickerTokens, multiClueFixture));
+    await tester.pump();
+
+    final clueTexts = describeMultiClueSentences(tester);
+    // Every chip's paragraph box is at least the text's ideal height —
+    // anything shorter means the card clipped the sentence.
+    for (final text in clueTexts) {
+      final paragraph = tester.renderObject<RenderParagraph>(find.text(text));
+      expect(
+        paragraph.size.height,
+        greaterThanOrEqualTo(idealParagraphHeight(paragraph) - 0.5),
+        reason: 'clue "$text" renders in full on the 300px side panel',
+      );
+    }
+
+    // s0 carries the four clues: its row must grow to the chip content
+    // (per-chip padding + gaps + the narrower chip wrap width), so the
+    // scroll viewport shows the whole chip column — nothing hidden below
+    // the fold, no scrolling needed (UX-9).
+    final scrollView = find.ancestor(
+      of: find.text(clueTexts.first),
+      matching: find.byType(SingleChildScrollView),
+    );
+    final viewportHeight = tester.getSize(scrollView).height;
+    final contentHeight = tester.getSize(
+      find.descendant(of: scrollView, matching: find.byType(Column)).first,
+    ).height;
+    expect(
+      contentHeight,
+      lessThanOrEqualTo(viewportHeight + 0.5),
+      reason: 'the s0 row grew to its chip content '
+          '($contentHeight > $viewportHeight means text sits below the fold)',
+    );
+  });
+
+  testWidgets(
+      'narrow pinned slot: chip clues stay uncapped and never overflow '
+      '(UX-9, issue 26)', (tester) async {
+    await tester.pumpWidget(MaterialApp(
+      locale: const Locale('en'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      builder: (context, child) => SkinScope(tokens: comicTokens, child: child!),
+      home: Scaffold(
+        body: Center(
+          child: SizedBox(
+            width: 412,
+            height: 400,
+            child: SuspectPanel(
+              caseData: multiClueFixture,
+              placed: const {},
+              selectedSuspectId: null,
+              onSuspectTap: (_) {},
+            ),
+          ),
+        ),
+      ),
+    ));
+    await tester.pump();
+
+    expect(tester.takeException(), isNull,
+        reason: 'chip columns scroll in the pinned slot; no RenderFlex '
+            'overflow, classic pinned behavior preserved');
+
+    final clueTexts = describeMultiClueSentences(tester);
+    for (final text in clueTexts) {
+      final paragraph = tester.renderObject<RenderParagraph>(find.text(text));
+      expect(
+        paragraph.size.height,
+        greaterThanOrEqualTo(idealParagraphHeight(paragraph) - 0.5),
+        reason: 'clue "$text" lays out in full on the pinned narrow grid',
+      );
+    }
+  });
+
+  testWidgets(
+      'wide layout: chip clues size cards to their content, no clipping '
+      '(UX-9, issue 26)', (tester) async {
+    tester.view.physicalSize = const Size(800, 1400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    tester.platformDispatcher.textScaleFactorTestValue = 2.0;
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+
+    await tester.pumpWidget(skinWideWrap(candyTokens, multiClueFixture));
+    await tester.pump();
+
+    final clueTexts = describeMultiClueSentences(tester);
+    for (final text in clueTexts) {
+      final paragraph = tester.renderObject<RenderParagraph>(find.text(text));
+      expect(
+        paragraph.size.height,
+        greaterThanOrEqualTo(idealParagraphHeight(paragraph) - 0.5),
+        reason: 'clue "$text" renders in full on the wide card at scale 2.0',
+      );
+    }
   });
 }

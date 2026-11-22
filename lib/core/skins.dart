@@ -36,6 +36,7 @@ class SkinTokens {
     required this.sheetBackground,
     required this.sheetRadius,
     required this.menuIcons,
+    this.chip,
     this.frame,
     this.frameMargin = 0,
     this.frameRingWidth = 0,
@@ -104,6 +105,11 @@ class SkinTokens {
   /// clean icon-free list card.
   final bool menuIcons;
 
+  /// The rounded chip behind each clue sentence on the suspect cards
+  /// (issue 26); null for classic, which keeps the pre-existing plain clue
+  /// rendering.
+  final SkinChip? chip;
+
   /// The rounded app card sitting on the page background; null for classic,
   /// which has no frame.
   final SkinCard? frame;
@@ -139,6 +145,7 @@ class SkinTokens {
       other.sheetBackground == sheetBackground &&
       other.sheetRadius == sheetRadius &&
       other.menuIcons == menuIcons &&
+      other.chip == chip &&
       other.frame == frame &&
       other.frameMargin == frameMargin &&
       other.frameRingWidth == frameRingWidth &&
@@ -171,6 +178,7 @@ class SkinTokens {
         sheetBackground,
         sheetRadius,
         menuIcons,
+        chip,
         frame,
         frameMargin,
         frameRingWidth,
@@ -206,6 +214,36 @@ class SkinCard {
   @override
   int get hashCode =>
       Object.hash(background, borderColor, borderWidth, radius, shadow);
+}
+
+/// A clue chip on the suspect cards (issue 26): each clue sentence sits in
+/// its own rounded pill per the approved mockups. Null on classic tokens —
+/// widgets keep the pre-existing plain clue rendering there.
+class SkinChip {
+  const SkinChip({
+    required this.background,
+    required this.radius,
+    required this.padding,
+    required this.gap,
+  });
+
+  final Color background;
+  final double radius;
+  final EdgeInsets padding;
+
+  /// Vertical spacing between consecutive chips.
+  final double gap;
+
+  @override
+  bool operator ==(Object other) =>
+      other is SkinChip &&
+      other.background == background &&
+      other.radius == radius &&
+      other.padding == padding &&
+      other.gap == gap;
+
+  @override
+  int get hashCode => Object.hash(background, radius, padding, gap);
 }
 
 /// Room number badge: circle fill with the room number in [ink].
@@ -275,6 +313,16 @@ const SkinActions _cartoonActions = SkinActions(
   menu: Color(0xFFB197FC),
 );
 
+/// Clue-chip look shared by the three cartoon mockups (issue 26): a rounded
+/// light-gray pill behind each clue sentence. Token-driven so a skin can
+/// diverge later; classic keeps null (plain clue text).
+const SkinChip _cartoonChip = SkinChip(
+  background: Color(0xFFF1F3F5),
+  radius: 12,
+  padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+  gap: 6,
+);
+
 const Color _cartoonDanger = Color(0xFFE8590C);
 
 /// Victim cell stripe pair shared by the three cartoon mockups.
@@ -326,6 +374,7 @@ const candyTokens = SkinTokens(
   sheetBackground: Color(0xFFFFFFFF),
   sheetRadius: 24,
   menuIcons: false,
+  chip: _cartoonChip,
   frame: SkinCard(
     background: Color(0xFFFFFFFF),
     borderColor: Color(0xFFFFFFFF),
@@ -377,6 +426,7 @@ const stickerTokens = SkinTokens(
   sheetBackground: Color(0xFFFFFFFF),
   sheetRadius: 20,
   menuIcons: false,
+  chip: _cartoonChip,
   frame: SkinCard(
     background: Color(0xFFFFF8EF),
     borderColor: Color(0xFF1D3557),
@@ -429,6 +479,7 @@ const comicTokens = SkinTokens(
   sheetBackground: Color(0xFFFFFFFF),
   sheetRadius: 20,
   menuIcons: false,
+  chip: _cartoonChip,
   frame: SkinCard(
     background: Color(0xFFFFFFFF),
     borderColor: Color(0xFF111111),
