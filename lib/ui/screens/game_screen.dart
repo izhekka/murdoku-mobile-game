@@ -273,7 +273,7 @@ class _GameScreenState extends ConsumerState<GameScreen>
           ),
           Expanded(
             child: toolButton(Tool.markX, Icons.close, l10n.toolMark,
-                tooltip: l10n.stateExcluded),
+                tooltip: l10n.toolMarkTooltip),
           ),
           Expanded(
             child: toolButton(Tool.erase, Icons.auto_fix_normal, l10n.toolErase,
@@ -299,7 +299,7 @@ class _GameScreenState extends ConsumerState<GameScreen>
             child: miniButton(
               icon: Icons.lightbulb,
               label: l10n.toolHint,
-              tooltip: l10n.hintsLeft(hintsLeft),
+              tooltip: l10n.toolHintTooltip,
               onPressed: () => _showHintSheet(l10n, hintsLeft),
             ),
           ),

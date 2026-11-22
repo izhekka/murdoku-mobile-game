@@ -59,6 +59,8 @@
   "toolHint": "Подсказка",
   "toolAccuse": "Обвинить",
   "toolCheckTooltip": "Проверить расстановку гостей",
+  "toolMarkTooltip": "Пометить клетку как пустую",
+  "toolHintTooltip": "Получить подсказку",
   "timerSemantics": "{difficulty}, прошло {time}",
   "alibi": "У {name} железное алиби.",
   "checkResult": "{n} из {total} гостей на своих местах.",

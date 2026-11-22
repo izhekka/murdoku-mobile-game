@@ -211,6 +211,12 @@ class AppLocalizationsRu extends AppLocalizations {
   String get toolCheckTooltip => 'Проверить расстановку гостей';
 
   @override
+  String get toolMarkTooltip => 'Пометить клетку как пустую';
+
+  @override
+  String get toolHintTooltip => 'Получить подсказку';
+
+  @override
   String timerSemantics(String difficulty, String time) {
     return '$difficulty, прошло $time';
   }

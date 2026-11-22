@@ -212,6 +212,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get toolCheckTooltip => 'Check how many guests are placed';
 
   @override
+  String get toolMarkTooltip => 'Mark a cell as empty';
+
+  @override
+  String get toolHintTooltip => 'Get a hint';
+
+  @override
   String timerSemantics(String difficulty, String time) {
     return '$difficulty, elapsed $time';
   }

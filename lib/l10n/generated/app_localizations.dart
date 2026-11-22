@@ -446,6 +446,18 @@ abstract class AppLocalizations {
   /// **'Check how many guests are placed'**
   String get toolCheckTooltip;
 
+  /// No description provided for @toolMarkTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark a cell as empty'**
+  String get toolMarkTooltip;
+
+  /// No description provided for @toolHintTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Get a hint'**
+  String get toolHintTooltip;
+
   /// No description provided for @timerSemantics.
   ///
   /// In en, this message translates to:
