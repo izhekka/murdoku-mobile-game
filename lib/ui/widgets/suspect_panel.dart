@@ -175,23 +175,32 @@ class SuspectPanel extends StatelessWidget {
             ),
           );
         }
-        final grid = GridView.count(
+        // Grid children and their ideal shrink-wrapped height at the row
+        // height above: padding on both edges, every grown row, and the
+        // gutters between them (issue 30's overflow detection).
+        final children = [...cards, const _EmptySlot()];
+        final totalRows = (children.length / columns).ceil();
+        final gridContentHeight =
+            2 * hPad + totalRows * rowHeight + (totalRows - 1) * spacing;
+        GridView buildGrid({required bool scrollable}) => GridView.count(
           crossAxisCount: columns,
           shrinkWrap: true,
-          physics: caseData.suspects.length <= 6
-              ? const NeverScrollableScrollPhysics()
-              : const ClampingScrollPhysics(),
+          physics: _gridPhysics(scrollable: scrollable),
           childAspectRatio: cardWidth / rowHeight,
           padding: const EdgeInsets.all(hPad),
           mainAxisSpacing: spacing,
           crossAxisSpacing: spacing,
-          children: [...cards, const _EmptySlot()],
+          children: children,
         );
         // The localized header row (issue 27) sits above the grid in every
         // skin. When the host pins the slot height (the narrow game screen),
         // the grid expands to fill the rest; where the height is loose, the
         // grid is capped at the space under the header (the same clamp the
         // bare grid had) and shrink-wraps to its grown rows otherwise (UX-9).
+        // When the grown rows exceed that cap, the clamped viewport leaves
+        // the bottom row unbuilt and NeverScrollableScrollPhysics would lock
+        // it away (issue 30) — so the slot is measured under the header and
+        // the grid switches to scrolling physics exactly when it overflows.
         final bounded = constraints.maxHeight.isFinite;
         final pinned =
             bounded && constraints.maxHeight == constraints.minHeight;
@@ -201,16 +210,34 @@ class SuspectPanel extends StatelessWidget {
           children: [
             const _SuspectsHeader(),
             if (pinned)
-              Expanded(child: grid)
+              Expanded(child: buildGrid(scrollable: false))
             else if (bounded)
-              Flexible(child: grid)
+              Flexible(
+                child: LayoutBuilder(
+                  builder: (context, slot) => buildGrid(
+                    scrollable: gridContentHeight > slot.maxHeight + 0.5,
+                  ),
+                ),
+              )
             else
-              grid,
+              buildGrid(scrollable: false),
           ],
         );
       },
     );
   }
+
+  /// Scroll physics for the suspect grid (issue 30): when the loose branch's
+  /// grown row heights exceed the slot under the header, the shrink-wrap
+  /// viewport clamps to the slot and NeverScrollableScrollPhysics would leave
+  /// the bottom-row cards unbuilt and unreachable — switch to scrolling
+  /// physics exactly on overflow. When the content fits (or the height is
+  /// pinned), small cases keep the no-scroll grid; more suspects than the
+  /// 3x2 grid shows keep the pre-existing scrollable physics.
+  ScrollPhysics _gridPhysics({required bool scrollable}) =>
+      scrollable || caseData.suspects.length > 6
+      ? const ClampingScrollPhysics()
+      : const NeverScrollableScrollPhysics();
 
   /// Minimum row height that fits every card's full content (name row plus
   /// all clue lines at the card's text width), measured with the same style

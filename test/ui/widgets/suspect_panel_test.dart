@@ -102,6 +102,26 @@ final CaseData multiClueFixture = buildFixture([
   BesideObject(suspectId: 's4', objectId: 'o1', negated: false),
 ]);
 
+/// Same board, but s0 carries two clue sentences: the grown row heights then
+/// exceed the 600px-tall side slot in both renderers (classic paragraph and
+/// skin chips) while each card stays shorter than the slot, so the shrink-wrap
+/// grid clamps, row 2 (Drew/Ellis/empty) sits below the fold with no scroll
+/// affordance, and scrolling can still bring the full bottom-row card on
+/// screen (issue 30).
+final CaseData overflowFixture = buildFixture([
+  InRoom(suspectId: 's0', roomId: 'r0', negated: false),
+  SameRow(suspectId: 's0', targetId: 'V', negated: true),
+  SameRow(suspectId: 's1', targetId: 'V', negated: true),
+  SameCol(suspectId: 's2', targetId: 's4', negated: false),
+  DirectionClue(
+    suspectId: 's3',
+    targetId: 'V',
+    direction: Direction.south,
+    negated: true,
+  ),
+  BesideObject(suspectId: 's4', objectId: 'o1', negated: false),
+]);
+
 /// Same board and clues as [fixture], but s0 carries a long multi-word
 /// display name (stored/custom cases may carry arbitrary names) and s1 is
 /// placed (its check icon narrows the name row): both stress the name row
@@ -235,6 +255,7 @@ Widget sidePanelWrap(
   CaseData c, {
   Map<String, Pos> placed = const {},
   Locale locale = const Locale('en'),
+  void Function(String)? onSuspectTap,
 }) => localizedTestApp(
   locale: locale,
   child: Align(
@@ -244,7 +265,7 @@ Widget sidePanelWrap(
         caseData: c,
         placed: placed,
         selectedSuspectId: null,
-        onSuspectTap: (_) {},
+        onSuspectTap: onSuspectTap ?? (_) {},
       ),
     ),
   ),
@@ -252,7 +273,11 @@ Widget sidePanelWrap(
 
 /// The 300px side slot under a skin scope: same loose-height hosting as
 /// [sidePanelWrap], with the skin's tokens live (issue 26).
-Widget skinSidePanelWrap(SkinTokens tokens, CaseData c) => localizedTestApp(
+Widget skinSidePanelWrap(
+  SkinTokens tokens,
+  CaseData c, {
+  void Function(String)? onSuspectTap,
+}) => localizedTestApp(
   child: SkinScope(
     tokens: tokens,
     child: Align(
@@ -262,7 +287,7 @@ Widget skinSidePanelWrap(SkinTokens tokens, CaseData c) => localizedTestApp(
           caseData: c,
           placed: const {},
           selectedSuspectId: null,
-          onSuspectTap: (_) {},
+          onSuspectTap: onSuspectTap ?? (_) {},
         ),
       ),
     ),
@@ -345,6 +370,14 @@ void main() {
   testWidgets('suspects render as a 3x2 grid; no horizontal strip (UX-2)', (
     tester,
   ) async {
+    // A tall surface: UX-9 grows the rows to their clue content, and the
+    // default 600px-tall surface is shorter than two grown rows of a
+    // generated case — the fit premise of the physics assertion below needs
+    // the room (issue 30).
+    tester.view.physicalSize = const Size(800, 1400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
     final c = generateCase(difficulty: Difficulty.easy, seed: 3);
     await tester.pumpWidget(generatedWrap(c));
     await tester.pump();
@@ -938,5 +971,131 @@ void main() {
     await tester.pump();
     expect(find.text('Suspects'), findsOneWidget);
     expect(find.text('SUSPECTS'), findsNothing);
+  });
+
+  testWidgets('side panel overflow: grown chip rows make the grid scrollable; '
+      'bottom row reachable (issue 30)', (tester) async {
+    String? tapped;
+    await tester.pumpWidget(
+      skinSidePanelWrap(
+        stickerTokens,
+        overflowFixture,
+        onSuspectTap: (id) => tapped = id,
+      ),
+    );
+    await tester.pump();
+
+    // Precondition: the grown rows exceed the slot — the bottom-row card's
+    // tap target hangs below the fold of the 600px-tall surface and the
+    // shrink-wrap grid offers no scroll affordance for it.
+    final ellisCard = find.ancestor(
+      of: find.text('Ellis'),
+      matching: find.byType(InkWell),
+    );
+    expect(tester.getRect(ellisCard).bottom, greaterThan(600));
+
+    // Drag the grid itself: Ash's name row sits outside the card's inner
+    // chip scroller, so the vertical drag reaches the grid's Scrollable.
+    await tester.drag(find.text('Ash'), const Offset(0, -2000));
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.widget<GridView>(find.byType(GridView)).physics,
+      isA<ClampingScrollPhysics>(),
+      reason: 'grown rows exceeding the slot make the grid scrollable',
+    );
+    expect(find.text('Ellis'), findsOneWidget);
+    expect(
+      find.text('Ellis was in the same room as the Clock.'),
+      findsOneWidget,
+    );
+    expect(
+      tester.getRect(ellisCard).bottom,
+      lessThanOrEqualTo(600),
+      reason: 'the full bottom-row card is on screen after scrolling',
+    );
+    await tester.tap(find.text('Ellis'));
+    expect(tapped, 's4', reason: 'the bottom-row card is tappable');
+  });
+
+  testWidgets('side panel overflow (classic): grown plain rows make the grid '
+      'scrollable; bottom row reachable (issue 30)', (tester) async {
+    String? tapped;
+    await tester.pumpWidget(
+      sidePanelWrap(overflowFixture, onSuspectTap: (id) => tapped = id),
+    );
+    await tester.pump();
+
+    // Precondition: the grown rows exceed the slot — the bottom-row card's
+    // tap target hangs below the fold of the 600px-tall surface.
+    final ellisCard = find.ancestor(
+      of: find.text('Ellis'),
+      matching: find.byType(InkWell),
+    );
+    expect(tester.getRect(ellisCard).bottom, greaterThan(600));
+
+    await tester.drag(find.text('Ash'), const Offset(0, -2000));
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.widget<GridView>(find.byType(GridView)).physics,
+      isA<ClampingScrollPhysics>(),
+      reason: 'grown rows exceeding the slot make the grid scrollable',
+    );
+    expect(find.text('Ellis'), findsOneWidget);
+    expect(
+      find.text('Ellis was in the same room as the Clock.'),
+      findsOneWidget,
+    );
+    expect(
+      tester.getRect(ellisCard).bottom,
+      lessThanOrEqualTo(600),
+      reason: 'the full bottom-row card is on screen after scrolling',
+    );
+    await tester.tap(find.text('Ellis'));
+    expect(tapped, 's4', reason: 'the bottom-row card is tappable');
+  });
+
+  testWidgets('side panel fits: grid stays non-scrollable, all cards visible '
+      '(issue 30)', (tester) async {
+    // Classic renderer at the 600px-tall surface: one plain clue sentence
+    // per card fits the slot.
+    await tester.pumpWidget(sidePanelWrap(fixture));
+    await tester.pump();
+
+    expect(
+      tester.widget<GridView>(find.byType(GridView)).physics,
+      isA<NeverScrollableScrollPhysics>(),
+      reason: 'content fits the slot; behavior is unchanged',
+    );
+    for (final s in fixture.suspects) {
+      expect(find.text(s.name), findsOneWidget);
+    }
+    expect(find.byType(Scrollbar), findsNothing);
+    expect(
+      tester.widget<GridView>(find.byType(GridView)).padding,
+      const EdgeInsets.all(4),
+      reason: 'no padding change in the fitting layouts',
+    );
+
+    // Chip renderer: one chip per card needs a taller surface — at the
+    // default 600px one the chip rows genuinely overflow (issue 30 makes
+    // that scrollable), so prove the fitting case on an 800px surface.
+    tester.view.physicalSize = const Size(800, 800);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(skinSidePanelWrap(stickerTokens, fixture));
+    await tester.pump();
+
+    expect(
+      tester.widget<GridView>(find.byType(GridView)).physics,
+      isA<NeverScrollableScrollPhysics>(),
+      reason: 'chip content fits the slot; behavior is unchanged',
+    );
+    for (final s in fixture.suspects) {
+      expect(find.text(s.name), findsOneWidget);
+    }
+    expect(find.byType(Scrollbar), findsNothing);
   });
 }
