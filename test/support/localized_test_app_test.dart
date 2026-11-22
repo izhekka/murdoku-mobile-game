@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:murdoku/app.dart';
 import 'package:murdoku/l10n/generated/app_localizations.dart';
 
 import 'localized_test_app.dart';
@@ -26,6 +27,14 @@ void main() {
     expect(material?.backButtonTooltip, 'Назад',
         reason: 'material_ui\'s own MaterialLocalizations resolves with '
             'ru content (the delegates the generated list lacks)');
+  });
+
+  testWidgets('helper MaterialApp holds the shared lib delegate const '
+      '(identity check, issue 24)', (tester) async {
+    await tester.pumpWidget(localizedTestApp(child: const SizedBox.shrink()));
+    await tester.pump();
+    final app = tester.widget<MaterialApp>(find.byType(MaterialApp));
+    expect(app.localizationsDelegates, same(murdokuLocalizationsDelegates));
   });
 
   testWidgets('defaults to en', (tester) async {

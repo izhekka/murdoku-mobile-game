@@ -47,6 +47,19 @@ void main() {
     expect(Theme.of(rebuilt).brightness, Brightness.dark);
   });
 
+  testWidgets('MurdokuApp holds the shared delegate const (identity check, '
+      'issue 24)', (tester) async {
+    final prefs = await mockPrefs();
+    await tester.pumpWidget(ProviderScope(
+      overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+      child: const MurdokuApp(),
+    ));
+    await tester.pumpAndSettle();
+
+    final app = tester.widget<MaterialApp>(find.byType(MaterialApp));
+    expect(app.localizationsDelegates, same(murdokuLocalizationsDelegates));
+  });
+
   testWidgets('navigating to /stats renders the stats placeholder via l10n',
       (tester) async {
     final prefs = await mockPrefs();
