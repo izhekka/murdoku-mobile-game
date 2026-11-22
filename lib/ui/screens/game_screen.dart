@@ -15,6 +15,7 @@ import '../widgets/accuse_sheet.dart';
 import '../widgets/board_view.dart';
 import '../widgets/legend_sheet.dart';
 import '../widgets/dialogs.dart';
+import '../widgets/pause_menu_sheet.dart';
 import '../widgets/suspect_panel.dart';
 
 class GameScreen extends ConsumerStatefulWidget {
@@ -310,8 +311,23 @@ class _GameScreenState extends ConsumerState<GameScreen>
               onPressed: () => showAccuseSheet(),
             ),
           ),
+          Expanded(
+            child: miniButton(
+              icon: Icons.pause,
+              label: l10n.pauseMenuTitle,
+              tooltip: l10n.pauseMenuTitle,
+              onPressed: () => _showPauseMenu(l10n),
+            ),
+          ),
         ],
       ),
+    );
+  }
+
+  Future<void> _showPauseMenu(AppLocalizations l10n) {
+    return PauseMenuSheet.show(
+      context,
+      onAbandon: () => _confirmQuit(l10n),
     );
   }
 

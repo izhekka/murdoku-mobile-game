@@ -201,5 +201,7 @@
   "legendTitle": "Легенда",
   "legendRooms": "Комнаты",
   "legendItems": "Предметы",
-  "legendOccupiable": "гость может сесть"
+  "legendOccupiable": "гость может сесть",
+  "pauseMenuTitle": "Меню",
+  "abandonCase": "Покинуть дело"
 }

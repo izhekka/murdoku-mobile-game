@@ -405,4 +405,10 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get legendOccupiable => 'гость может сесть';
+
+  @override
+  String get pauseMenuTitle => 'Меню';
+
+  @override
+  String get abandonCase => 'Покинуть дело';
 }

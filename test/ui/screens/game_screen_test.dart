@@ -11,6 +11,7 @@ import 'package:murdoku/domain/models.dart';
 import 'package:murdoku/l10n/generated/app_localizations.dart';
 import 'package:murdoku/state/game_controller.dart';
 import 'package:murdoku/state/providers.dart';
+import 'package:murdoku/ui/screens/home_screen.dart';
 import 'package:murdoku/ui/widgets/accuse_sheet.dart';
 import 'package:murdoku/ui/widgets/dialogs.dart';
 import 'package:murdoku/ui/widgets/suspect_panel.dart';
@@ -64,6 +65,15 @@ Future<void> tapCell(WidgetTester tester, int row, int col) async {
     boardRect.top + (row + 0.5) * cell,
   ));
   await tester.pumpAndSettle();
+}
+
+/// Places the first solution guest through the real select + tap flow.
+Future<void> placeFirstGuest(WidgetTester tester) async {
+  final notifier = container.read(gameControllerProvider.notifier);
+  final first = fixedCase.solution.entries.first;
+  notifier.selectSuspect(first.key);
+  await tester.pumpAndSettle();
+  await tapCell(tester, first.value.row, first.value.col);
 }
 
 /// Ideal (unclamped) height the paragraph's text needs at its laid-out
@@ -435,5 +445,115 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text(longest.text), findsOneWidget,
         reason: 'the longest clue is fully rendered on the expanded card');
+  });
+
+  testWidgets('pause menu opens from the toolbar; Resume closes it (issue 11)',
+      (tester) async {
+    await pumpGame(tester);
+    final l10n = l10nOf(tester);
+    await placeFirstGuest(tester);
+    expect(container.read(gameControllerProvider)!.placed.length, 1);
+
+    await tester.tap(find.text(l10n.pauseMenuTitle).first);
+    await tester.pumpAndSettle();
+    expect(find.text(l10n.resume), findsOneWidget);
+    expect(find.text(l10n.howToPlayTitle), findsOneWidget);
+    expect(find.text(l10n.settingsTitle), findsOneWidget);
+    expect(find.text(l10n.abandonCase), findsOneWidget);
+
+    // Opening the sheet is not a timer pause (issue #11, out of scope).
+    final before = container.read(gameControllerProvider)!.elapsed;
+    await tester.pump(const Duration(seconds: 2));
+    expect(container.read(gameControllerProvider)!.elapsed, greaterThan(before),
+        reason: 'the elapsed timer keeps running while the sheet is open');
+
+    await tester.tap(find.text(l10n.resume));
+    await tester.pumpAndSettle();
+    expect(find.text(l10n.resume), findsNothing);
+    expect(container.read(gameControllerProvider)!.placed.length, 1,
+        reason: 'Resume leaves the game state untouched');
+  });
+
+  testWidgets(
+      'pause menu: How to play pushes above the game; Back returns with the '
+      'guest still placed (issue 11)', (tester) async {
+    await pumpGame(tester);
+    final l10n = l10nOf(tester);
+    await placeFirstGuest(tester);
+
+    await tester.tap(find.text(l10n.pauseMenuTitle).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(l10n.howToPlayTitle));
+    await tester.pumpAndSettle();
+    expect(find.text(l10n.rule1Text), findsOneWidget,
+        reason: 'How to play opens above the running case');
+
+    await tester.tap(find.byIcon(Icons.arrow_back));
+    await tester.pumpAndSettle();
+    expect(find.text(l10n.rule1Text), findsNothing);
+    expect(container.read(gameControllerProvider)!.placed.length, 1,
+        reason: 'Back returns to the game with board placement intact');
+    expect(find.text(l10n.pauseMenuTitle), findsOneWidget,
+        reason: 'the game screen is back on top');
+  });
+
+  testWidgets(
+      'pause menu: Settings pushes above the game; Back returns with the '
+      'guest still placed (issue 11)', (tester) async {
+    await pumpGame(tester);
+    final l10n = l10nOf(tester);
+    await placeFirstGuest(tester);
+
+    await tester.tap(find.text(l10n.pauseMenuTitle).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(l10n.settingsTitle));
+    await tester.pumpAndSettle();
+    expect(find.text(l10n.themeModeLabel), findsOneWidget,
+        reason: 'Settings opens above the running case');
+
+    await tester.tap(find.byIcon(Icons.arrow_back));
+    await tester.pumpAndSettle();
+    expect(find.text(l10n.themeModeLabel), findsNothing);
+    expect(container.read(gameControllerProvider)!.placed.length, 1,
+        reason: 'Back returns to the game with board placement intact');
+  });
+
+  testWidgets(
+      'pause menu: Abandon case shows the exit dialog; cancelling returns to '
+      'the game (issue 11)', (tester) async {
+    await pumpGame(tester);
+    final l10n = l10nOf(tester);
+    await placeFirstGuest(tester);
+
+    await tester.tap(find.text(l10n.pauseMenuTitle).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(l10n.abandonCase));
+    await tester.pumpAndSettle();
+    expect(find.text(l10n.quitConfirmTitle), findsOneWidget,
+        reason: 'Abandon case reuses the existing exit dialog');
+
+    await tester.tap(find.text(l10n.cancel));
+    await tester.pumpAndSettle();
+    expect(find.text(l10n.quitConfirmTitle), findsNothing);
+    expect(find.byType(HomeScreen), findsNothing);
+    expect(container.read(gameControllerProvider)!.placed.length, 1,
+        reason: 'cancelling returns to the running game');
+  });
+
+  testWidgets('pause menu: confirming Abandon case quits to home (issue 11)',
+      (tester) async {
+    await pumpGame(tester);
+    final l10n = l10nOf(tester);
+    await placeFirstGuest(tester);
+
+    await tester.tap(find.text(l10n.pauseMenuTitle).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(l10n.abandonCase));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(l10n.quitCase));
+    await tester.pumpAndSettle();
+    expect(find.byType(HomeScreen), findsOneWidget);
+    expect(container.read(gameControllerProvider), isNull,
+        reason: 'confirming abandon quits the case');
   });
 }

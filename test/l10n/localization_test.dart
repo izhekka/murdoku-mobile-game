@@ -270,4 +270,13 @@ void main() {
     expect(names.gen('s0'), 'Тест');
     expect(names.roomPrep('r0'), 'в Зал');
   });
+
+  test('pause menu strings exist and are non-empty in ru and en', () {
+    final en = lookupAppLocalizations(const Locale('en'));
+    final ru = lookupAppLocalizations(const Locale('ru'));
+    expect(en.pauseMenuTitle, isNotEmpty);
+    expect(en.abandonCase, isNotEmpty);
+    expect(ru.pauseMenuTitle, isNotEmpty);
+    expect(ru.abandonCase, isNotEmpty);
+  });
 }

@@ -337,5 +337,7 @@
   "legendTitle": "Legend",
   "legendRooms": "Rooms",
   "legendItems": "Items",
-  "legendOccupiable": "a guest can sit here"
+  "legendOccupiable": "a guest can sit here",
+  "pauseMenuTitle": "Menu",
+  "abandonCase": "Abandon case"
 }

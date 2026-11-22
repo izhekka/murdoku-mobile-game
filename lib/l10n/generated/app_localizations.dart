@@ -775,6 +775,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'a guest can sit here'**
   String get legendOccupiable;
+
+  /// No description provided for @pauseMenuTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Menu'**
+  String get pauseMenuTitle;
+
+  /// No description provided for @abandonCase.
+  ///
+  /// In en, this message translates to:
+  /// **'Abandon case'**
+  String get abandonCase;
 }
 
 class _AppLocalizationsDelegate

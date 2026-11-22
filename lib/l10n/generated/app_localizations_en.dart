@@ -405,4 +405,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get legendOccupiable => 'a guest can sit here';
+
+  @override
+  String get pauseMenuTitle => 'Menu';
+
+  @override
+  String get abandonCase => 'Abandon case';
 }
