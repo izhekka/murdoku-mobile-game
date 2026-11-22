@@ -168,19 +168,20 @@ class _GameScreenState extends ConsumerState<GameScreen>
           }
           return Column(
             children: [
-              // The square board hugs the suspect grid; leftover vertical
-              // space sits above it (under the app bar), never between the
-              // board and the panel (UX-6).
+              // The square board hugs the suspect grid; whatever vertical
+              // space is left above it (under the app bar) is a few px at
+              // phone sizes — never a dead band, and never a gap between
+              // the board and the panel (UX-6).
               Expanded(
                 child: Align(
                   alignment: Alignment.bottomCenter,
                   child: board,
                 ),
               ),
-              SizedBox(
-                height: 205,
-                child: panel,
-              ),
+              // The panel fills all space under the board (UX-9) instead of
+              // a fixed 205px slot, so its cards stretch taller and the
+              // full clue text stays readable.
+              Expanded(child: panel),
               _toolbar(l10n, state),
             ],
           );

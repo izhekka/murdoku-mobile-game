@@ -160,7 +160,7 @@ void main() {
         reason: 'the horizontally scrolling strip is gone');
   });
 
-  testWidgets('selected card shows full clues; others cap at 2 lines (UX-2)',
+  testWidgets('clue text is uncapped on selected and unselected cards (UX-9)',
       (tester) async {
     await tester.pumpWidget(const Harness());
     await tester.pump();
@@ -170,22 +170,54 @@ void main() {
         tester.widget<Text>(find.text('Ash was in the Hall.'));
     expect(ashSelected.maxLines, isNull);
 
-    // Unselected cards cap at two lines with ellipsis.
-    final blairCapped = tester
+    // Unselected cards are uncapped too: the (taller) card height bounds
+    // the text instead of a 2-line ellipsis (UX-9).
+    final blair = tester
         .widget<Text>(find.text('Blair was not on the same floor as the victim.'));
-    expect(blairCapped.maxLines, 2);
-    expect(blairCapped.overflow, TextOverflow.ellipsis);
+    expect(blair.maxLines, isNull);
+    expect(blair.overflow, isNull);
 
-    // Tap Blair -> selection moves; Blair expands, Ash caps.
+    // Tap Blair -> selection moves; Blair expands, Ash stays uncapped.
     await tester.tap(find.text('Blair'));
     await tester.pump();
 
     final blairSelected = tester
         .widget<Text>(find.text('Blair was not on the same floor as the victim.'));
     expect(blairSelected.maxLines, isNull);
-    final ashCapped = tester.widget<Text>(find.text('Ash was in the Hall.'));
-    expect(ashCapped.maxLines, 2);
-    expect(ashCapped.overflow, TextOverflow.ellipsis);
+    final ash = tester.widget<Text>(find.text('Ash was in the Hall.'));
+    expect(ash.maxLines, isNull);
+  });
+
+  testWidgets('grid fills a pinned height; cards stretch taller (UX-9)',
+      (tester) async {
+    await tester.pumpWidget(MaterialApp(
+      locale: const Locale('en'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: Scaffold(
+        body: Center(
+          child: SizedBox(
+            width: 412,
+            height: 400,
+            child: SuspectPanel(
+              caseData: fixture,
+              placed: const {},
+              selectedSuspectId: null,
+              onSuspectTap: (_) {},
+            ),
+          ),
+        ),
+      ),
+    ));
+    await tester.pump();
+
+    final gridRect = tester.getRect(find.byType(GridView));
+    expect(gridRect.height, 400, reason: 'the grid fills the pinned slot');
+    // Two rows split the 400px slot minus 8px padding and one 4px gutter;
+    // each card's InkWell fills its tile minus the 4px card padding.
+    final cardRect = tester.getRect(find.byType(InkWell).first);
+    expect(cardRect.height, closeTo((400 - 2 * 4 - 4) / 2 - 2 * 4, 0.5),
+        reason: 'cards stretch to fill the slot height');
   });
 
   testWidgets('each card is a semantic button labelled name + first clue (UX-2)',

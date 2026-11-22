@@ -67,9 +67,9 @@ String describeClue(
   }
 }
 
-/// The suspects panel: a 3x2 grid of compact cards on phones (the selected
-/// card expands to show its full clues; the others cap at two lines), a
-/// vertical column on wide layouts.
+/// The suspects panel: a 3x2 grid of compact cards on phones (tall enough to
+/// show each card's full clue text, uncapped), a vertical column on wide
+/// layouts.
 class SuspectPanel extends StatelessWidget {
   const SuspectPanel({
     super.key,
@@ -256,8 +256,6 @@ class _SuspectCard extends StatelessWidget {
                   Expanded(
                     child: Text(
                       clueTexts.join('\n'),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ),

@@ -12,6 +12,7 @@ import 'package:murdoku/state/game_controller.dart';
 import 'package:murdoku/state/providers.dart';
 import 'package:murdoku/ui/widgets/accuse_sheet.dart';
 import 'package:murdoku/ui/widgets/dialogs.dart';
+import 'package:murdoku/ui/widgets/suspect_panel.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 Pos p(int row, int col) => (row: row, col: col);
@@ -279,7 +280,7 @@ void main() {
     }
   });
 
-  testWidgets('board sits flush above the suspect grid on phones (UX-6)',
+  testWidgets('board sits flush above a full-height suspect panel (UX-6/UX-9)',
       (tester) async {
     await pumpGame(tester, size: const Size(412, 915));
     expect(tester.takeException(), isNull);
@@ -288,8 +289,9 @@ void main() {
     final gridRect = tester.getRect(find.byType(GridView));
     expect(boardRect.bottom, closeTo(gridRect.top, 8),
         reason: 'no dead vertical gap between board and suspect panel');
-    // The board is the dominant element (at least twice the grid height).
-    expect(boardRect.height, greaterThan(gridRect.height * 1.8));
+    // The panel fills the space under the board instead of the old fixed
+    // 205px slot (UX-9): no dead band above the map, panel at least 240px.
+    expect(gridRect.height, greaterThanOrEqualTo(240));
   });
 
   testWidgets('small viewport 320x569 does not overflow (UX-6)',
@@ -301,5 +303,29 @@ void main() {
     final gridRect = tester.getRect(find.byType(GridView));
     expect(boardRect.bottom, closeTo(gridRect.top, 8),
         reason: 'board stays flush with the panel on small screens');
+  });
+
+  testWidgets('longest clue renders in full on its expanded card (UX-9)',
+      (tester) async {
+    await pumpGame(tester, size: const Size(412, 915));
+    expect(tester.takeException(), isNull);
+
+    final l10n = l10nOf(tester);
+    final names = NameForms.forLocale(l10n.localeName, fixedCase);
+    final rendered = [
+      for (final clue in fixedCase.clues)
+        (suspectId: clue.suspectId,
+            text: describeClue(clue, fixedCase, l10n, names)),
+    ];
+    final longest =
+        rendered.reduce((a, b) => a.text.length >= b.text.length ? a : b);
+
+    container
+        .read(gameControllerProvider.notifier)
+        .selectSuspect(longest.suspectId);
+    await tester.pumpAndSettle();
+
+    expect(find.text(longest.text), findsOneWidget,
+        reason: 'the longest clue is fully rendered on the expanded card');
   });
 }
