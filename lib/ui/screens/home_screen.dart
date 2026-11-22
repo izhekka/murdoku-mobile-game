@@ -8,6 +8,7 @@ import '../../l10n/generated/app_localizations.dart';
 import '../../state/clock.dart';
 import '../../state/game_controller.dart';
 import '../../state/providers.dart';
+import '../widgets/skin_card.dart';
 import '../widgets/tutorial_overlay.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -63,7 +64,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         padding: const EdgeInsets.all(12),
         children: [
           if (savedGame != null)
-            Card(
+            SkinCard(
               child: ListTile(
                 leading: const Icon(Icons.play_arrow),
                 title: Text(l10n.continueCase),
@@ -76,14 +77,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 },
               ),
             ),
-          Card(
+          SkinCard(
             child: ListTile(
               leading: const Icon(Icons.add),
               title: Text(l10n.newCase),
               onTap: () => _showNewCaseSheet(context, ref, l10n),
             ),
           ),
-          Card(
+          SkinCard(
             child: ListTile(
               leading: Icon(dailyDone ? Icons.check_circle : Icons.event),
               iconColor:
@@ -97,7 +98,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
           ),
           const SizedBox(height: 8),
-          Card(
+          SkinCard(
             child: Column(
               children: [
                 ListTile(

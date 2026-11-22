@@ -1,13 +1,31 @@
 import 'package:material_ui/material_ui.dart';
 
-/// Noir-mystery palette: deep indigo/charcoal surfaces with an amber accent.
+import 'skins.dart';
+import '../storage/prefs_repository.dart' show SkinSetting;
+
+/// Maps skins to ThemeData (issue 23): the classic noir palette (deep
+/// indigo/charcoal surfaces with an amber accent) keeps its light/dark
+/// pair; the cartoon skins are light-only designs built from their
+/// SkinTokens (dark requests fall back to the skin's light theme).
 class AppTheme {
   AppTheme._();
 
   static const _seed = Color(0xFFC89B3C);
 
-  static ThemeData get light => _build(Brightness.light);
-  static ThemeData get dark => _build(Brightness.dark);
+  /// Cached singletons: forSkin(classic, …) returns these very instances,
+  /// and every access shares one construction.
+  static final ThemeData light = _build(Brightness.light);
+  static final ThemeData dark = _build(Brightness.dark);
+
+  /// Theme for the given skin: classic returns the existing light/dark
+  /// singletons untouched (byte-identical rendering); cartoon skins always
+  /// return a light theme seeded from their tokens.
+  static ThemeData forSkin(SkinSetting skin, Brightness brightness) {
+    if (skin == SkinSetting.classic) {
+      return brightness == Brightness.dark ? dark : light;
+    }
+    return _buildCartoon(skinTokensFor(skin, light.colorScheme));
+  }
 
   static ThemeData _build(Brightness brightness) {
     final scheme = ColorScheme.fromSeed(
@@ -25,19 +43,77 @@ class AppTheme {
     );
   }
 
-  /// Vivid, distinct room tints usable on both light and dark surfaces
-  /// (pairwise RGB distance > 9000 for the first 7; HSL lightness 0.45–0.75).
-  static const List<Color> _roomPalette = [
-    Color(0xFFE89E3C), // amber
-    Color(0xFF35C290), // teal green
-    Color(0xFF9A4FD0), // violet
-    Color(0xFFD63E2E), // coral red
-    Color(0xFF8FCB3A), // lime
-    Color(0xFF3E86E0), // sky blue
-    Color(0xFFE85890), // pink
-    Color(0xFFD8B26E), // sand
-  ];
+  /// Light-only ThemeData for a cartoon skin, seeded from its ink and
+  /// overridden with the token surfaces so stock Material chrome (scaffold,
+  /// app bar, dialogs, sheets, cards) matches the skin.
+  static ThemeData _buildCartoon(SkinTokens t) {
+    final scheme = ColorScheme.fromSeed(
+      seedColor: t.ink,
+      brightness: Brightness.light,
+    ).copyWith(
+      surface: t.appBackground,
+      onSurface: t.ink,
+      onSurfaceVariant: t.inkSoft,
+      outline: t.mortarColor,
+      outlineVariant: t.card.borderColor,
+      error: t.dangerColor,
+      primary: t.ink,
+      onPrimary: t.appBackground,
+      primaryContainer: t.card.background,
+      onPrimaryContainer: t.ink,
+      secondaryContainer: t.badge.background,
+      onSecondaryContainer: t.badge.ink,
+      surfaceContainerHighest: t.card.background,
+    );
+    final cardShape = RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(t.card.radius),
+      side: BorderSide(color: t.card.borderColor, width: t.card.borderWidth),
+    );
+    return ThemeData(
+      colorScheme: scheme,
+      useMaterial3: true,
+      scaffoldBackgroundColor: t.appBackground,
+      appBarTheme: AppBarTheme(
+        backgroundColor: t.appBackground,
+        foregroundColor: t.ink,
+        elevation: 0,
+        centerTitle: true,
+      ),
+      cardTheme: CardThemeData(
+        color: t.card.background,
+        elevation: 0,
+        shape: cardShape,
+        margin: const EdgeInsets.all(8),
+      ),
+      dialogTheme: DialogThemeData(
+        backgroundColor: t.sheetBackground,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(t.sheetRadius),
+          side: BorderSide(color: t.card.borderColor, width: t.card.borderWidth),
+        ),
+      ),
+      bottomSheetTheme: BottomSheetThemeData(
+        backgroundColor: t.sheetBackground,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(t.sheetRadius)),
+        ),
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          backgroundColor: t.ink,
+          foregroundColor: t.appBackground,
+        ),
+      ),
+      dividerTheme: DividerThemeData(color: t.ink.withValues(alpha: 0.12)),
+    );
+  }
 
-  static List<Color> roomColors(int count) => List.generate(
-      count, (i) => _roomPalette[i % _roomPalette.length]);
+  /// Room tints of the given skin, extended/wrapped to [count]. Classic
+  /// keeps the vivid noir palette; cartoon skins use their mockup tints
+  /// extended to 8 distinct entries (hard difficulty).
+  static List<Color> roomColors(int count,
+      [SkinSetting skin = SkinSetting.classic]) {
+    final tints = skinTokensFor(skin, light.colorScheme).roomTints;
+    return List.generate(count, (i) => tints[i % tints.length]);
+  }
 }

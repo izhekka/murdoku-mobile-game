@@ -23,15 +23,22 @@ class SettingsController extends Notifier<Settings> {
     _persist();
   }
 
+  void setSkin(SkinSetting skin) {
+    state = _copy(skin: skin);
+    _persist();
+  }
+
   Settings _copy({
     ThemeMode? themeMode,
     bool? haptics,
     LanguageSetting? language,
+    SkinSetting? skin,
   }) =>
       Settings(
         themeMode: themeMode ?? state.themeMode,
         haptics: haptics ?? state.haptics,
         language: language ?? state.language,
+        skin: skin ?? state.skin,
       );
 
   void _persist() {

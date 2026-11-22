@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:material_ui/material_ui.dart';
 
+import '../../core/skins.dart';
 import '../../domain/localized_names.dart';
 import '../../domain/models.dart';
 import '../../l10n/generated/app_localizations.dart';
@@ -93,6 +94,12 @@ class SuspectPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final names = NameForms.forLocale(l10n.localeName, caseData);
+    // Border width of one card per side: the cartoon skins' token border
+    // (issue 23), 2 for classic. The row-height math needs it to measure
+    // the clue text at the card's real text width.
+    final skin = SkinScope.maybeOf(context);
+    final cardBorderWidth =
+        skin != null && skin.isCartoon ? skin.card.borderWidth : 2.0;
     final cluesBySuspect = <String, List<Clue>>{};
     for (final clue in caseData.clues) {
       cluesBySuspect.putIfAbsent(clue.suspectId, () => []).add(clue);
@@ -145,14 +152,14 @@ class SuspectPanel extends StatelessWidget {
         rowHeight = (constraints.maxHeight - 2 * hPad - (rows - 1) * spacing) /
             rows;
       } else if (constraints.maxWidth.isFinite) {
-        // Loose height (the wide layout's 300px side slot): grow the rows to
-        // the tallest card's full content instead of pinning ~1.05-proportion
-        // tiles that clip long clue text (UX-9).
-        rowHeight = math.max(
-          rowHeight,
-          _contentRowHeight(
-              context, cardWidth, clueTextsBySuspect, names.nom),
-        );
+      // Loose height (the wide layout's 300px side slot): grow the rows to
+      // the tallest card's full content instead of pinning ~1.05-proportion
+      // tiles that clip long clue text (UX-9).
+      rowHeight = math.max(
+        rowHeight,
+        _contentRowHeight(context, cardWidth, clueTextsBySuspect, names.nom,
+            cardBorderWidth),
+      );
       }
       return GridView.count(
         crossAxisCount: columns,
@@ -181,13 +188,14 @@ class SuspectPanel extends StatelessWidget {
     double cardWidth,
     Map<String, List<String>> clueTextsBySuspect,
     String Function(String) nameOf,
+    double borderWidth,
   ) {
     final base = DefaultTextStyle.of(context).style;
     final theme = Theme.of(context);
     final scaler = MediaQuery.textScalerOf(context);
     final direction = Directionality.of(context);
-    // Card insets: 4 outer padding + 8 container padding + 2 border per side.
-    final textWidth = math.max(cardWidth - 2 * (4 + 8 + 2), 1.0);
+    // Card insets: 4 outer padding + 8 container padding + border per side.
+    final textWidth = math.max(cardWidth - 2 * (4 + 8 + borderWidth), 1.0);
     // The name row's text width: avatar (24) plus its 6px gap. The placed
     // check icon is a badge on the avatar's corner (issue 18), so placed and
     // unplaced rows share this width; scale-down names grow *smaller* in a
@@ -231,9 +239,10 @@ class SuspectPanel extends StatelessWidget {
       final clueHeight = joined.isEmpty
           ? 0.0
           : measure(joined, theme.textTheme.bodySmall, textWidth);
-      // 2 * (4 outer padding + 8 container padding + 2 border) + name row
+      // 2 * (4 outer padding + 8 container padding + border) + name row
       // (the 24dp avatar floors its height) + 4 gap + clue text block.
-      final cardHeight = 2 * 14 + math.max(24.0, nameHeight) + 4 + clueHeight;
+      final cardHeight =
+          2 * (12 + borderWidth) + math.max(24.0, nameHeight) + 4 + clueHeight;
       maxHeight = math.max(maxHeight, cardHeight);
     }
     return maxHeight;
@@ -279,6 +288,11 @@ class _SuspectCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    // Cartoon skins use the token card (issue 23): white card, skin border,
+    // offset shadow; selection is a thicker ink outline. Classic keeps the
+    // scheme styling.
+    final tokens = SkinScope.maybeOf(context);
+    final cartoon = tokens != null && tokens.isCartoon;
     final a11yLabel = clueTexts.isEmpty
         ? '$displayName.'
         : '$displayName. ${clueTexts.first}';
@@ -292,16 +306,30 @@ class _SuspectCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           child: Container(
             padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              color: selected
-                  ? scheme.secondaryContainer
-                  : scheme.surfaceContainerHighest,
-              border: Border.all(
-                color: selected ? scheme.primary : Colors.transparent,
-                width: 2,
-              ),
-            ),
+            decoration: cartoon
+                ? BoxDecoration(
+                    borderRadius: BorderRadius.circular(tokens.card.radius),
+                    color: tokens.card.background,
+                    border: Border.all(
+                      // Selection rides the suspect's own color: comic's
+                      // card border is already the ink color, so an ink
+                      // outline could not show selection.
+                      color: selected ? color : tokens.card.borderColor,
+                      width:
+                          selected ? math.max(tokens.card.borderWidth, 3) : tokens.card.borderWidth,
+                    ),
+                    boxShadow: [tokens.card.shadow],
+                  )
+                : BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    color: selected
+                        ? scheme.secondaryContainer
+                        : scheme.surfaceContainerHighest,
+                    border: Border.all(
+                      color: selected ? scheme.primary : Colors.transparent,
+                      width: 2,
+                    ),
+                  ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [

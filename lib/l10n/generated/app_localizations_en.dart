@@ -333,6 +333,24 @@ class AppLocalizationsEn extends AppLocalizations {
   String get themeDark => 'Dark';
 
   @override
+  String get skinLabel => 'Skin';
+
+  @override
+  String get skinClassic => 'Classic';
+
+  @override
+  String get skinCandy => 'Candy';
+
+  @override
+  String get skinSticker => 'Sticker';
+
+  @override
+  String get skinComic => 'Comic';
+
+  @override
+  String get themeModeCaption => 'Light/dark applies to the Classic skin.';
+
+  @override
   String get hapticsLabel => 'Haptics';
 
   @override

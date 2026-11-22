@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../core/format.dart';
+import '../../core/skins.dart';
 import '../../domain/game_logic.dart' show Tool, boardSolved;
 import '../../domain/localized_names.dart';
 import '../../domain/models.dart';
@@ -202,15 +203,23 @@ class _GameScreenState extends ConsumerState<GameScreen>
   Widget _toolbar(AppLocalizations l10n, GameState state) {
     final notifier = ref.read(gameControllerProvider.notifier);
     final hintsLeft = 2 - state.hintsUsed;
+    // Cartoon skins color every toolbar action (issue 23); classic keeps
+    // its scheme-colored buttons (maybeOf null → classic rendering).
+    final tokens = SkinScope.maybeOf(context);
+    final actions = tokens != null && tokens.isCartoon ? tokens.actions : null;
 
     /// Two-line mini button: icon over a visible label (UX-5). Minimum 48dp
     /// wide / 52dp tall target; the label shrinks instead of overflowing.
+    /// Cartoon skins render it as a per-action colored pill with the skin's
+    /// shadow; the active tool gets an ink outline.
     Widget miniButton({
       required IconData icon,
       required String label,
       required String tooltip,
       required VoidCallback onPressed,
+      required String keyName,
       bool active = false,
+      Color? pillColor,
     }) =>
         Semantics(
           label: label,
@@ -221,28 +230,45 @@ class _GameScreenState extends ConsumerState<GameScreen>
               onTap: onPressed,
               borderRadius: BorderRadius.circular(12),
               child: Container(
+                key: Key(keyName),
                 constraints:
                     const BoxConstraints(minWidth: 48, minHeight: 52),
                 padding:
                     const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  color: active
-                      ? Theme.of(context).colorScheme.primaryContainer
-                      : Colors.transparent,
-                ),
+                decoration: pillColor == null
+                    ? BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        color: active
+                            ? Theme.of(context).colorScheme.primaryContainer
+                            : Colors.transparent,
+                      )
+                    : BoxDecoration(
+                        borderRadius:
+                            BorderRadius.circular(tokens!.buttonRadius),
+                        color: pillColor,
+                        boxShadow: [tokens.buttonShadow],
+                        border: active
+                            ? Border.all(color: tokens.ink, width: 2.5)
+                            : null,
+                      ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(icon, size: 22),
+                    Icon(icon,
+                        size: 22,
+                        color:
+                            pillColor != null ? Colors.white : null),
                     const SizedBox(height: 2),
                     FittedBox(
                       fit: BoxFit.scaleDown,
                       child: Text(
                         label,
                         maxLines: 1,
-                        style: const TextStyle(fontSize: 10),
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: pillColor != null ? Colors.white : null,
+                        ),
                       ),
                     ),
                   ],
@@ -253,14 +279,23 @@ class _GameScreenState extends ConsumerState<GameScreen>
         );
 
     Widget toolButton(Tool tool, IconData icon, String label,
-            {required String tooltip}) =>
+            {required String tooltip, required Color? pillColor}) =>
         miniButton(
           icon: icon,
           label: label,
           tooltip: tooltip,
+          keyName: switch (tool) {
+            Tool.place => 'tool_place',
+            Tool.markX => 'tool_mark',
+            Tool.erase => 'tool_erase',
+          },
           active: state.tool == tool,
+          pillColor: pillColor,
           onPressed: () => notifier.setTool(tool),
         );
+
+    Color? actionColor(Color Function(SkinActions) pick) =>
+        actions == null ? null : pick(actions);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -269,21 +304,26 @@ class _GameScreenState extends ConsumerState<GameScreen>
         children: [
           Expanded(
             child: toolButton(Tool.place, Icons.person, l10n.toolPlace,
-                tooltip: l10n.toolPlace),
+                tooltip: l10n.toolPlace,
+                pillColor: actionColor((a) => a.place)),
           ),
           Expanded(
             child: toolButton(Tool.markX, Icons.close, l10n.toolMark,
-                tooltip: l10n.toolMarkTooltip),
+                tooltip: l10n.toolMarkTooltip,
+                pillColor: actionColor((a) => a.mark)),
           ),
           Expanded(
             child: toolButton(Tool.erase, Icons.auto_fix_normal, l10n.toolErase,
-                tooltip: l10n.toolErase),
+                tooltip: l10n.toolErase,
+                pillColor: actionColor((a) => a.erase)),
           ),
           Expanded(
             child: miniButton(
               icon: Icons.undo,
               label: l10n.toolUndo,
               tooltip: l10n.toolUndo,
+              keyName: 'tool_undo',
+              pillColor: actionColor((a) => a.undo),
               onPressed: () => notifier.undo(),
             ),
           ),
@@ -292,6 +332,8 @@ class _GameScreenState extends ConsumerState<GameScreen>
               icon: Icons.fact_check,
               label: l10n.toolCheck,
               tooltip: l10n.toolCheckTooltip,
+              keyName: 'tool_check',
+              pillColor: actionColor((a) => a.check),
               onPressed: () => _runCheck(l10n),
             ),
           ),
@@ -300,6 +342,8 @@ class _GameScreenState extends ConsumerState<GameScreen>
               icon: Icons.lightbulb,
               label: l10n.toolHint,
               tooltip: l10n.toolHintTooltip,
+              keyName: 'tool_hint',
+              pillColor: actionColor((a) => a.hint),
               onPressed: () => _showHintSheet(l10n, hintsLeft),
             ),
           ),
@@ -308,6 +352,8 @@ class _GameScreenState extends ConsumerState<GameScreen>
               icon: Icons.gavel,
               label: l10n.toolAccuse,
               tooltip: l10n.accuse,
+              keyName: 'tool_accuse',
+              pillColor: actionColor((a) => a.accuse),
               onPressed: () => showAccuseSheet(),
             ),
           ),
@@ -316,6 +362,8 @@ class _GameScreenState extends ConsumerState<GameScreen>
               icon: Icons.pause,
               label: l10n.pauseMenuTitle,
               tooltip: l10n.pauseMenuTitle,
+              keyName: 'tool_menu',
+              pillColor: actionColor((a) => a.menu),
               onPressed: () => _showPauseMenu(l10n),
             ),
           ),

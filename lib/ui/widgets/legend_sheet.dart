@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../../core/skins.dart';
 import '../../core/theme.dart';
 import '../../domain/localized_names.dart';
 import '../../domain/models.dart';
@@ -25,7 +26,12 @@ class LegendSheet extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     final names = NameForms.forLocale(l10n.localeName, caseData);
     final g = caseData.gridSize;
-    final roomColors = AppTheme.roomColors(g);
+    final tokens = SkinScope.maybeOf(context);
+    final cartoon = tokens != null && tokens.isCartoon;
+    final roomColors = cartoon
+        ? List.generate(g, (i) => tokens.roomTints[i % tokens.roomTints.length])
+        : AppTheme.roomColors(g);
+    final scheme = Theme.of(context).colorScheme;
     // One entry per distinct item kind, in first-appearance order.
     final seenKinds = <ObjectKind>[];
     for (final item in caseData.objects) {
@@ -61,11 +67,19 @@ class LegendSheet extends StatelessWidget {
                         width: 24,
                         height: 24,
                         decoration: BoxDecoration(
-                          color: roomColors[i].withValues(alpha: 0.55),
+                          // Cartoon skins: solid tint + mortar border, the
+                          // board's room blocks (issue 23). Classic: the
+                          // alpha-0.55 scheme swatch.
+                          color: cartoon
+                              ? roomColors[i]
+                              : roomColors[i].withValues(alpha: 0.55),
                           border: Border.all(
                               width: 2,
-                              color: Theme.of(context).colorScheme.outline),
-                          borderRadius: BorderRadius.circular(4),
+                              color: cartoon
+                                  ? tokens.mortarColor
+                                  : scheme.outline),
+                          borderRadius:
+                              BorderRadius.circular(cartoon ? 6 : 4),
                         ),
                         child: Center(
                           child: Text(
@@ -73,7 +87,7 @@ class LegendSheet extends StatelessWidget {
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
-                              color: Theme.of(context).colorScheme.onSurface,
+                              color: cartoon ? tokens.ink : scheme.onSurface,
                             ),
                           ),
                         ),

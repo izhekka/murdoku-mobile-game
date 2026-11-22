@@ -92,6 +92,28 @@ void main() {
     expect(repo.loadSettings(), const Settings(themeMode: ThemeMode.dark, haptics: false));
   });
 
+  test('skin defaults to sticker on empty storage (issue 23)', () {
+    expect(repo.loadSettings().skin, SkinSetting.sticker);
+  });
+
+  test('skin JSON round-trip (issue 23)', () async {
+    await repo.saveSettings(const Settings(skin: SkinSetting.candy));
+    expect(repo.loadSettings(), const Settings(skin: SkinSetting.candy));
+    expect(prefs.getString('murdoku.settings'), contains('"skin":"candy"'));
+  });
+
+  test('legacy settings without a skin key resolve to sticker (issue 23)',
+      () async {
+    const key = 'murdoku.settings';
+    await prefs.setString(
+        key, '{"themeMode":"dark","haptics":true,"language":"russian"}');
+    final settings = repo.loadSettings();
+    expect(settings.skin, SkinSetting.sticker);
+    expect(settings.themeMode, ThemeMode.dark);
+    expect(settings.haptics, isTrue);
+    expect(settings.language, LanguageSetting.russian);
+  });
+
   test('stats round-trip', () async {
     final stats = Stats()
       ..solved[Difficulty.easy] = 3

@@ -7,6 +7,7 @@ import 'package:murdoku/domain/models.dart';
 import 'package:murdoku/l10n/generated/app_localizations.dart';
 import 'package:murdoku/state/providers.dart';
 import 'package:murdoku/state/game_controller.dart';
+import 'package:murdoku/state/settings_controller.dart';
 import 'package:murdoku/storage/prefs_repository.dart';
 import 'package:murdoku/ui/screens/settings_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -81,5 +82,37 @@ void main() {
     // Settings are kept.
     expect(repo.loadSettings().themeMode, ThemeMode.dark);
     expect(find.text(l10n.progressReset), findsOneWidget);
+  });
+
+  testWidgets('skin picker offers the four localized skins (issue 23)',
+      (tester) async {
+    await pumpSettings(tester);
+    final l10n = l10nOf(tester);
+    for (final label in [
+      l10n.skinClassic,
+      l10n.skinCandy,
+      l10n.skinSticker,
+      l10n.skinComic,
+    ]) {
+      expect(find.text(label), findsOneWidget, reason: 'segment $label');
+    }
+    // The caption explains that ThemeMode applies to Классика only.
+    expect(find.text(l10n.themeModeCaption), findsOneWidget);
+  });
+
+  testWidgets('selecting Комикс updates the controller and persists '
+      '(issue 23)', (tester) async {
+    final (container, repo) = await pumpSettings(tester);
+    final l10n = l10nOf(tester);
+
+    await tester.tap(find.text(l10n.skinComic));
+    await tester.pumpAndSettle();
+
+    expect(container.read(settingsControllerProvider).skin, SkinSetting.comic);
+    // A fresh repository over the same prefs proves persistence.
+    final prefs2 = await SharedPreferences.getInstance();
+    expect(
+        PrefsRepository(prefs2).loadSettings().skin, SkinSetting.comic);
+    expect(repo.loadSettings().skin, SkinSetting.comic);
   });
 }

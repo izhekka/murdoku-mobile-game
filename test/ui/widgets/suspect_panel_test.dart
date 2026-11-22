@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:murdoku/core/skins.dart';
 import 'package:murdoku/domain/generator/case_factory.dart';
 import 'package:murdoku/domain/localized_names.dart';
 import 'package:murdoku/domain/models.dart';
@@ -482,5 +483,39 @@ void main() {
       'side panel at 300px: placed names render at a readable scale '
       '(issue 18, ru)', (tester) async {
     await expectPlacedNamesAtReadableScale(tester, const Locale('ru'));
+  });
+
+  testWidgets('cartoon skin renders suspect cards with token card styling '
+      '(issue 23)', (tester) async {
+    await tester.pumpWidget(MaterialApp(
+      locale: const Locale('en'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      // Scope at the builder level, mirroring lib/app.dart.
+      builder: (context, child) =>
+          SkinScope(tokens: stickerTokens, child: child!),
+      home: Scaffold(
+        body: SizedBox(
+          width: 320,
+          child: SuspectPanel(
+            caseData: fixture,
+            placed: const {},
+            selectedSuspectId: null,
+            onSuspectTap: (_) {},
+          ),
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    final container = tester.widget<Container>(
+        find.descendant(
+            of: find.byType(SuspectPanel),
+            matching: find.byType(Container)).first);
+    final decoration = container.decoration as BoxDecoration;
+    expect(decoration.color, stickerTokens.card.background);
+    expect(decoration.border?.top.color, stickerTokens.card.borderColor);
+    expect(decoration.border?.top.width, stickerTokens.card.borderWidth);
+    expect(decoration.boxShadow?.single, stickerTokens.card.shadow);
   });
 }

@@ -77,8 +77,15 @@ void main() {
     expect(find.text(l10n.rule2Text), findsOneWidget);
     expect(find.text(l10n.rule3Text), findsOneWidget);
     expect(find.text(l10n.rule4Text), findsOneWidget);
+    // The cartoon skins' app frame margin (issue 23) leaves the glossary
+    // just past the fold on the 800x600 test viewport — the lazy ListView
+    // builds it on scroll, so scroll to it before asserting.
+    final glossaryDirections = find.text(l10n.glossaryDirections);
+    await tester.dragUntilVisible(
+        glossaryDirections, find.byType(ListView), const Offset(0, -100));
+    await tester.pumpAndSettle();
     expect(find.text(l10n.glossaryBeside), findsOneWidget);
-    expect(find.text(l10n.glossaryDirections), findsOneWidget);
+    expect(glossaryDirections, findsOneWidget);
     expect(find.text(l10n.glossaryRowCol), findsOneWidget);
   });
 }

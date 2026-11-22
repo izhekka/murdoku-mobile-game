@@ -6,7 +6,7 @@ import '../../state/game_controller.dart';
 import '../../state/providers.dart';
 import '../../state/settings_controller.dart';
 import '../../state/stats_controller.dart';
-import '../../storage/prefs_repository.dart' show LanguageSetting;
+import '../../storage/prefs_repository.dart' show LanguageSetting, SkinSetting;
 import '../widgets/dialogs.dart';
 
 class SettingsScreen extends ConsumerWidget {
@@ -40,6 +40,34 @@ class SettingsScreen extends ConsumerWidget {
             onSelectionChanged: (selection) => ref
                 .read(settingsControllerProvider.notifier)
                 .setThemeMode(selection.first),
+          ),
+          // The cartoon skins are light-only (issue 23): explain that the
+          // ThemeMode choice applies to Классика alone.
+          Padding(
+            padding: const EdgeInsets.only(left: 16, top: 6),
+            child: Text(l10n.themeModeCaption,
+                style: Theme.of(context).textTheme.bodySmall),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(left: 16, top: 16, bottom: 8),
+            child: Text(l10n.skinLabel,
+                style: Theme.of(context).textTheme.titleMedium),
+          ),
+          SegmentedButton<SkinSetting>(
+            segments: [
+              ButtonSegment(
+                  value: SkinSetting.classic, label: Text(l10n.skinClassic)),
+              ButtonSegment(
+                  value: SkinSetting.candy, label: Text(l10n.skinCandy)),
+              ButtonSegment(
+                  value: SkinSetting.sticker, label: Text(l10n.skinSticker)),
+              ButtonSegment(
+                  value: SkinSetting.comic, label: Text(l10n.skinComic)),
+            ],
+            selected: {settings.skin},
+            onSelectionChanged: (selection) => ref
+                .read(settingsControllerProvider.notifier)
+                .setSkin(selection.first),
           ),
           SwitchListTile(
             title: Text(l10n.hapticsLabel),

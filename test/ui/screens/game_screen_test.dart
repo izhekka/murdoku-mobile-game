@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:murdoku/app.dart';
 import 'package:murdoku/core/format.dart';
+import 'package:murdoku/core/skins.dart';
 import 'package:murdoku/domain/generator/case_factory.dart';
 import 'package:murdoku/domain/localized_names.dart';
 import 'package:murdoku/domain/models.dart';
@@ -788,5 +789,24 @@ void main() {
     expect(container.read(gameControllerProvider)!.placed[last.key],
         last.value,
         reason: 'tapCell derives its cell size from the case actually in play');
+  });
+
+  testWidgets('toolbar buttons use the skin action colors (issue 23)',
+      (tester) async {
+    await pumpGame(tester); // default skin: sticker
+
+    Color pillColor(Key key) {
+      final container = tester.widget<Container>(find.byKey(key));
+      return (container.decoration as BoxDecoration?)!.color!;
+    }
+
+    expect(pillColor(const Key('tool_place')), stickerTokens.actions.place);
+    expect(pillColor(const Key('tool_mark')), stickerTokens.actions.mark);
+    expect(pillColor(const Key('tool_erase')), stickerTokens.actions.erase);
+    expect(pillColor(const Key('tool_undo')), stickerTokens.actions.undo);
+    expect(pillColor(const Key('tool_check')), stickerTokens.actions.check);
+    expect(pillColor(const Key('tool_hint')), stickerTokens.actions.hint);
+    expect(pillColor(const Key('tool_accuse')), stickerTokens.actions.accuse);
+    expect(pillColor(const Key('tool_menu')), stickerTokens.actions.menu);
   });
 }

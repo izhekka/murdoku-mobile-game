@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:murdoku/core/skins.dart';
 import 'package:murdoku/domain/generator/case_factory.dart';
 import 'package:murdoku/domain/models.dart';
 import 'package:murdoku/l10n/generated/app_localizations.dart';
@@ -9,13 +10,18 @@ import 'package:murdoku/ui/widgets/board_view.dart';
 
 final CaseData fixture = generateCase(difficulty: Difficulty.easy, seed: 3);
 
-Widget wrap(Widget child, {double textScale = 1.0}) => MaterialApp(
+Widget wrap(Widget child, {double textScale = 1.0, SkinTokens? tokens}) =>
+    MaterialApp(
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       home: MediaQuery(
         data: MediaQueryData(textScaler: TextScaler.linear(textScale)),
         child: Scaffold(
-          body: Center(child: child),
+          body: Center(
+            child: tokens == null
+                ? child
+                : SkinScope(tokens: tokens, child: child),
+          ),
         ),
       ),
     );
@@ -26,6 +32,7 @@ Future<void> pumpBoard(
   required Set<Pos> xMarks,
   String? selected,
   double textScale = 1.0,
+  SkinTokens? tokens,
   void Function(Pos)? onCellTap,
   void Function(Pos)? onCellDrag,
 }) async {
@@ -44,6 +51,7 @@ Future<void> pumpBoard(
       onCellDrag: onCellDrag ?? (_) {},
     ),
     textScale: textScale,
+    tokens: tokens,
   ));
   await tester.pumpAndSettle();
 }
@@ -187,5 +195,48 @@ void main() {
     expect(boardRect.width, lessThanOrEqualTo(320));
     expect(boardRect.height, lessThanOrEqualTo(569));
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('cartoon skin paints solid rooms with boundary-only mortar '
+      '(issue 23)', (tester) async {
+    await pumpBoard(tester, placed: {}, xMarks: {}, tokens: stickerTokens);
+
+    final painter = tester
+        .widget<CustomPaint>(find.byWidgetPredicate(
+            (w) => w is CustomPaint && w.painter is SkinRoomPainter))
+        .painter as SkinRoomPainter;
+    expect(painter.mortarColor, stickerTokens.mortarColor);
+    expect(painter.lineWidth, stickerTokens.roomLineWidth);
+    expect(painter.radius, stickerTokens.roomRadius);
+    expect(painter.roomCount, fixture.rooms.length);
+    expect(painter.tints.first, stickerTokens.roomTints.first);
+    expect(painter.tints[1], stickerTokens.roomTints[1]);
+
+    // Cells carry no per-side borders any more: rooms paint beneath them.
+    final cell = tester.widget<Container>(
+        find.descendant(
+            of: find.byKey(const Key('cell_0_0')),
+            matching: find.byType(Container)).first);
+    expect(cell.decoration, isNull);
+  });
+
+  testWidgets('cartoon skin renders the victim cell with stripes (issue 23)',
+      (tester) async {
+    await pumpBoard(tester, placed: {}, xMarks: {}, tokens: stickerTokens);
+    expect(
+        find.byWidgetPredicate(
+            (w) => w is CustomPaint && w.painter is SkinVictimStripePainter),
+        findsOneWidget,
+        reason: 'the victim cell is striped, matching the mockups');
+  });
+
+  testWidgets('cartoon skin keeps taps working on every cell (issue 23)',
+      (tester) async {
+    Pos? tapped;
+    await pumpBoard(tester,
+        placed: {}, xMarks: {}, tokens: stickerTokens,
+        onCellTap: (p) => tapped = p);
+    await tester.tapAt(cellCenter(tester, 2, 3));
+    expect(tapped, (row: 2, col: 3));
   });
 }

@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:material_ui/material_ui.dart';
 
+import '../../core/skins.dart';
 import '../../core/theme.dart';
 import '../../domain/localized_names.dart';
 import '../../domain/models.dart';
@@ -50,6 +51,10 @@ class _BoardViewState extends State<BoardView> {
   @override
   Widget build(BuildContext context) {
     final g = widget.caseData.gridSize;
+    // Cartoon skins repaint the board as solid room blocks (issue 23); the
+    // classic skin keeps its per-cell borders (maybeOf null → classic).
+    final tokens = SkinScope.maybeOf(context);
+    final cartoon = tokens != null && tokens.solidRooms;
     return AspectRatio(
       aspectRatio: 1,
       child: LayoutBuilder(
@@ -84,6 +89,25 @@ class _BoardViewState extends State<BoardView> {
               height: side,
               child: Stack(
                 children: [
+                  if (cartoon)
+                    Positioned(
+                      left: 0,
+                      top: 0,
+                      width: side,
+                      height: side,
+                      child: CustomPaint(
+                        size: Size(side, side),
+                        painter: SkinRoomPainter(
+                          rooms: widget.caseData.rooms,
+                          gridSize: g,
+                          cellSize: cell,
+                          tints: tokens.roomTints,
+                          mortarColor: tokens.mortarColor,
+                          lineWidth: tokens.roomLineWidth,
+                          radius: tokens.roomRadius,
+                        ),
+                      ),
+                    ),
                   for (var row = 0; row < g; row++)
                     for (var col = 0; col < g; col++)
                       Positioned(
@@ -166,38 +190,55 @@ class _Cell extends StatelessWidget {
     final rowBlocked = placed.values.any((p) => p.row == pos.row);
     final colBlocked = placed.values.any((p) => p.col == pos.col);
 
-    final scheme = Theme.of(context).colorScheme;
-    var fill = AppTheme.roomColors(g)[roomIndex].withValues(alpha: 0.55);
-    if (isVictim) fill = scheme.errorContainer;
-    if (rowBlocked || colBlocked) {
-      fill = Color.alphaBlend(scheme.onSurface.withValues(alpha: 0.10), fill);
-    }
+    final tokens = SkinScope.maybeOf(context);
+    final cartoon = tokens != null && tokens.solidRooms;
 
-    // Room boundary: thicker edge where the neighbor belongs to another room.
-    const thin = 0.5;
-    const thick = 2.5;
-    final northRoom = pos.row > 0
-        ? roomOf(c.rooms, (row: pos.row - 1, col: pos.col))
-        : null;
-    final westRoom = pos.col > 0
-        ? roomOf(c.rooms, (row: pos.row, col: pos.col - 1))
-        : null;
-    final southRoom = pos.row < g - 1
-        ? roomOf(c.rooms, (row: pos.row + 1, col: pos.col))
-        : null;
-    final eastRoom = pos.col < g - 1
-        ? roomOf(c.rooms, (row: pos.row, col: pos.col + 1))
-        : null;
-    final border = Border(
-      top: BorderSide(
-          width: northRoom != room.id ? thick : thin, color: scheme.outline),
-      left: BorderSide(
-          width: westRoom != room.id ? thick : thin, color: scheme.outline),
-      right: BorderSide(
-          width: eastRoom != room.id ? thick : thin, color: scheme.outline),
-      bottom: BorderSide(
-          width: southRoom != room.id ? thick : thin, color: scheme.outline),
-    );
+    final scheme = Theme.of(context).colorScheme;
+    Color? cellFill;
+    Border? cellBorder;
+    if (cartoon) {
+      // Solid rooms: SkinRoomPainter paints the tints and boundary-only
+      // mortar beneath the cells; cells keep only state overlays (issue 23).
+      if (isVictim) {
+        cellFill = tokens.victimFill;
+      } else if (rowBlocked || colBlocked) {
+        cellFill = tokens.ink.withValues(alpha: 0.10);
+      }
+    } else {
+      var fill = AppTheme.roomColors(g)[roomIndex].withValues(alpha: 0.55);
+      if (isVictim) fill = scheme.errorContainer;
+      if (rowBlocked || colBlocked) {
+        fill = Color.alphaBlend(scheme.onSurface.withValues(alpha: 0.10), fill);
+      }
+      cellFill = fill;
+
+      // Room boundary: thicker edge where the neighbor belongs to another
+      // room.
+      const thin = 0.5;
+      const thick = 2.5;
+      final northRoom = pos.row > 0
+          ? roomOf(c.rooms, (row: pos.row - 1, col: pos.col))
+          : null;
+      final westRoom = pos.col > 0
+          ? roomOf(c.rooms, (row: pos.row, col: pos.col - 1))
+          : null;
+      final southRoom = pos.row < g - 1
+          ? roomOf(c.rooms, (row: pos.row + 1, col: pos.col))
+          : null;
+      final eastRoom = pos.col < g - 1
+          ? roomOf(c.rooms, (row: pos.row, col: pos.col + 1))
+          : null;
+      cellBorder = Border(
+        top: BorderSide(
+            width: northRoom != room.id ? thick : thin, color: scheme.outline),
+        left: BorderSide(
+            width: westRoom != room.id ? thick : thin, color: scheme.outline),
+        right: BorderSide(
+            width: eastRoom != room.id ? thick : thin, color: scheme.outline),
+        bottom: BorderSide(
+            width: southRoom != room.id ? thick : thin, color: scheme.outline),
+      );
+    }
 
     final furnitureName = objectHere.isNotEmpty
         ? NameForms.forLocale(l10n.localeName, c).objectNom(objectHere.first.kind)
@@ -222,21 +263,28 @@ class _Cell extends StatelessWidget {
             child: Padding(
               padding: const EdgeInsets.all(2),
               child: Container(
-                width: 16,
-                height: 16,
+                width: cartoon ? 20 : 16,
+                height: cartoon ? 20 : 16,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: scheme.primaryContainer,
-                  border:
-                      Border.all(width: 1, color: scheme.onPrimaryContainer),
+                  color: cartoon
+                      ? tokens.badge.background
+                      : scheme.primaryContainer,
+                  border: Border.all(
+                      width: 1,
+                      color: cartoon
+                          ? tokens.badge.ink
+                          : scheme.onPrimaryContainer),
                 ),
                 child: Center(
                   child: Text(
                     '$roomNumber',
                     style: TextStyle(
-                      fontSize: 10,
+                      fontSize: cartoon ? 11 : 10,
                       fontWeight: FontWeight.bold,
-                      color: scheme.onPrimaryContainer,
+                      color: cartoon
+                          ? tokens.badge.ink
+                          : scheme.onPrimaryContainer,
                     ),
                   ),
                 ),
@@ -256,23 +304,37 @@ class _Cell extends StatelessWidget {
     if (isVictim) {
       content = Semantics(
         label: '${l10n.victimLabel}: $label',
-        child: Center(
-          child: Image.asset(
-            'assets/items/victim.png',
-            width: 40,
-            height: 40,
-            filterQuality: FilterQuality.medium,
-            // Chalk outline always beats a letter — the letter is a
-            // last-resort fallback if the asset is missing.
-            errorBuilder: (_, _, _) => Text(
-              'V',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: scheme.onErrorContainer,
+        child: Stack(
+          children: [
+            if (cartoon)
+              // Striped victim cell per the cartoon mockups (issue 23).
+              Positioned.fill(
+                child: ClipRect(
+                  child: CustomPaint(
+                    painter: SkinVictimStripePainter(
+                        color: tokens.victimStripeColor),
+                  ),
+                ),
+              ),
+            Center(
+              child: Image.asset(
+                'assets/items/victim.png',
+                width: 40,
+                height: 40,
+                filterQuality: FilterQuality.medium,
+                // Chalk outline always beats a letter — the letter is a
+                // last-resort fallback if the asset is missing.
+                errorBuilder: (_, _, _) => Text(
+                  'V',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: scheme.onErrorContainer,
+                  ),
+                ),
               ),
             ),
-          ),
+          ],
         ),
       );
     } else {
@@ -300,7 +362,8 @@ class _Cell extends StatelessWidget {
             )
           else if (hasX)
             Center(
-              child: Icon(Icons.close, color: scheme.error, size: 22),
+              child: Icon(Icons.close,
+                  color: cartoon ? tokens.ink : scheme.error, size: 22),
             )
           else if (itemIcon != null)
             Center(child: furniture(itemIcon))
@@ -318,10 +381,180 @@ class _Cell extends StatelessWidget {
         onTap: () => onCellTap(pos),
         child: Container(
           key: isVictim ? const Key('victim_cell') : null,
-          decoration: BoxDecoration(color: fill, border: border),
+          decoration: cellFill == null && cellBorder == null
+              ? null
+              : BoxDecoration(color: cellFill, border: cellBorder),
           child: content,
         ),
       ),
     );
   }
+}
+
+/// Paints the cartoon board's rooms as solid blocks (issue 23): a union of
+/// per-cell fills rounded only at outer room corners, with boundary-only
+/// mortar lines (north/west rules plus the outer south/east edges keep one
+/// stroke per internal boundary) wrapping rounded corners in arcs. Classic
+/// boards never use this painter.
+class SkinRoomPainter extends CustomPainter {
+  SkinRoomPainter({
+    required this.rooms,
+    required this.gridSize,
+    required this.cellSize,
+    required this.tints,
+    required this.mortarColor,
+    required this.lineWidth,
+    required this.radius,
+  });
+
+  final List<RoomDef> rooms;
+  final int gridSize;
+  final double cellSize;
+  final List<Color> tints;
+  final Color mortarColor;
+  final double lineWidth;
+  final double radius;
+
+  int get roomCount => rooms.length;
+
+  int _roomIndexAt((int, int) pos) {
+    final (row, col) = pos;
+    if (row < 0 || row >= gridSize || col < 0 || col >= gridSize) return -1;
+    return rooms.indexWhere((r) => r.contains((row: row, col: col)));
+  }
+
+  /// True when the neighbor across (dr, dc) is off the board or belongs to
+  /// another room.
+  bool _boundary(int row, int col, int dr, int dc) {
+    final neighbor = _roomIndexAt((row + dr, col + dc));
+    return neighbor == -1 || neighbor != _roomIndexAt((row, col));
+  }
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final fill = Paint();
+    final mortar = Paint()
+      ..color = mortarColor
+      ..strokeWidth = lineWidth
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke;
+    final w = lineWidth;
+
+    for (var row = 0; row < gridSize; row++) {
+      for (var col = 0; col < gridSize; col++) {
+        final roomIndex = _roomIndexAt((row, col));
+        if (roomIndex < 0) continue;
+        final rect = Rect.fromLTWH(
+            col * cellSize, row * cellSize, cellSize, cellSize);
+        final north = _boundary(row, col, -1, 0);
+        final south = _boundary(row, col, 1, 0);
+        final west = _boundary(row, col, 0, -1);
+        final east = _boundary(row, col, 0, 1);
+        // Rounded only at outer room corners: both adjacent sides are
+        // boundaries. Same-room neighbors keep square corners so their
+        // fills meet seamlessly.
+        final tl = north && west ? radius : 0.0;
+        final tr = north && east ? radius : 0.0;
+        final br = south && east ? radius : 0.0;
+        final bl = south && west ? radius : 0.0;
+
+        fill.color = tints[roomIndex % tints.length];
+        if (tl == 0 && tr == 0 && br == 0 && bl == 0) {
+          canvas.drawRect(rect, fill);
+        } else {
+          canvas.drawRRect(
+            RRect.fromRectAndCorners(
+              rect,
+              topLeft: Radius.circular(tl),
+              topRight: Radius.circular(tr),
+              bottomRight: Radius.circular(br),
+              bottomLeft: Radius.circular(bl),
+            ),
+            fill,
+          );
+        }
+
+        // Boundary lines hug the fill edge (inset half a line width) and
+        // stop short of rounded corners where an arc takes over.
+        if (north) {
+          canvas.drawLine(
+            Offset(rect.left + (tl > 0 ? radius : w / 2), rect.top + w / 2),
+            Offset(rect.right - (tr > 0 ? radius : w / 2), rect.top + w / 2),
+            mortar,
+          );
+        }
+        if (west) {
+          canvas.drawLine(
+            Offset(rect.left + w / 2, rect.top + (tl > 0 ? radius : w / 2)),
+            Offset(rect.left + w / 2, rect.bottom - (bl > 0 ? radius : w / 2)),
+            mortar,
+          );
+        }
+        if (south && row == gridSize - 1) {
+          canvas.drawLine(
+            Offset(rect.left + (bl > 0 ? radius : w / 2), rect.bottom - w / 2),
+            Offset(rect.right - (br > 0 ? radius : w / 2), rect.bottom - w / 2),
+            mortar,
+          );
+        }
+        if (east && col == gridSize - 1) {
+          canvas.drawLine(
+            Offset(rect.right - w / 2, rect.top + (tr > 0 ? radius : w / 2)),
+            Offset(rect.right - w / 2, rect.bottom - (br > 0 ? radius : w / 2)),
+            mortar,
+          );
+        }
+
+        // Corner arcs: the stroke follows the rounded fill corner.
+        void arc(Offset center, double startAngle) {
+          canvas.drawArc(
+            Rect.fromCircle(center: center, radius: radius - w / 2),
+            startAngle,
+            math.pi / 2,
+            false,
+            mortar,
+          );
+        }
+
+        if (tl > 0) arc(rect.topLeft + Offset(radius, radius), math.pi);
+        if (tr > 0) arc(rect.topRight + Offset(-radius, radius), -math.pi / 2);
+        if (br > 0) arc(rect.bottomRight + Offset(-radius, -radius), 0);
+        if (bl > 0) arc(rect.bottomLeft + Offset(radius, -radius), math.pi / 2);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(SkinRoomPainter oldDelegate) =>
+      rooms != oldDelegate.rooms ||
+      gridSize != oldDelegate.gridSize ||
+      cellSize != oldDelegate.cellSize ||
+      tints != oldDelegate.tints ||
+      mortarColor != oldDelegate.mortarColor ||
+      lineWidth != oldDelegate.lineWidth ||
+      radius != oldDelegate.radius;
+}
+
+/// Diagonal stripes for the cartoon victim cell (issue 23 mockups). Painted
+/// inside a ClipRect so the stripes never bleed into neighboring cells.
+class SkinVictimStripePainter extends CustomPainter {
+  SkinVictimStripePainter({required this.color});
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 6
+      ..strokeCap = StrokeCap.butt;
+    const spacing = 12.0;
+    for (var d = -size.height; d < size.width + size.height; d += spacing) {
+      canvas.drawLine(Offset(d, 0), Offset(d + size.height, size.height), paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(SkinVictimStripePainter oldDelegate) =>
+      color != oldDelegate.color;
 }

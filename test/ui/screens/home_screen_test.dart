@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:murdoku/app.dart';
+import 'package:murdoku/core/skins.dart';
 import 'package:murdoku/domain/models.dart';
 import 'package:murdoku/l10n/generated/app_localizations.dart';
 import 'package:murdoku/state/clock.dart';
@@ -9,6 +10,7 @@ import 'package:murdoku/state/game_controller.dart';
 import 'package:murdoku/state/providers.dart';
 import 'package:murdoku/storage/prefs_repository.dart';
 import 'package:murdoku/ui/screens/game_screen.dart';
+import 'package:murdoku/ui/screens/home_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 Pos p(int row, int col) => (row: row, col: col);
@@ -105,5 +107,21 @@ void main() {
     final l10n = l10nOf(tester);
 
     expect(find.text(l10n.dailyCompleted), findsOneWidget);
+  });
+
+  testWidgets('cartoon skin: home cards use the token card container '
+      '(issue 23)', (tester) async {
+    await pumpHome(tester); // default skin: sticker
+    final cardContainers = find
+        .descendant(
+            of: find.byType(HomeScreen), matching: find.byType(Container))
+        .evaluate()
+        .where((e) =>
+            (e.widget as Container).decoration is BoxDecoration &&
+            ((e.widget as Container).decoration as BoxDecoration).color ==
+                stickerTokens.card.background)
+        .toList();
+    expect(cardContainers.length, 3,
+        reason: 'new case, daily case and the nav card restyle to tokens');
   });
 }

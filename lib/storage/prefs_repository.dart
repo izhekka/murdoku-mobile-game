@@ -10,29 +10,41 @@ import '../domain/models.dart';
 /// supported locales); the app defaults to [russian].
 enum LanguageSetting { system, russian, english }
 
+/// Visual skin of the whole app (issue 23): [classic] is the original noir
+/// theme; candy/sticker/comic are the light-only cartoon skins. Fresh
+/// installs and legacy stored settings default to [sticker].
+enum SkinSetting { classic, candy, sticker, comic }
+
 class Settings {
   const Settings({
     this.themeMode = ThemeMode.system,
     this.haptics = true,
     this.language = LanguageSetting.russian,
+    this.skin = SkinSetting.sticker,
   });
 
   final ThemeMode themeMode;
   final bool haptics;
   final LanguageSetting language;
+  final SkinSetting skin;
 
   @override
   bool operator ==(Object other) =>
       other is Settings &&
       other.themeMode == themeMode &&
       other.haptics == haptics &&
-      other.language == language;
+      other.language == language &&
+      other.skin == skin;
 
   @override
-  int get hashCode => Object.hash(themeMode, haptics, language);
+  int get hashCode => Object.hash(themeMode, haptics, language, skin);
 
-  Map<String, Object?> toJson() =>
-      {'themeMode': themeMode.name, 'haptics': haptics, 'language': language.name};
+  Map<String, Object?> toJson() => {
+        'themeMode': themeMode.name,
+        'haptics': haptics,
+        'language': language.name,
+        'skin': skin.name,
+      };
 
   factory Settings.fromJson(Map<String, Object?> json) => Settings(
         themeMode: ThemeMode.values
@@ -41,6 +53,9 @@ class Settings {
         language: LanguageSetting.values.firstWhere(
             (l) => l.name == json['language'],
             orElse: () => LanguageSetting.russian),
+        skin: SkinSetting.values.firstWhere(
+            (s) => s.name == json['skin'],
+            orElse: () => SkinSetting.sticker),
       );
 }
 

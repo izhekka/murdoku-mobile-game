@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:murdoku/core/skins.dart';
 import 'package:murdoku/domain/generator/case_factory.dart';
 import 'package:murdoku/domain/models.dart';
 import 'package:murdoku/l10n/generated/app_localizations.dart';
@@ -64,6 +65,47 @@ void main() {
     }
     if (fixture.objects.any((o) => !o.occupiable)) {
       expect(find.text(l10n.stateBlocked), findsWidgets);
+    }
+  });
+
+  testWidgets('cartoon skin: solid swatches with mortar borders (issue 23)',
+      (tester) async {
+    await tester.pumpWidget(MaterialApp(
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      // Scope at the builder level, mirroring lib/app.dart: the legend is a
+      // modal sheet above the navigator.
+      builder: (context, child) =>
+          SkinScope(tokens: comicTokens, child: child!),
+      home: Scaffold(
+        body: Builder(
+          builder: (context) => Center(
+            child: IconButton(
+              icon: const Icon(Icons.menu_book),
+              onPressed: () => showLegendSheet(context, fixture),
+            ),
+          ),
+        ),
+      ),
+    ));
+    await tester.tap(find.byIcon(Icons.menu_book));
+    await tester.pumpAndSettle();
+
+    // Every room swatch paints the solid room tint with a mortar border.
+    final swatches = find
+        .byWidgetPredicate((w) =>
+            w is Container &&
+            (w.constraints?.maxWidth == 24) &&
+            (w.constraints?.maxHeight == 24))
+        .evaluate()
+        .toList();
+    expect(swatches.length, fixture.rooms.length);
+    for (var i = 0; i < fixture.rooms.length; i++) {
+      final swatch = swatches[i].widget as Container;
+      final decoration = swatch.decoration as BoxDecoration;
+      expect(decoration.color, comicTokens.roomTints[i % 8],
+          reason: 'swatch ${i + 1} solid tint');
+      expect(decoration.border?.top.color, comicTokens.mortarColor);
     }
   });
 }

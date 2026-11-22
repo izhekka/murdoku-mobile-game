@@ -644,6 +644,42 @@ abstract class AppLocalizations {
   /// **'Dark'**
   String get themeDark;
 
+  /// No description provided for @skinLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Skin'**
+  String get skinLabel;
+
+  /// No description provided for @skinClassic.
+  ///
+  /// In en, this message translates to:
+  /// **'Classic'**
+  String get skinClassic;
+
+  /// No description provided for @skinCandy.
+  ///
+  /// In en, this message translates to:
+  /// **'Candy'**
+  String get skinCandy;
+
+  /// No description provided for @skinSticker.
+  ///
+  /// In en, this message translates to:
+  /// **'Sticker'**
+  String get skinSticker;
+
+  /// No description provided for @skinComic.
+  ///
+  /// In en, this message translates to:
+  /// **'Comic'**
+  String get skinComic;
+
+  /// No description provided for @themeModeCaption.
+  ///
+  /// In en, this message translates to:
+  /// **'Light/dark applies to the Classic skin.'**
+  String get themeModeCaption;
+
   /// No description provided for @hapticsLabel.
   ///
   /// In en, this message translates to:
