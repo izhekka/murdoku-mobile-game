@@ -24,14 +24,42 @@ linter:
   # included above or to enable additional rules. A list of all available lints
   # and their documentation is published at https://dart.dev/lints.
   #
-  # Instead of disabling a lint rule for the entire project in the
-  # section below, it can also be suppressed for a single line of code
-  # or a specific dart file by using the `// ignore: name_of_lint` and
-  # `// ignore_for_file: name_of_lint` syntax on the line or in the file
-  # producing the lint.
+  # Curated strict set on top of `flutter_lints` (issue #33): every rule below
+  # maps to a section of docs/code-guidelines.md.
   rules:
-    # avoid_print: false  # Uncomment to disable the `avoid_print` rule
-    # prefer_single_quotes: true  # Uncomment to enable the `prefer_single_quotes` rule
+    # Declarations
+    - always_declare_return_types
+    - use_super_parameters
+    - prefer_final_in_for_each
+
+    # Imports, directives, comments
+    - always_use_package_imports
+    - directives_ordering
+    - dangling_library_doc_comments
+    - flutter_style_todos
+    - prefer_single_quotes
+
+    # Types and dynamics
+    - avoid_type_to_string
+    - avoid_redundant_argument_values
+    - avoid_unused_constructor_parameters
+
+    # Async discipline
+    - avoid_slow_async_io
+    - unawaited_futures
+    - cancel_subscriptions
+    - close_sinks
+
+    # Errors and control flow
+    - avoid_catches_without_on_clauses
+    - only_throw_errors
+
+    # Style and clarity
+    - no_adjacent_strings_in_list
+    - require_trailing_commas
+    - unnecessary_lambdas
+    - unnecessary_parenthesis
+    - unnecessary_statements
 
 # Additional information about this file can be found at
 # https://dart.dev/guides/language/analysis-options

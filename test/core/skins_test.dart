@@ -16,7 +16,8 @@ class _FakeScheme implements ColorScheme {
       '_FakeScheme';
 
   @override
-  dynamic noSuchMethod(Invocation invocation) => switch (invocation.memberName) {
+  dynamic noSuchMethod(Invocation invocation) =>
+      switch (invocation.memberName) {
         #surface => const Color(0xFFAAAAAA),
         #onSurface => const Color(0xFFBBBBBB),
         #onSurfaceVariant => const Color(0xFFCCCCCC),
@@ -43,8 +44,7 @@ void main() {
     expect(t.inkSoft, c(0xFF6B76A8));
     expect(t.appBackground, c(0xFFFFFFFF));
     expect(t.pageColor, c(0xFF6FCBFF));
-    expect(t.pageGradient,
-        [c(0xFF6FCBFF), c(0xFFA9EBFF), c(0xFFC6F6FF)]);
+    expect(t.pageGradient, [c(0xFF6FCBFF), c(0xFFA9EBFF), c(0xFFC6F6FF)]);
     expect(t.card.background, c(0xFFFFFFFF));
     expect(t.card.borderColor, c(0xFFFFFFFF));
     expect(t.card.borderWidth, 4);
@@ -117,18 +117,24 @@ void main() {
     expect(t.menuIcons, isFalse);
   });
 
-  test('comic renders panel headers uppercase; other skins title case (issue 27)',
-      () {
-    expect(comicTokens.panelHeaderUppercase, isTrue);
-    for (final t in [candyTokens, stickerTokens]) {
-      expect(t.panelHeaderUppercase, isFalse,
-          reason: '${t.skin} header stays title case per its mockup');
-    }
-    expect(
+  test(
+    'comic renders panel headers uppercase; other skins title case (issue 27)',
+    () {
+      expect(comicTokens.panelHeaderUppercase, isTrue);
+      for (final t in [candyTokens, stickerTokens]) {
+        expect(
+          t.panelHeaderUppercase,
+          isFalse,
+          reason: '${t.skin} header stays title case per its mockup',
+        );
+      }
+      expect(
         skinTokensFor(SkinSetting.classic, scheme).panelHeaderUppercase,
         isFalse,
-        reason: 'classic header is plain, no uppercase');
-  });
+        reason: 'classic header is plain, no uppercase',
+      );
+    },
+  );
 
   test('shared toolbar action colors on every cartoon skin (issue 23)', () {
     for (final t in [candyTokens, stickerTokens, comicTokens]) {
@@ -147,8 +153,11 @@ void main() {
     final classic = skinTokensFor(SkinSetting.classic, scheme);
     for (final t in [classic, candyTokens, stickerTokens, comicTokens]) {
       expect(t.roomTints.length, 8, reason: '${t.skin} tint count');
-      expect(t.roomTints.toSet().length, 8,
-          reason: '${t.skin} tints must be pairwise distinct');
+      expect(
+        t.roomTints.toSet().length,
+        8,
+        reason: '${t.skin} tints must be pairwise distinct',
+      );
     }
   });
 
@@ -158,9 +167,10 @@ void main() {
       expect(t.chip!.background, c(0xFFF1F3F5), reason: '${t.skin} chip color');
       expect(t.chip!.radius, 12, reason: '${t.skin} chip radius');
       expect(
-          t.chip!.padding,
-          const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-          reason: '${t.skin} chip padding');
+        t.chip!.padding,
+        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        reason: '${t.skin} chip padding',
+      );
       expect(t.chip!.gap, 6, reason: '${t.skin} chip gap');
     }
   });
@@ -186,26 +196,35 @@ void main() {
     expect(t.frame, isNull, reason: 'classic has no cartoon page frame');
   });
 
-  testWidgets('SkinScope exposes tokens; maybeOf is null without a scope',
-      (tester) async {
+  testWidgets('SkinScope exposes tokens; maybeOf is null without a scope', (
+    tester,
+  ) async {
     late final SkinTokens fromOf;
     late final SkinTokens? fromMaybe;
     late final SkinTokens? outside;
 
-    await tester.pumpWidget(Column(children: [
-      SkinScope(
-        tokens: stickerTokens,
-        child: Builder(builder: (context) {
-          fromOf = SkinScope.of(context);
-          fromMaybe = SkinScope.maybeOf(context);
-          return const SizedBox.shrink();
-        }),
+    await tester.pumpWidget(
+      Column(
+        children: [
+          SkinScope(
+            tokens: stickerTokens,
+            child: Builder(
+              builder: (context) {
+                fromOf = SkinScope.of(context);
+                fromMaybe = SkinScope.maybeOf(context);
+                return const SizedBox.shrink();
+              },
+            ),
+          ),
+          Builder(
+            builder: (context) {
+              outside = SkinScope.maybeOf(context);
+              return const SizedBox.shrink();
+            },
+          ),
+        ],
       ),
-      Builder(builder: (context) {
-        outside = SkinScope.maybeOf(context);
-        return const SizedBox.shrink();
-      }),
-    ]));
+    );
 
     expect(fromOf, same(stickerTokens));
     expect(fromMaybe, same(stickerTokens));

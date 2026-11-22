@@ -1,9 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../domain/models.dart';
-import '../storage/prefs_repository.dart';
-import 'clock.dart';
-import 'providers.dart';
+import 'package:murdoku/domain/models.dart';
+import 'package:murdoku/state/clock.dart';
+import 'package:murdoku/state/providers.dart';
+import 'package:murdoku/storage/prefs_repository.dart';
 
 /// Owns the persisted [Stats] and the daily-streak bookkeeping.
 class StatsController extends Notifier<Stats> {
@@ -33,17 +33,18 @@ class StatsController extends Notifier<Stats> {
     if (isDaily && dailyDate.isNotEmpty) {
       final daily = repo.loadDailyState();
       final streak = daily.lastCompletedDate == dailyDate
-          ? daily.streak // same-day re-win: idempotent
+          ? daily
+                .streak // same-day re-win: idempotent
           : daily.lastCompletedDate == utcYesterday(dailyDate)
-              ? daily.streak + 1
-              : 1;
-      await repo.saveDailyState(DailyState(
-        lastCompletedDate: dailyDate,
-        streak: streak,
-      ));
+          ? daily.streak + 1
+          : 1;
+      await repo.saveDailyState(
+        DailyState(lastCompletedDate: dailyDate, streak: streak),
+      );
     }
   }
 }
 
-final statsControllerProvider =
-    NotifierProvider<StatsController, Stats>(StatsController.new);
+final statsControllerProvider = NotifierProvider<StatsController, Stats>(
+  StatsController.new,
+);

@@ -1,9 +1,9 @@
 import 'package:material_ui/material_ui.dart';
 
-import '../../domain/localized_names.dart';
-import '../../domain/models.dart';
-import '../../l10n/generated/app_localizations.dart';
-import 'avatar.dart';
+import 'package:murdoku/domain/localized_names.dart';
+import 'package:murdoku/domain/models.dart';
+import 'package:murdoku/l10n/generated/app_localizations.dart';
+import 'package:murdoku/ui/widgets/avatar.dart';
 
 /// Modal accuse sheet: every suspect as a card; eliminated suspects are
 /// struck through and disabled. Pops with the accused suspect's id.

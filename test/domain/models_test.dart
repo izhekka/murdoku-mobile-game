@@ -12,11 +12,31 @@ CaseData fixture() {
     seed: 42,
     difficulty: Difficulty.easy,
     rooms: [
-      RoomDef(id: 'r0', name: 'Hall', cells: [p(0, 0), p(0, 1), p(0, 2), p(1, 0), p(1, 1)]),
-      RoomDef(id: 'r1', name: 'Library', cells: [p(0, 3), p(0, 4), p(1, 2), p(1, 3), p(1, 4)]),
-      RoomDef(id: 'r2', name: 'Kitchen', cells: [p(2, 0), p(2, 1), p(2, 2), p(3, 0), p(3, 1)]),
-      RoomDef(id: 'r3', name: 'Cellar', cells: [p(2, 3), p(2, 4), p(3, 2), p(3, 3), p(3, 4)]),
-      RoomDef(id: 'r4', name: 'Study', cells: [p(4, 0), p(4, 1), p(4, 2), p(4, 3), p(4, 4)]),
+      RoomDef(
+        id: 'r0',
+        name: 'Hall',
+        cells: [p(0, 0), p(0, 1), p(0, 2), p(1, 0), p(1, 1)],
+      ),
+      RoomDef(
+        id: 'r1',
+        name: 'Library',
+        cells: [p(0, 3), p(0, 4), p(1, 2), p(1, 3), p(1, 4)],
+      ),
+      RoomDef(
+        id: 'r2',
+        name: 'Kitchen',
+        cells: [p(2, 0), p(2, 1), p(2, 2), p(3, 0), p(3, 1)],
+      ),
+      RoomDef(
+        id: 'r3',
+        name: 'Cellar',
+        cells: [p(2, 3), p(2, 4), p(3, 2), p(3, 3), p(3, 4)],
+      ),
+      RoomDef(
+        id: 'r4',
+        name: 'Study',
+        cells: [p(4, 0), p(4, 1), p(4, 2), p(4, 3), p(4, 4)],
+      ),
     ],
     objects: [
       ObjectDef(id: 'o0', kind: ObjectKind.piano, pos: p(0, 1)),
@@ -39,9 +59,17 @@ CaseData fixture() {
       SameCol(suspectId: 's1', targetId: 's3', negated: false),
       SameCol(suspectId: 's2', targetId: 'V', negated: true),
       DirectionClue(
-          suspectId: 's3', targetId: 'V', direction: Direction.north, negated: false),
+        suspectId: 's3',
+        targetId: 'V',
+        direction: Direction.north,
+        negated: false,
+      ),
       DirectionClue(
-          suspectId: 's4', targetId: 's0', direction: Direction.west, negated: true),
+        suspectId: 's4',
+        targetId: 's0',
+        direction: Direction.west,
+        negated: true,
+      ),
       Beside(suspectId: 's0', targetId: 's1', negated: false),
       Beside(suspectId: 's3', targetId: 's4', negated: true),
       BesideObject(suspectId: 's2', objectId: 'o0', negated: false),
@@ -100,7 +128,11 @@ void main() {
 
   test('ObjectDef occupiable flag round-trips', () {
     final o = ObjectDef(
-        id: 'o0', kind: ObjectKind.chair, pos: p(0, 1), occupiable: true);
+      id: 'o0',
+      kind: ObjectKind.chair,
+      pos: p(0, 1),
+      occupiable: true,
+    );
     final restored = ObjectDef.fromJson(o.toJson());
     expect(restored, equals(o));
     expect(restored.occupiable, isTrue);

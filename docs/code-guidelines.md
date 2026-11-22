@@ -1,0 +1,170 @@
+# Code guidelines
+
+Conventions for Murdoku contributors — human or agent. This is the document the
+machine-enforced rules map into: every lint in `analysis_options.yaml`'s
+curated set (issue #33, decision record [0006](spec/0006-quality-gates.md)) has
+a row in the mapping table at the bottom pointing at the section that explains
+the rule. The grounding is the
+[Effective Dart](https://dart.dev/effective-dart) style guide; this file only
+adds what is Murdoku-specific or worth restating for enforcement.
+
+## 1. SOLID in Flutter/Riverpod idioms
+
+SOLID is applied the Flutter way, not as Java ceremony:
+
+- **Single Responsibility** — one widget = one thing on screen; one provider /
+  controller = one state concern. `lib/` is split accordingly: domain logic
+  (`lib/domain/`), state controllers (`lib/state/`), persistence
+  (`lib/storage/`), screens and widgets (`lib/ui/`), cross-cutting helpers
+  (`lib/core/`). A widget builds UI and delegates everything else; a
+  controller owns state transitions and never touches widgets.
+- **Open/Closed** — extend behavior through new implementations (new skins,
+  new clue kinds, new tool modes), not by editing and re-testing verified
+  solver/generator code.
+- **Liskov Substitution** — skins (`SkinTokens` implementations) and settings
+  enums are interchangeable without surprising call sites; a new skin must
+  satisfy exactly the token contract.
+- **Interface Segregation** — keep constructors and provider interfaces
+  minimal; do not pass whole controllers where a single callback or value
+  suffices.
+- **Dependency Inversion** — widgets depend on Riverpod providers, never on
+  concrete storage. `lib/state/providers.dart` is the seam: controllers get
+  repositories and clocks via provider overrides, which is what makes
+  `SharedPreferences` and time injectable in tests. No service-locator
+  globals, no singletons with mutable static state.
+
+## 2. Naming and file/folder conventions
+
+- Files and directories: `snake_case`; one primary class per file where
+  practical, filename mirrors the class (`game_controller.dart`).
+- Types: `PascalCase`. Members, variables, parameters: `camelCase`.
+  Constants: `camelCase` (Dart convention), or `SCREAMING_CASE` for
+  file-local sentinels.
+- Private members start with `_`. Widget callbacks are named for what happened
+  (`onPressed`, `onCellTap`), not how they act.
+- The package import prefix is `package:murdoku/...` — see the import rules
+  below.
+- New feature areas follow the existing layout
+  (`core/`, `domain/`, `state/`, `storage/`, `ui/screens/`, `ui/widgets/`,
+  `l10n/`); domain rules live in `lib/domain/`, never in widgets.
+
+## 3. Imports, directives, and comments
+
+- **Always package imports** for anything under `lib/` — relative
+  `../../state/x.dart` chains rot during moves; `package:murdoku/state/x.dart`
+  is stable. Files outside `lib/` (e.g. `test/` importing `tool/`) keep
+  relative imports because package URIs cannot address them.
+- **Directive order**: `dart:` first, then `package:`, then relative;
+  alphabetical within each section (`directives_ordering`).
+- **Doc comments** attach to a declaration and start with a sentence; a
+  dangling `///` block before `library;`-less file tops is flagged. Keep
+  `library;` as the first directive when the file header has a `///` comment.
+- **TODOs** follow Flutter style: `// TODO(username): message` with an owner —
+  unowned TODOs rot.
+- Quotes are single; use doubles only when the string itself contains a
+  single quote.
+
+## 4. Types and dynamism
+
+- Declare return types on every function and method — inference hides
+  contract changes.
+- Do not stringify types (`Type.toString`, `runtimeType` in logic); switch on
+  explicit values or sealed hierarchies instead. Runtime type strings break
+  under minification and tree-shaking.
+- Prefer exact types over `dynamic`; parse boundaries convert to typed models
+  immediately (see §7).
+- Do not pass redundant arguments: if a value equals the parameter's default,
+  omit it — a redundant argument lies about intent (readers assume the
+  explicit value differs from the default).
+- Constructor parameters that are unused are dead weight; drop them.
+
+## 5. Async discipline
+
+- Never drop a `Future`: `await` it, or hand it to `unawaited(...)` when
+  fire-and-forget is intended. Silent futures swallow errors.
+- Do not use blocking-I/O helpers (`File.exists`/`existsSync` style calls in
+  async contexts) — use the async variants (`File.exists()` style) inside
+  async code.
+- `StreamSubscription`s must be `cancel()`ed (widget `dispose`, controller
+  teardown); sink owners must `close()` them. Leaked subscriptions keep
+  controllers and timers alive after the widget dies.
+- Return `Future<void>` from async functions; never `return null` from a
+  `Future`-typed path — throw or return a typed result.
+
+## 6. Errors and control flow
+
+- **Throw only `Error`/`Exception` subtypes** (or objects implementing them);
+  never `throw 'string'` or arbitrary objects.
+- **Catch clauses carry an `on` type**. Feature code catches the specific
+  failure it can handle (`on FormatException`, `on TypeError`). Last-resort
+  persistence guards around stored-JSON parsing may use `on Object catch (e)`
+  — the honest spelling of "any failure of corrupt stored data" — and must
+  degrade to a safe default (see `PrefsRepository`), never swallow silently:
+  log via `debugPrint` and return the default value.
+- Catch blocks either handle the failure or rethrow; never write an empty
+  catch.
+
+## 7. Immutability and JSON (no codegen)
+
+- Model classes are immutable: `final` fields, `const` constructors where
+  possible, `==`/`hashCode` overridden (or sealed enums for fixed sets).
+  State objects expose `copyWith` instead of setters.
+- **JSON is hand-written**: every model that persists implements `toJson` /
+  `fromJson` by hand — no `build_runner`, `freezed`, or `json_serializable`
+  (project guardrail). `fromJson` validates via typed casts
+  (`as String? ?? fallback`) and is defensive: corrupt persisted data degrades
+  to defaults through the storage guards in §6, it does not crash the app.
+- Parsing lives next to the model (`fromJson` static or factory), not at the
+  call site.
+
+## 8. Localization (hard rule)
+
+Every user-facing string goes through `AppLocalizations` (arb files under
+`lib/l10n/`); `lib/l10n/generated/` is generated output and never edited by
+hand. Widget tests fetch strings through the same delegates they pump. No
+hardcoded English or Russian literals in widget code — including sheet titles,
+buttons, and accessibility labels.
+
+## 9. Formatting and layout
+
+`dart format` is the single formatter; CI and the pre-commit hook run
+`dart format --output=none --set-exit-if-changed` and reject unformatted
+code. Trailing commas are required on multi-line argument lists
+(`require_trailing_commas`) — they keep diffs minimal and make `dart format`
+stable. Do not fight the formatter.
+
+## 10. Complexity vs coverage (CRAP ratchet)
+
+`tool/crap_check.dart` computes per-method CRAP
+(`comp² × (1−cov)³ + comp`) from AST complexity and `flutter test --coverage`
+data; threshold 5. New or worsened over-threshold methods fail CI and
+`make quality`. Fix by splitting the method or covering it — not by touching
+the baseline; the baseline (`tool/crap_baseline.json`) only ever shrinks via
+`--update-baseline` after real refactors.
+
+## Enforced lint → guideline mapping
+
+| Lint rule | Guideline section |
+|-----------|-------------------|
+| `always_declare_return_types` | §4 Types and dynamism |
+| `use_super_parameters` | §4 Types and dynamism |
+| `prefer_final_in_for_each` | §4 Types and dynamism |
+| `always_use_package_imports` | §3 Imports, directives, and comments |
+| `directives_ordering` | §3 Imports, directives, and comments |
+| `dangling_library_doc_comments` | §3 Imports, directives, and comments |
+| `flutter_style_todos` | §3 Imports, directives, and comments |
+| `prefer_single_quotes` | §3 Imports, directives, and comments |
+| `avoid_type_to_string` | §4 Types and dynamism |
+| `avoid_redundant_argument_values` | §4 Types and dynamism |
+| `avoid_unused_constructor_parameters` | §4 Types and dynamism |
+| `avoid_slow_async_io` | §5 Async discipline |
+| `unawaited_futures` | §5 Async discipline |
+| `cancel_subscriptions` | §5 Async discipline |
+| `close_sinks` | §5 Async discipline |
+| `avoid_catches_without_on_clauses` | §6 Errors and control flow |
+| `only_throw_errors` | §6 Errors and control flow |
+| `no_adjacent_strings_in_list` | §3 Imports, directives, and comments (list literals stay itemized) |
+| `require_trailing_commas` | §9 Formatting and layout |
+| `unnecessary_lambdas` | §2 Naming and file/folder conventions (prefer tear-offs) |
+| `unnecessary_parenthesis` | §9 Formatting and layout |
+| `unnecessary_statements` | §6 Errors and control flow (no dead expression statements) |

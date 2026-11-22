@@ -14,10 +14,9 @@ import 'package:murdoku/l10n/generated/app_localizations.dart';
 Widget localizedTestApp({
   Locale locale = const Locale('en'),
   required Widget child,
-}) =>
-    MaterialApp(
-      locale: locale,
-      localizationsDelegates: murdokuLocalizationsDelegates,
-      supportedLocales: AppLocalizations.supportedLocales,
-      home: Scaffold(body: child),
-    );
+}) => MaterialApp(
+  locale: locale,
+  localizationsDelegates: murdokuLocalizationsDelegates,
+  supportedLocales: AppLocalizations.supportedLocales,
+  home: Scaffold(body: child),
+);

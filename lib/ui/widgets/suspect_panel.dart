@@ -2,11 +2,11 @@ import 'dart:math' as math;
 
 import 'package:material_ui/material_ui.dart';
 
-import '../../core/skins.dart';
-import '../../domain/localized_names.dart';
-import '../../domain/models.dart';
-import '../../l10n/generated/app_localizations.dart';
-import 'avatar.dart';
+import 'package:murdoku/core/skins.dart';
+import 'package:murdoku/domain/localized_names.dart';
+import 'package:murdoku/domain/models.dart';
+import 'package:murdoku/l10n/generated/app_localizations.dart';
+import 'package:murdoku/ui/widgets/avatar.dart';
 
 /// Test handle for the panel's header row (issue 27).
 const Key suspectsPanelHeaderKey = Key('suspects_panel_header');
@@ -31,11 +31,11 @@ String describeClue(
       names.objectPrep(c.objects.firstWhere((o) => o.id == objectId).kind);
 
   String dirName(Direction d) => switch (d) {
-        Direction.north => l10n.dirNorth,
-        Direction.south => l10n.dirSouth,
-        Direction.east => l10n.dirEast,
-        Direction.west => l10n.dirWest,
-      };
+    Direction.north => l10n.dirNorth,
+    Direction.south => l10n.dirSouth,
+    Direction.east => l10n.dirEast,
+    Direction.west => l10n.dirWest,
+  };
 
   final name = nameOf(clue.suspectId);
   switch (clue) {
@@ -101,8 +101,9 @@ class SuspectPanel extends StatelessWidget {
     // (issue 23), 2 for classic. The row-height math needs it to measure
     // the clue text at the card's real text width.
     final skin = SkinScope.maybeOf(context);
-    final cardBorderWidth =
-        skin != null && skin.isCartoon ? skin.card.borderWidth : 2.0;
+    final cardBorderWidth = skin != null && skin.isCartoon
+        ? skin.card.borderWidth
+        : 2.0;
     final cluesBySuspect = <String, List<Clue>>{};
     for (final clue in caseData.clues) {
       cluesBySuspect.putIfAbsent(clue.suspectId, () => []).add(clue);
@@ -129,80 +130,86 @@ class SuspectPanel extends StatelessWidget {
         ),
     ];
 
-    return LayoutBuilder(builder: (context, constraints) {
-      if (constraints.maxWidth >= 600) {
-        // Wide column of cards: each card sizes itself to its content
-        // instead of a pinned 150px height, so longer clue text (or large
-        // text scale) never clips (UX-9). The header (issue 27) rides the
-        // top of the list.
-        return ListView(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth >= 600) {
+          // Wide column of cards: each card sizes itself to its content
+          // instead of a pinned 150px height, so longer clue text (or large
+          // text scale) never clips (UX-9). The header (issue 27) rides the
+          // top of the list.
+          return ListView(
+            children: [
+              const _SuspectsHeader(),
+              for (final card in cards) IntrinsicHeight(child: card),
+            ],
+          );
+        }
+        const columns = 3;
+        const hPad = 4.0;
+        const spacing = 4.0;
+        const rows = 2;
+        final cardWidth =
+            (constraints.maxWidth - 2 * hPad - (columns - 1) * spacing) /
+            columns;
+        // Default card proportions ~1.05; when the host pins a tight height
+        // (the game screen's fixed panel slot), size the two rows to fill the
+        // slot exactly so nothing clips and no dead space is left.
+        var rowHeight = cardWidth / 1.05;
+        if (constraints.maxHeight.isFinite &&
+            constraints.maxHeight == constraints.minHeight) {
+          rowHeight =
+              (constraints.maxHeight - 2 * hPad - (rows - 1) * spacing) / rows;
+        } else if (constraints.maxWidth.isFinite) {
+          // Loose height (the wide layout's 300px side slot): grow the rows to
+          // the tallest card's full content instead of pinning ~1.05-proportion
+          // tiles that clip long clue text (UX-9).
+          rowHeight = math.max(
+            rowHeight,
+            _contentRowHeight(
+              context,
+              cardWidth,
+              clueTextsBySuspect,
+              names.nom,
+              cardBorderWidth,
+              skin?.chip,
+            ),
+          );
+        }
+        final grid = GridView.count(
+          crossAxisCount: columns,
+          shrinkWrap: true,
+          physics: caseData.suspects.length <= 6
+              ? const NeverScrollableScrollPhysics()
+              : const ClampingScrollPhysics(),
+          childAspectRatio: cardWidth / rowHeight,
+          padding: const EdgeInsets.all(hPad),
+          mainAxisSpacing: spacing,
+          crossAxisSpacing: spacing,
+          children: [...cards, const _EmptySlot()],
+        );
+        // The localized header row (issue 27) sits above the grid in every
+        // skin. When the host pins the slot height (the narrow game screen),
+        // the grid expands to fill the rest; where the height is loose, the
+        // grid is capped at the space under the header (the same clamp the
+        // bare grid had) and shrink-wraps to its grown rows otherwise (UX-9).
+        final bounded = constraints.maxHeight.isFinite;
+        final pinned =
+            bounded && constraints.maxHeight == constraints.minHeight;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: pinned ? MainAxisSize.max : MainAxisSize.min,
           children: [
             const _SuspectsHeader(),
-            for (final card in cards) IntrinsicHeight(child: card),
+            if (pinned)
+              Expanded(child: grid)
+            else if (bounded)
+              Flexible(child: grid)
+            else
+              grid,
           ],
         );
-      }
-      const columns = 3;
-      const hPad = 4.0;
-      const spacing = 4.0;
-      const rows = 2;
-      final cardWidth =
-          (constraints.maxWidth - 2 * hPad - (columns - 1) * spacing) / columns;
-      // Default card proportions ~1.05; when the host pins a tight height
-      // (the game screen's fixed panel slot), size the two rows to fill the
-      // slot exactly so nothing clips and no dead space is left.
-      var rowHeight = cardWidth / 1.05;
-      if (constraints.maxHeight.isFinite &&
-          constraints.maxHeight == constraints.minHeight) {
-        rowHeight = (constraints.maxHeight - 2 * hPad - (rows - 1) * spacing) /
-            rows;
-      } else if (constraints.maxWidth.isFinite) {
-      // Loose height (the wide layout's 300px side slot): grow the rows to
-      // the tallest card's full content instead of pinning ~1.05-proportion
-      // tiles that clip long clue text (UX-9).
-      rowHeight = math.max(
-        rowHeight,
-        _contentRowHeight(context, cardWidth, clueTextsBySuspect, names.nom,
-            cardBorderWidth, skin?.chip),
-      );
-      }
-      final grid = GridView.count(
-        crossAxisCount: columns,
-        shrinkWrap: true,
-        physics: caseData.suspects.length <= 6
-            ? const NeverScrollableScrollPhysics()
-            : const ClampingScrollPhysics(),
-        childAspectRatio: cardWidth / rowHeight,
-        padding: const EdgeInsets.all(hPad),
-        mainAxisSpacing: spacing,
-        crossAxisSpacing: spacing,
-        children: [
-          ...cards,
-          const _EmptySlot(),
-        ],
-      );
-      // The localized header row (issue 27) sits above the grid in every
-      // skin. When the host pins the slot height (the narrow game screen),
-      // the grid expands to fill the rest; where the height is loose, the
-      // grid is capped at the space under the header (the same clamp the
-      // bare grid had) and shrink-wraps to its grown rows otherwise (UX-9).
-      final bounded = constraints.maxHeight.isFinite;
-      final pinned =
-          bounded && constraints.maxHeight == constraints.minHeight;
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisSize: pinned ? MainAxisSize.max : MainAxisSize.min,
-        children: [
-          const _SuspectsHeader(),
-          if (pinned)
-            Expanded(child: grid)
-          else if (bounded)
-            Flexible(child: grid)
-          else
-            grid,
-        ],
-      );
-    });
+      },
+    );
   }
 
   /// Minimum row height that fits every card's full content (name row plus
@@ -228,8 +235,9 @@ class SuspectPanel extends StatelessWidget {
     final textWidth = math.max(cardWidth - 2 * (4 + 8 + borderWidth), 1.0);
     // Chip inner width (issue 26): each clue sentence wraps inside the
     // chip's horizontal padding.
-    final chipInnerWidth =
-        chip == null ? textWidth : math.max(textWidth - chip.padding.horizontal, 1.0);
+    final chipInnerWidth = chip == null
+        ? textWidth
+        : math.max(textWidth - chip.padding.horizontal, 1.0);
     // The name row's text width: avatar (24) plus its 6px gap. The placed
     // check icon is a badge on the avatar's corner (issue 18), so placed and
     // unplaced rows share this width; scale-down names grow *smaller* in a
@@ -256,7 +264,7 @@ class SuspectPanel extends StatelessWidget {
         text: TextSpan(text: text, style: base.merge(style)),
         textDirection: direction,
         textScaler: scaler,
-      )..layout(maxWidth: double.infinity);
+      )..layout();
       final naturalWidth = painter.width;
       final naturalHeight = painter.height;
       painter.dispose();
@@ -267,17 +275,22 @@ class SuspectPanel extends StatelessWidget {
     var maxHeight = 0.0;
     for (final suspect in caseData.suspects) {
       final nameHeight = fittedNameHeight(
-          nameOf(suspect.id), theme.textTheme.titleSmall, nameWidth);
-      final texts =
-          clueTextsBySuspect[suspect.id] ?? const <String>[];
+        nameOf(suspect.id),
+        theme.textTheme.titleSmall,
+        nameWidth,
+      );
+      final texts = clueTextsBySuspect[suspect.id] ?? const <String>[];
       double clueHeight;
       if (texts.isEmpty) {
         clueHeight = 0.0;
       } else if (chip == null) {
         // Classic: the card renders the clues joined into one paragraph at
         // the card's text width.
-        clueHeight =
-            measure(texts.join('\n'), theme.textTheme.bodySmall, textWidth);
+        clueHeight = measure(
+          texts.join('\n'),
+          theme.textTheme.bodySmall,
+          textWidth,
+        );
       } else {
         // Chip mode (issue 26): every clue is its own chip — the text wraps
         // at the chip's inner width, each chip adds its vertical padding,
@@ -286,8 +299,8 @@ class SuspectPanel extends StatelessWidget {
         clueHeight = 0.0;
         for (var i = 0; i < texts.length; i++) {
           if (i > 0) clueHeight += chip.gap;
-          clueHeight += measure(
-                  texts[i], theme.textTheme.bodySmall, chipInnerWidth) +
+          clueHeight +=
+              measure(texts[i], theme.textTheme.bodySmall, chipInnerWidth) +
               chip.padding.vertical;
         }
       }
@@ -408,8 +421,9 @@ class _SuspectCard extends StatelessWidget {
                       // card border is already the ink color, so an ink
                       // outline could not show selection.
                       color: selected ? color : tokens.card.borderColor,
-                      width:
-                          selected ? math.max(tokens.card.borderWidth, 3) : tokens.card.borderWidth,
+                      width: selected
+                          ? math.max(tokens.card.borderWidth, 3)
+                          : tokens.card.borderWidth,
                     ),
                     boxShadow: [tokens.card.shadow],
                   )
@@ -448,8 +462,11 @@ class _SuspectCard extends StatelessWidget {
                             Positioned(
                               right: -4,
                               bottom: -4,
-                              child: Icon(Icons.check_circle,
-                                  size: 12, color: scheme.primary),
+                              child: Icon(
+                                Icons.check_circle,
+                                size: 12,
+                                color: scheme.primary,
+                              ),
                             ),
                         ],
                       ),
@@ -492,17 +509,19 @@ class _SuspectCard extends StatelessWidget {
                         children: [
                           for (final (i, text) in clueTexts.indexed)
                             Container(
-                              margin: EdgeInsets.only(top: i == 0 ? 0 : chip.gap),
+                              margin: EdgeInsets.only(
+                                top: i == 0 ? 0 : chip.gap,
+                              ),
                               padding: chip.padding,
                               decoration: BoxDecoration(
                                 color: chip.background,
-                                borderRadius:
-                                    BorderRadius.circular(chip.radius),
+                                borderRadius: BorderRadius.circular(
+                                  chip.radius,
+                                ),
                               ),
                               child: Text(
                                 text,
-                                style:
-                                    Theme.of(context).textTheme.bodySmall,
+                                style: Theme.of(context).textTheme.bodySmall,
                               ),
                             ),
                         ],

@@ -1,6 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
-import '../../l10n/generated/app_localizations.dart';
+import 'package:murdoku/l10n/generated/app_localizations.dart';
 
 class HowToPlayScreen extends StatelessWidget {
   const HowToPlayScreen({super.key});
@@ -8,7 +8,12 @@ class HowToPlayScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final rules = [l10n.rule1Text, l10n.rule2Text, l10n.rule3Text, l10n.rule4Text];
+    final rules = [
+      l10n.rule1Text,
+      l10n.rule2Text,
+      l10n.rule3Text,
+      l10n.rule4Text,
+    ];
     final glossary = [
       l10n.glossaryRowCol,
       l10n.glossaryBeside,
@@ -24,8 +29,9 @@ class HowToPlayScreen extends StatelessWidget {
             Card(
               child: ListTile(
                 leading: CircleAvatar(
-                  backgroundColor:
-                      Theme.of(context).colorScheme.primaryContainer,
+                  backgroundColor: Theme.of(context)
+                      .colorScheme
+                      .primaryContainer,
                   child: Text('${i + 1}'),
                 ),
                 title: Text(rules[i]),
@@ -34,8 +40,10 @@ class HowToPlayScreen extends StatelessWidget {
           const SizedBox(height: 12),
           Padding(
             padding: const EdgeInsets.only(left: 16, bottom: 8),
-            child: Text(l10n.glossaryTitle,
-                style: Theme.of(context).textTheme.titleMedium),
+            child: Text(
+              l10n.glossaryTitle,
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
           ),
           for (final entry in glossary)
             ListTile(

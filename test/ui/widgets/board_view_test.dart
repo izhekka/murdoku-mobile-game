@@ -5,8 +5,8 @@ import 'package:murdoku/domain/generator/case_factory.dart';
 import 'package:murdoku/domain/models.dart';
 import 'package:murdoku/l10n/generated/app_localizations.dart';
 import 'package:murdoku/ui/widgets/avatar.dart';
-import 'package:murdoku/ui/widgets/item_sprite.dart';
 import 'package:murdoku/ui/widgets/board_view.dart';
+import 'package:murdoku/ui/widgets/item_sprite.dart';
 
 final CaseData fixture = generateCase(difficulty: Difficulty.easy, seed: 3);
 
@@ -41,18 +41,20 @@ Future<void> pumpBoard(
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
 
-  await tester.pumpWidget(wrap(
-    BoardView(
-      caseData: fixture,
-      placed: placed,
-      xMarks: xMarks,
-      selectedSuspectId: selected,
-      onCellTap: onCellTap ?? (_) {},
-      onCellDrag: onCellDrag ?? (_) {},
+  await tester.pumpWidget(
+    wrap(
+      BoardView(
+        caseData: fixture,
+        placed: placed,
+        xMarks: xMarks,
+        selectedSuspectId: selected,
+        onCellTap: onCellTap ?? (_) {},
+        onCellDrag: onCellDrag ?? (_) {},
+      ),
+      textScale: textScale,
+      tokens: tokens,
     ),
-    textScale: textScale,
-    tokens: tokens,
-  ));
+  );
   await tester.pumpAndSettle();
 }
 
@@ -69,8 +71,12 @@ Offset cellCenter(WidgetTester tester, int row, int col) {
 void main() {
   testWidgets('taps report the correct cell position', (tester) async {
     Pos? tapped;
-    await pumpBoard(tester,
-        placed: {}, xMarks: {}, onCellTap: (p) => tapped = p);
+    await pumpBoard(
+      tester,
+      placed: {},
+      xMarks: {},
+      onCellTap: (p) => tapped = p,
+    );
 
     await tester.tapAt(cellCenter(tester, 2, 3));
     expect(tapped, (row: 2, col: 3));
@@ -81,8 +87,7 @@ void main() {
 
   testWidgets('drag reports cells along the way', (tester) async {
     final dragged = <Pos>[];
-    await pumpBoard(tester,
-        placed: {}, xMarks: {}, onCellDrag: (p) => dragged.add(p));
+    await pumpBoard(tester, placed: {}, xMarks: {}, onCellDrag: dragged.add);
 
     // Stepped drag: two half-steps so the middle cell is crossed.
     final from = cellCenter(tester, 1, 1);
@@ -98,7 +103,9 @@ void main() {
     expect(dragged, contains((row: 1, col: 3)));
   });
 
-  testWidgets('renders avatars for placed suspects and X marks', (tester) async {
+  testWidgets('renders avatars for placed suspects and X marks', (
+    tester,
+  ) async {
     final placed = {
       's0': fixture.solution['s0']!,
       's2': fixture.solution['s2']!,
@@ -110,8 +117,9 @@ void main() {
     expect(find.byIcon(Icons.close), findsNWidgets(2));
   });
 
-  testWidgets('victim cell is rendered with a chalk-outline sprite',
-      (tester) async {
+  testWidgets('victim cell is rendered with a chalk-outline sprite', (
+    tester,
+  ) async {
     await pumpBoard(tester, placed: {}, xMarks: {});
     expect(find.byKey(const Key('victim_cell')), findsOneWidget);
     final victimImage = find.byWidgetPredicate(
@@ -120,17 +128,20 @@ void main() {
           w.image is AssetImage &&
           (w.image as AssetImage).assetName == 'assets/items/victim.png',
     );
-    expect(victimImage, findsOneWidget,
-        reason: 'the victim is a graphic, not a letter');
+    expect(
+      victimImage,
+      findsOneWidget,
+      reason: 'the victim is a graphic, not a letter',
+    );
     expect(find.text('V'), findsNothing);
   });
 
   testWidgets('selected suspect gets a highlight ring', (tester) async {
     final placed = {'s0': fixture.solution['s0']!};
-    await pumpBoard(tester,
-        placed: placed, xMarks: {}, selected: 's0');
-    final selectedAvatars =
-        find.byWidgetPredicate((w) => w is Avatar && w.selected);
+    await pumpBoard(tester, placed: placed, xMarks: {}, selected: 's0');
+    final selectedAvatars = find.byWidgetPredicate(
+      (w) => w is Avatar && w.selected,
+    );
     expect(selectedAvatars, findsOneWidget);
   });
 
@@ -144,21 +155,19 @@ void main() {
   testWidgets('occupiable furniture renders under its guest', (tester) async {
     final occupiable = fixture.objects.firstWhere((o) => o.occupiable);
     final guest = fixture.suspects.first.id;
-    await pumpBoard(
-        tester, placed: {guest: occupiable.pos}, xMarks: {});
+    await pumpBoard(tester, placed: {guest: occupiable.pos}, xMarks: {});
 
     expect(find.byType(Avatar), findsOneWidget);
     expect(find.byType(ItemSprite), findsWidgets);
   });
 
-  testWidgets('room number badges render on each room anchor cell',
-      (tester) async {
+  testWidgets('room number badges render on each room anchor cell', (
+    tester,
+  ) async {
     await pumpBoard(tester, placed: {}, xMarks: {});
     for (var i = 0; i < fixture.rooms.length; i++) {
       final cells = [...fixture.rooms[i].cells]
-        ..sort((a, b) => a.row != b.row
-            ? a.row - b.row
-            : a.col - b.col);
+        ..sort((a, b) => a.row != b.row ? a.row - b.row : a.col - b.col);
       // The victim cell can never carry a badge; skip it.
       final anchor = cells.firstWhere((c) => c != fixture.victimPos);
       expect(
@@ -172,8 +181,9 @@ void main() {
     }
   });
 
-  testWidgets('blocking furniture appears in semantics as unoccupiable',
-      (tester) async {
+  testWidgets('blocking furniture appears in semantics as unoccupiable', (
+    tester,
+  ) async {
     final blocking = fixture.objects.firstWhere((o) => !o.occupiable);
     await pumpBoard(tester, placed: {}, xMarks: {});
     final cellKey = 'cell_${blocking.pos.row}_${blocking.pos.col}';
@@ -189,8 +199,12 @@ void main() {
   });
 
   testWidgets('no overflow at 2x text scale on a small screen', (tester) async {
-    await pumpBoard(tester,
-        placed: fixture.solution, xMarks: {}, textScale: 2.0);
+    await pumpBoard(
+      tester,
+      placed: fixture.solution,
+      xMarks: {},
+      textScale: 2.0,
+    );
     final boardRect = tester.getRect(find.byKey(const Key('board_view')));
     expect(boardRect.width, lessThanOrEqualTo(320));
     expect(boardRect.height, lessThanOrEqualTo(569));
@@ -201,10 +215,15 @@ void main() {
       '(issue 23)', (tester) async {
     await pumpBoard(tester, placed: {}, xMarks: {}, tokens: stickerTokens);
 
-    final painter = tester
-        .widget<CustomPaint>(find.byWidgetPredicate(
-            (w) => w is CustomPaint && w.painter is SkinRoomPainter))
-        .painter as SkinRoomPainter;
+    final painter =
+        tester
+                .widget<CustomPaint>(
+                  find.byWidgetPredicate(
+                    (w) => w is CustomPaint && w.painter is SkinRoomPainter,
+                  ),
+                )
+                .painter
+            as SkinRoomPainter;
     expect(painter.mortarColor, stickerTokens.mortarColor);
     expect(painter.lineWidth, stickerTokens.roomLineWidth);
     expect(painter.radius, stickerTokens.roomRadius);
@@ -214,28 +233,40 @@ void main() {
 
     // Cells carry no per-side borders any more: rooms paint beneath them.
     final cell = tester.widget<Container>(
-        find.descendant(
+      find
+          .descendant(
             of: find.byKey(const Key('cell_0_0')),
-            matching: find.byType(Container)).first);
+            matching: find.byType(Container),
+          )
+          .first,
+    );
     expect(cell.decoration, isNull);
   });
 
-  testWidgets('cartoon skin renders the victim cell with stripes (issue 23)',
-      (tester) async {
+  testWidgets('cartoon skin renders the victim cell with stripes (issue 23)', (
+    tester,
+  ) async {
     await pumpBoard(tester, placed: {}, xMarks: {}, tokens: stickerTokens);
     expect(
-        find.byWidgetPredicate(
-            (w) => w is CustomPaint && w.painter is SkinVictimStripePainter),
-        findsOneWidget,
-        reason: 'the victim cell is striped, matching the mockups');
+      find.byWidgetPredicate(
+        (w) => w is CustomPaint && w.painter is SkinVictimStripePainter,
+      ),
+      findsOneWidget,
+      reason: 'the victim cell is striped, matching the mockups',
+    );
   });
 
-  testWidgets('cartoon skin keeps taps working on every cell (issue 23)',
-      (tester) async {
+  testWidgets('cartoon skin keeps taps working on every cell (issue 23)', (
+    tester,
+  ) async {
     Pos? tapped;
-    await pumpBoard(tester,
-        placed: {}, xMarks: {}, tokens: stickerTokens,
-        onCellTap: (p) => tapped = p);
+    await pumpBoard(
+      tester,
+      placed: {},
+      xMarks: {},
+      tokens: stickerTokens,
+      onCellTap: (p) => tapped = p,
+    );
     await tester.tapAt(cellCenter(tester, 2, 3));
     expect(tapped, (row: 2, col: 3));
   });

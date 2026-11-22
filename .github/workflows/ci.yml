@@ -9,5 +9,7 @@ jobs:
         with:
           channel: stable
       - run: flutter pub get
+      - run: dart format --output=none --set-exit-if-changed .
       - run: flutter analyze
-      - run: flutter test
+      - run: flutter test --coverage
+      - run: dart run tool/crap_check.dart --lcov coverage/lcov.info

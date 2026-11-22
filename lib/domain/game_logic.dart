@@ -1,4 +1,4 @@
-import 'models.dart';
+import 'package:murdoku/domain/models.dart';
 
 /// Which board interaction is active.
 enum Tool { place, markX, erase }

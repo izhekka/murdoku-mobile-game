@@ -1,5 +1,5 @@
-import 'clue_eval.dart';
-import 'models.dart';
+import 'package:murdoku/domain/clue_eval.dart';
+import 'package:murdoku/domain/models.dart';
 
 /// Core backtracking search shared by [countSolutions] and [firstSolution].
 ///
@@ -23,17 +23,21 @@ int _search({
   final g = gridSize;
   // roomId per cell, precomputed.
   final roomId = List.generate(
-      g, (row) => List.generate(g, (col) => roomOf(rooms, (row: row, col: col))!));
+    g,
+    (row) => List.generate(g, (col) => roomOf(rooms, (row: row, col: col))!),
+  );
 
   // Bitmask of suspect indices each clue needs before it can be evaluated.
-  final indexOf = {for (var i = 0; i < suspectIds.length; i++) suspectIds[i]: i};
+  final indexOf = {
+    for (var i = 0; i < suspectIds.length; i++) suspectIds[i]: i,
+  };
   String? targetOf(Clue clue) => switch (clue) {
-        SameRow(:final targetId) => targetId,
-        SameCol(:final targetId) => targetId,
-        DirectionClue(:final targetId) => targetId,
-        Beside(:final targetId) => targetId,
-        _ => null,
-      };
+    SameRow(:final targetId) => targetId,
+    SameCol(:final targetId) => targetId,
+    DirectionClue(:final targetId) => targetId,
+    Beside(:final targetId) => targetId,
+    _ => null,
+  };
 
   int maskFor(Clue clue) {
     var mask = 0;
@@ -136,16 +140,15 @@ int countSolutions({
   required Pos victimPos,
   required List<ObjectDef> objects,
   int cap = 2,
-}) =>
-    _search(
-      gridSize: gridSize,
-      rooms: rooms,
-      clues: clues,
-      suspectIds: suspectIds,
-      victimPos: victimPos,
-      objects: objects,
-      cap: cap,
-    );
+}) => _search(
+  gridSize: gridSize,
+  rooms: rooms,
+  clues: clues,
+  suspectIds: suspectIds,
+  victimPos: victimPos,
+  objects: objects,
+  cap: cap,
+);
 
 /// Returns the single solution when the clue set is unique, null otherwise
 /// (zero or multiple solutions).

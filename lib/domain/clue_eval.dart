@@ -1,4 +1,4 @@
-import 'models.dart';
+import 'package:murdoku/domain/models.dart';
 
 int _manhattan(Pos a, Pos b) => (a.row - b.row).abs() + (a.col - b.col).abs();
 
@@ -13,7 +13,8 @@ bool evaluateClue(
   required List<RoomDef> rooms,
   required List<ObjectDef> objects,
 }) {
-  final suspectPos = placement[clue.suspectId] ??
+  final suspectPos =
+      placement[clue.suspectId] ??
       (throw ArgumentError('unknown suspect id: ${clue.suspectId}'));
 
   Pos posOf(String id) {
@@ -21,13 +22,15 @@ bool evaluateClue(
     return placement[id] ?? (throw ArgumentError('unknown target id: $id'));
   }
 
-  RoomDef roomById(String roomId) => rooms
-      .firstWhere((r) => r.id == roomId,
-          orElse: () => throw ArgumentError('unknown room id: $roomId'));
+  RoomDef roomById(String roomId) => rooms.firstWhere(
+    (r) => r.id == roomId,
+    orElse: () => throw ArgumentError('unknown room id: $roomId'),
+  );
 
-  ObjectDef objectById(String objectId) => objects
-      .firstWhere((o) => o.id == objectId,
-          orElse: () => throw ArgumentError('unknown object id: $objectId'));
+  ObjectDef objectById(String objectId) => objects.firstWhere(
+    (o) => o.id == objectId,
+    orElse: () => throw ArgumentError('unknown object id: $objectId'),
+  );
 
   bool raw;
   switch (clue) {
@@ -62,7 +65,8 @@ bool evaluateClue(
     case BesideObject(:final objectId):
       // UX-8 / ADR 0004: the item clue means the guest shares the item's
       // room, not Manhattan-adjacency through a wall.
-      raw = roomOf(rooms, suspectPos) == roomOf(rooms, objectById(objectId).pos);
+      raw =
+          roomOf(rooms, suspectPos) == roomOf(rooms, objectById(objectId).pos);
   }
   return clue.negated ? !raw : raw;
 }

@@ -2,9 +2,8 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart' show ThemeMode;
+import 'package:murdoku/domain/models.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
-import '../domain/models.dart';
 
 /// App language preference. `system` follows the platform locale (clamped to
 /// supported locales); the app defaults to [russian].
@@ -40,23 +39,27 @@ class Settings {
   int get hashCode => Object.hash(themeMode, haptics, language, skin);
 
   Map<String, Object?> toJson() => {
-        'themeMode': themeMode.name,
-        'haptics': haptics,
-        'language': language.name,
-        'skin': skin.name,
-      };
+    'themeMode': themeMode.name,
+    'haptics': haptics,
+    'language': language.name,
+    'skin': skin.name,
+  };
 
   factory Settings.fromJson(Map<String, Object?> json) => Settings(
-        themeMode: ThemeMode.values
-            .firstWhere((m) => m.name == json['themeMode'], orElse: () => ThemeMode.system),
-        haptics: json['haptics'] as bool? ?? true,
-        language: LanguageSetting.values.firstWhere(
-            (l) => l.name == json['language'],
-            orElse: () => LanguageSetting.russian),
-        skin: SkinSetting.values.firstWhere(
-            (s) => s.name == json['skin'],
-            orElse: () => SkinSetting.sticker),
-      );
+    themeMode: ThemeMode.values.firstWhere(
+      (m) => m.name == json['themeMode'],
+      orElse: () => ThemeMode.system,
+    ),
+    haptics: json['haptics'] as bool? ?? true,
+    language: LanguageSetting.values.firstWhere(
+      (l) => l.name == json['language'],
+      orElse: () => LanguageSetting.russian,
+    ),
+    skin: SkinSetting.values.firstWhere(
+      (s) => s.name == json['skin'],
+      orElse: () => SkinSetting.sticker,
+    ),
+  );
 }
 
 class DailyState {
@@ -74,21 +77,23 @@ class DailyState {
   @override
   int get hashCode => Object.hash(lastCompletedDate, streak);
 
-  Map<String, Object?> toJson() =>
-      {'lastCompletedDate': lastCompletedDate, 'streak': streak};
+  Map<String, Object?> toJson() => {
+    'lastCompletedDate': lastCompletedDate,
+    'streak': streak,
+  };
 
   factory DailyState.fromJson(Map<String, Object?> json) => DailyState(
-        lastCompletedDate: json['lastCompletedDate'] as String? ?? '',
-        streak: json['streak'] as int? ?? 0,
-      );
+    lastCompletedDate: json['lastCompletedDate'] as String? ?? '',
+    streak: json['streak'] as int? ?? 0,
+  );
 }
 
 class Stats {
   Stats()
-      : solved = {for (final d in Difficulty.values) d: 0},
-        bestTime = {},
-        totalTime = {},
-        totalCases = 0;
+    : solved = {for (final d in Difficulty.values) d: 0},
+      bestTime = {},
+      totalTime = {},
+      totalCases = 0;
 
   final Map<Difficulty, int> solved;
   final Map<Difficulty, Duration> bestTime;
@@ -105,18 +110,18 @@ class Stats {
 
   @override
   int get hashCode => Object.hash(
-        Object.hashAll(solved.values),
-        Object.hashAll(bestTime.values),
-        Object.hashAll(totalTime.values),
-        totalCases,
-      );
+    Object.hashAll(solved.values),
+    Object.hashAll(bestTime.values),
+    Object.hashAll(totalTime.values),
+    totalCases,
+  );
 
   Map<String, Object?> toJson() => {
-        'solved': solved.map((k, v) => MapEntry(k.name, v)),
-        'bestTimeSeconds': bestTime.map((k, v) => MapEntry(k.name, v.inSeconds)),
-        'totalTimeSeconds': totalTime.map((k, v) => MapEntry(k.name, v.inSeconds)),
-        'totalCases': totalCases,
-      };
+    'solved': solved.map((k, v) => MapEntry(k.name, v)),
+    'bestTimeSeconds': bestTime.map((k, v) => MapEntry(k.name, v.inSeconds)),
+    'totalTimeSeconds': totalTime.map((k, v) => MapEntry(k.name, v.inSeconds)),
+    'totalCases': totalCases,
+  };
 
   factory Stats.fromJson(Map<String, Object?> json) {
     final stats = Stats();
@@ -147,7 +152,8 @@ class SavedGame {
 
   final CaseData caseData;
   final bool isDaily;
-  final String dailyDate; // yyyy-mm-dd UTC the daily was started, '' if not daily
+  final String
+  dailyDate; // yyyy-mm-dd UTC the daily was started, '' if not daily
   final BoardSnapshot board;
 
   @override
@@ -162,12 +168,12 @@ class SavedGame {
   int get hashCode => Object.hash(caseData, isDaily, dailyDate, board);
 
   Map<String, Object?> toJson() => {
-        'v': 1,
-        'caseData': caseData.toJson(),
-        'isDaily': isDaily,
-        'dailyDate': dailyDate,
-        'board': board.toJson(),
-      };
+    'v': 1,
+    'caseData': caseData.toJson(),
+    'isDaily': isDaily,
+    'dailyDate': dailyDate,
+    'board': board.toJson(),
+  };
 
   /// Returns null for unknown versions or malformed payloads — callers must
   /// treat that as "no save".
@@ -176,7 +182,8 @@ class SavedGame {
       if (json['v'] != 1) return null;
       final caseJson = json['caseData'];
       final boardJson = json['board'];
-      if (caseJson is! Map<String, Object?> || boardJson is! Map<String, Object?>) {
+      if (caseJson is! Map<String, Object?> ||
+          boardJson is! Map<String, Object?>) {
         return null;
       }
       return SavedGame(
@@ -185,7 +192,7 @@ class SavedGame {
         dailyDate: json['dailyDate'] as String? ?? '',
         board: BoardSnapshot.fromJson(boardJson),
       );
-    } catch (e) {
+    } on Object catch (e) {
       debugPrint('SavedGame parse failed: $e');
       return null;
     }
@@ -208,7 +215,7 @@ class PrefsRepository {
     if (raw == null) return const Settings();
     try {
       return Settings.fromJson(jsonDecode(raw) as Map<String, Object?>);
-    } catch (e) {
+    } on Object catch (e) {
       debugPrint('settings jsonDecode failed: $e');
       return const Settings();
     }
@@ -222,7 +229,7 @@ class PrefsRepository {
     if (raw == null) return null;
     try {
       return SavedGame.tryFromJson(jsonDecode(raw) as Map<String, Object?>);
-    } catch (e) {
+    } on Object catch (e) {
       debugPrint('active game jsonDecode failed: $e');
       return null;
     }
@@ -245,7 +252,7 @@ class PrefsRepository {
     if (raw == null) return Stats();
     try {
       return Stats.fromJson(jsonDecode(raw) as Map<String, Object?>);
-    } catch (e) {
+    } on Object catch (e) {
       debugPrint('stats jsonDecode failed: $e');
       return Stats();
     }
@@ -259,7 +266,7 @@ class PrefsRepository {
     if (raw == null) return const DailyState();
     try {
       return DailyState.fromJson(jsonDecode(raw) as Map<String, Object?>);
-    } catch (e) {
+    } on Object catch (e) {
       debugPrint('daily state jsonDecode failed: $e');
       return const DailyState();
     }
@@ -282,7 +289,10 @@ bool _statsMapEqual<M extends Enum, V>(Map<M, V> a, Map<M, V> b) {
   return true;
 }
 
-bool _durationMapEqual(Map<Difficulty, Duration> a, Map<Difficulty, Duration> b) {
+bool _durationMapEqual(
+  Map<Difficulty, Duration> a,
+  Map<Difficulty, Duration> b,
+) {
   if (a.length != b.length) return false;
   for (final key in a.keys) {
     if (b[key] != a[key]) return false;

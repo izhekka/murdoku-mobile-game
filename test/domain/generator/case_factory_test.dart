@@ -6,9 +6,7 @@ import 'package:murdoku/domain/models.dart';
 import 'package:murdoku/domain/solver.dart';
 
 void main() {
-  test(
-      'property: 150 seeded cases are structurally valid, clue-true, unique, deterministic',
-      () {
+  test('property: 150 seeded cases are structurally valid, clue-true, unique, deterministic', () {
     for (final difficulty in Difficulty.values) {
       for (var seed = 1; seed <= 50; seed++) {
         final c = generateCase(difficulty: difficulty, seed: seed);
@@ -17,33 +15,61 @@ void main() {
         // 1. structure
         expect(c.rooms.length, g, reason: 'seed $seed/${difficulty.name}');
         expect(c.suspects.length, g);
-        expect(c.objects.length, difficulty.objectCount,
-            reason: 'seed $seed: furniture count');
-        expect(c.objects.where((o) => o.occupiable).length,
-            difficulty.occupiableCount,
-            reason: 'seed $seed: occupiable count');
+        expect(
+          c.objects.length,
+          difficulty.objectCount,
+          reason: 'seed $seed: furniture count',
+        );
+        expect(
+          c.objects.where((o) => o.occupiable).length,
+          difficulty.occupiableCount,
+          reason: 'seed $seed: occupiable count',
+        );
         // No furniture stacking; victim cell always bare.
-        expect(c.objects.map((o) => o.pos).toSet().length, c.objects.length,
-            reason: 'seed $seed: one item per cell');
+        expect(
+          c.objects.map((o) => o.pos).toSet().length,
+          c.objects.length,
+          reason: 'seed $seed: one item per cell',
+        );
         for (final o in c.objects) {
-          expect(o.pos, isNot(c.victimPos),
-              reason: 'seed $seed: victim cell bare');
-          expect(kindOccupiable(o.kind), o.occupiable,
-              reason: 'seed $seed: kind/occupiable consistency');
+          expect(
+            o.pos,
+            isNot(c.victimPos),
+            reason: 'seed $seed: victim cell bare',
+          );
+          expect(
+            kindOccupiable(o.kind),
+            o.occupiable,
+            reason: 'seed $seed: kind/occupiable consistency',
+          );
         }
         for (final o in c.objects.where((o) => !o.occupiable)) {
-          expect(c.solution.values.contains(o.pos), isFalse,
-              reason: 'seed $seed: blocking furniture never under a guest');
+          expect(
+            c.solution.values.contains(o.pos),
+            isFalse,
+            reason: 'seed $seed: blocking furniture never under a guest',
+          );
         }
-        expect(c.solution.values.contains(c.victimPos), isFalse,
-            reason: 'seed $seed: victim cell must be empty in solution');
-        expect(roomOf(c.rooms, c.victimPos), isNotNull,
-            reason: 'seed $seed: victim in a room');
+        expect(
+          c.solution.values.contains(c.victimPos),
+          isFalse,
+          reason: 'seed $seed: victim cell must be empty in solution',
+        );
+        expect(
+          roomOf(c.rooms, c.victimPos),
+          isNotNull,
+          reason: 'seed $seed: victim in a room',
+        );
 
         // suspect ids are s0..s(G-1); room ids r0..r(G-1)
-        expect(c.suspects.map((s) => s.id).toList(),
-            List.generate(g, (i) => 's$i'));
-        expect(c.rooms.map((r) => r.id).toSet(), Set.from(List.generate(g, (i) => 'r$i')));
+        expect(
+          c.suspects.map((s) => s.id).toList(),
+          List.generate(g, (i) => 's$i'),
+        );
+        expect(
+          c.rooms.map((r) => r.id).toSet(),
+          Set.from(List.generate(g, (i) => 'r$i')),
+        );
 
         // 1b. poolIndex: names must resolve through the localized pools
         // (UX-1). -1 would render English names in the ru UI.
@@ -70,16 +96,16 @@ void main() {
         expect(
           c.rooms.every((r) => roomNamePool[r.poolIndex] == r.name),
           isTrue,
-          reason:
-              'seed $seed/${difficulty.name}: room name/poolIndex mismatch',
+          reason: 'seed $seed/${difficulty.name}: room name/poolIndex mismatch',
         );
 
         // 2. solution validity: one guest per row / col / room
         expect(c.solution.values.map((p) => p.row).toSet().length, g);
         expect(c.solution.values.map((p) => p.col).toSet().length, g);
-        final roomIds = c.solution.values.map((p) => roomOf(c.rooms, p)!).toSet();
-        expect(roomIds.length, g,
-            reason: 'seed $seed: one guest per room');
+        final roomIds = c.solution.values
+            .map((p) => roomOf(c.rooms, p)!)
+            .toSet();
+        expect(roomIds.length, g, reason: 'seed $seed: one guest per room');
 
         // 3. all clues true on the solution (throws on malformed ids)
         for (final clue in c.clues) {
@@ -124,26 +150,41 @@ void main() {
         // 5. murderer shares the victim's room
         final victimRoom = roomOf(c.rooms, c.victimPos);
         final murdererRoom = roomOf(c.rooms, c.solution[c.murdererId]!);
-        expect(murdererRoom, victimRoom,
-            reason: 'seed $seed: murderer not with victim');
+        expect(
+          murdererRoom,
+          victimRoom,
+          reason: 'seed $seed: murderer not with victim',
+        );
 
         // 5b. every suspect has at least one clue (no empty cards)
         final suspectsWithClues = c.clues.map((cl) => cl.suspectId).toSet();
         for (final s in c.suspects) {
-          expect(suspectsWithClues.contains(s.id), isTrue,
-              reason: 'seed $seed: suspect ${s.id} has no clue');
+          expect(
+            suspectsWithClues.contains(s.id),
+            isTrue,
+            reason: 'seed $seed: suspect ${s.id} has no clue',
+          );
         }
 
         // 6. clue window
-        expect(c.clues.length, greaterThanOrEqualTo(difficulty.minClues),
-            reason: 'seed $seed: too few clues (${c.clues.length})');
-        expect(c.clues.length, lessThanOrEqualTo(difficulty.maxClues),
-            reason: 'seed $seed: too many clues (${c.clues.length})');
+        expect(
+          c.clues.length,
+          greaterThanOrEqualTo(difficulty.minClues),
+          reason: 'seed $seed: too few clues (${c.clues.length})',
+        );
+        expect(
+          c.clues.length,
+          lessThanOrEqualTo(difficulty.maxClues),
+          reason: 'seed $seed: too many clues (${c.clues.length})',
+        );
 
         // determinism (spot-check: same seed -> identical json)
         final again = generateCase(difficulty: difficulty, seed: seed);
-        expect(again.toJson(), equals(c.toJson()),
-            reason: 'seed $seed: generation not deterministic');
+        expect(
+          again.toJson(),
+          equals(c.toJson()),
+          reason: 'seed $seed: generation not deterministic',
+        );
       }
     }
   });
@@ -158,13 +199,21 @@ void main() {
           if (clue.negated) {
             // Issue #10: a negated item clue means the guest is NOT in the
             // item's room — the mirror of the UX-8 property.
-            expect(guestRoom, isNot(roomOf(c.rooms, obj.pos)),
-                reason: 'seed $seed/${difficulty.name}: '
-                    'negated item clue must be false of the room: ${clue.toJson()}');
+            expect(
+              guestRoom,
+              isNot(roomOf(c.rooms, obj.pos)),
+              reason:
+                  'seed $seed/${difficulty.name}: '
+                  'negated item clue must be false of the room: ${clue.toJson()}',
+            );
           } else {
-            expect(guestRoom, roomOf(c.rooms, obj.pos),
-                reason: 'seed $seed/${difficulty.name}: '
-                    'guest not in item room: ${clue.toJson()}');
+            expect(
+              guestRoom,
+              roomOf(c.rooms, obj.pos),
+              reason:
+                  'seed $seed/${difficulty.name}: '
+                  'guest not in item room: ${clue.toJson()}',
+            );
           }
         }
       }
@@ -180,17 +229,22 @@ void main() {
     for (final difficulty in Difficulty.values) {
       for (var seed = 1; seed <= 50; seed++) {
         final c = generateCase(difficulty: difficulty, seed: seed);
-        for (final clue in
-            c.clues.whereType<BesideObject>().where((cl) => !cl.negated)) {
+        for (final clue in c.clues.whereType<BesideObject>().where(
+          (cl) => !cl.negated,
+        )) {
           final guest = c.solution[clue.suspectId]!;
           final obj = c.objects.firstWhere((o) => o.id == clue.objectId);
-          final d = (guest.row - obj.pos.row).abs() + (guest.col - obj.pos.col).abs();
+          final d =
+              (guest.row - obj.pos.row).abs() + (guest.col - obj.pos.col).abs();
           if (d != 1) nonAdjacent++;
         }
       }
     }
-    expect(nonAdjacent, greaterThan(0),
-        reason: 'same-room item clues never appear beyond Manhattan-1');
+    expect(
+      nonAdjacent,
+      greaterThan(0),
+      reason: 'same-room item clues never appear beyond Manhattan-1',
+    );
   });
 
   test('property: negated clues obey difficulty caps and are true of the solution (#10)', () {
@@ -200,8 +254,11 @@ void main() {
         final c = generateCase(difficulty: difficulty, seed: seed);
         final negated = c.clues.where((cl) => cl.negated).toList();
         // Cap: easy 0, standard ≤1, hard ≤3.
-        expect(negated.length, lessThanOrEqualTo(difficulty.maxNegatedClues),
-            reason: 'seed $seed/${difficulty.name}: negated cap exceeded');
+        expect(
+          negated.length,
+          lessThanOrEqualTo(difficulty.maxNegatedClues),
+          reason: 'seed $seed/${difficulty.name}: negated cap exceeded',
+        );
         if (difficulty == Difficulty.easy) {
           expect(negated, isEmpty, reason: 'seed $seed: easy must have none');
         }
@@ -223,9 +280,12 @@ void main() {
       }
       // Non-vacuous: the caps are actually reached on standard/hard.
       if (difficulty != Difficulty.easy) {
-        expect(atCap.length, greaterThanOrEqualTo(40),
-            reason:
-                '${difficulty.name}: cap reached in only ${atCap.length}/50 cases');
+        expect(
+          atCap.length,
+          greaterThanOrEqualTo(40),
+          reason:
+              '${difficulty.name}: cap reached in only ${atCap.length}/50 cases',
+        );
       }
     }
   });
@@ -246,18 +306,30 @@ void main() {
     final c = generateCase(difficulty: Difficulty.easy, seed: 1);
     final names = NameForms.forLocale('ru', c);
     for (final r in c.rooms) {
-      expect(names.roomPrep(r.id), ruRoomForms[r.poolIndex].$2,
-          reason: 'room ${r.id} (${r.name}) prep phrase must come from the pool');
-      expect(names.roomPrep(r.id), isNot('в ${r.name}'),
-          reason:
-              'room ${r.id} (${r.name}) must not fall back to the stored name');
+      expect(
+        names.roomPrep(r.id),
+        ruRoomForms[r.poolIndex].$2,
+        reason: 'room ${r.id} (${r.name}) prep phrase must come from the pool',
+      );
+      expect(
+        names.roomPrep(r.id),
+        isNot('в ${r.name}'),
+        reason:
+            'room ${r.id} (${r.name}) must not fall back to the stored name',
+      );
     }
     for (final s in c.suspects) {
-      expect(names.nom(s.id), ruSuspectForms[s.poolIndex].nom,
-          reason: 'suspect ${s.id} (${s.name}) nom must come from the pool');
-      expect(names.nom(s.id), isNot(s.name),
-          reason:
-              'suspect ${s.id} (${s.name}) must not fall back to the stored name');
+      expect(
+        names.nom(s.id),
+        ruSuspectForms[s.poolIndex].nom,
+        reason: 'suspect ${s.id} (${s.name}) nom must come from the pool',
+      );
+      expect(
+        names.nom(s.id),
+        isNot(s.name),
+        reason:
+            'suspect ${s.id} (${s.name}) must not fall back to the stored name',
+      );
     }
   });
 
@@ -274,13 +346,22 @@ void main() {
       final c = generateCase(difficulty: Difficulty.easy, seed: seed);
       if (!distinctCases.add(c.seed)) continue;
       final idx = c.rooms.map((r) => r.poolIndex).toSet();
-      expect(idx.length, c.rooms.length,
-          reason: 'case ${c.seed}: room poolIndex values repeat');
+      expect(
+        idx.length,
+        c.rooms.length,
+        reason: 'case ${c.seed}: room poolIndex values repeat',
+      );
       seen.addAll(idx);
     }
-    expect(distinctCases.length, 5,
-        reason: 'bounded scan should find 5 distinct easy cases');
-    expect(seen.length, greaterThanOrEqualTo(10),
-        reason: '5 cases only cover ${seen.length} of 16 pool slots');
+    expect(
+      distinctCases.length,
+      5,
+      reason: 'bounded scan should find 5 distinct easy cases',
+    );
+    expect(
+      seen.length,
+      greaterThanOrEqualTo(10),
+      reason: '5 cases only cover ${seen.length} of 16 pool slots',
+    );
   });
 }

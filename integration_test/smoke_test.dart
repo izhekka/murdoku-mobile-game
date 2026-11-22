@@ -26,12 +26,14 @@ void main() {
     // for the app's whole life (its handle must be released by the test).
     // Snapshot the builder, run the app, then restore both at the end.
     final originalErrorWidgetBuilder = ErrorWidget.builder;
-    final bootSemanticsHandle =
-        await murdokuBootstrap(forcedSeed: 3, skipTutorial: true);
+    final bootSemanticsHandle = await murdokuBootstrap(
+      forcedSeed: 3,
+      skipTutorial: true,
+    );
     await tester.pumpAndSettle();
 
-    AppLocalizations l10nOf(WidgetTester t) => AppLocalizations.of(
-        t.element(find.byType(Scaffold).first))!;
+    AppLocalizations l10nOf(WidgetTester t) =>
+        AppLocalizations.of(t.element(find.byType(Scaffold).first))!;
     final l10n = l10nOf(tester);
 
     ProviderContainer containerOf(WidgetTester t) =>
@@ -55,8 +57,9 @@ void main() {
     final boardRect = tester.getRect(find.byKey(const Key('board_view')));
     final cell = boardRect.width / state.caseData.gridSize;
     Offset cellCenter(int row, int col) => Offset(
-        boardRect.left + (col + 0.5) * cell,
-        boardRect.top + (row + 0.5) * cell);
+      boardRect.left + (col + 0.5) * cell,
+      boardRect.top + (row + 0.5) * cell,
+    );
 
     final names = NameForms.forLocale(l10n.localeName, state.caseData);
     for (final entry in state.caseData.solution.entries) {

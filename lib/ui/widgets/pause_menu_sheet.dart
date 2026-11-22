@@ -1,8 +1,8 @@
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
-import '../../core/skins.dart';
-import '../../l10n/generated/app_localizations.dart';
+import 'package:murdoku/core/skins.dart';
+import 'package:murdoku/l10n/generated/app_localizations.dart';
 
 /// Mid-game pause menu (issue #11): a bottom sheet with Resume, How to play,
 /// Settings and Abandon case. Follows home's difficulty-sheet pattern
@@ -23,11 +23,10 @@ class PauseMenuSheet extends StatelessWidget {
   static Future<void> show(
     BuildContext context, {
     required VoidCallback onAbandon,
-  }) =>
-      showModalBottomSheet<void>(
-        context: context,
-        builder: (sheetContext) => PauseMenuSheet(onAbandon: onAbandon),
-      );
+  }) => showModalBottomSheet<void>(
+    context: context,
+    builder: (sheetContext) => PauseMenuSheet(onAbandon: onAbandon),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -44,37 +43,39 @@ class PauseMenuSheet extends StatelessWidget {
 
     Widget title = Padding(
       padding: const EdgeInsets.all(16),
-      child: Text(l10n.pauseMenuTitle,
-          style: Theme.of(context).textTheme.titleMedium),
+      child: Text(
+        l10n.pauseMenuTitle,
+        style: Theme.of(context).textTheme.titleMedium,
+      ),
     );
 
     Widget body;
     if (cartoon) {
       Widget row(String label, VoidCallback onTap, {Color? color}) => InkWell(
-            onTap: onTap,
-            child: Container(
-              width: double.infinity,
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-              child: Text(
-                label,
-                style: TextStyle(
-                  color: color ?? tokens.ink,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+        onTap: onTap,
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: Text(
+            label,
+            style: TextStyle(
+              color: color ?? tokens.ink,
+              fontWeight: FontWeight.w600,
             ),
-          );
+          ),
+        ),
+      );
       final hairline = tokens.ink.withValues(alpha: 0.12);
-      Widget separator() =>
-          Divider(height: 1, thickness: 1, color: hairline);
+      Widget separator() => Divider(height: 1, thickness: 1, color: hairline);
       body = Container(
         margin: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: tokens.card.background,
           borderRadius: BorderRadius.circular(tokens.card.radius),
           border: Border.all(
-              color: tokens.card.borderColor, width: tokens.card.borderWidth),
+            color: tokens.card.borderColor,
+            width: tokens.card.borderWidth,
+          ),
           boxShadow: [tokens.card.shadow],
         ),
         child: Column(
@@ -89,14 +90,10 @@ class PauseMenuSheet extends StatelessWidget {
             separator(),
             row(l10n.settingsTitle, () => popThenPush('/settings')),
             separator(),
-            row(
-              l10n.abandonCase,
-              () {
-                Navigator.of(context).pop();
-                onAbandon();
-              },
-              color: tokens.dangerColor,
-            ),
+            row(l10n.abandonCase, () {
+              Navigator.of(context).pop();
+              onAbandon();
+            }, color: tokens.dangerColor),
           ],
         ),
       );

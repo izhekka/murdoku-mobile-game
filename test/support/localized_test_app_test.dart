@@ -10,23 +10,37 @@ void main() {
       'exception (issue 21)', (tester) async {
     AppLocalizations? l10n;
     MaterialLocalizations? material;
-    await tester.pumpWidget(localizedTestApp(
-      locale: const Locale('ru'),
-      child: Builder(builder: (context) {
-        l10n = AppLocalizations.of(context);
-        material = MaterialLocalizations.of(context);
-        return const SizedBox.shrink();
-      }),
-    ));
+    await tester.pumpWidget(
+      localizedTestApp(
+        locale: const Locale('ru'),
+        child: Builder(
+          builder: (context) {
+            l10n = AppLocalizations.of(context);
+            material = MaterialLocalizations.of(context);
+            return const SizedBox.shrink();
+          },
+        ),
+      ),
+    );
     await tester.pump();
 
-    expect(tester.takeException(), isNull,
-        reason: 'the helper carries the app delegate list (lib/app.dart)');
-    expect(l10n?.localeName, 'ru',
-        reason: 'AppLocalizations resolves for the pinned locale');
-    expect(material?.backButtonTooltip, 'Назад',
-        reason: 'material_ui\'s own MaterialLocalizations resolves with '
-            'ru content (the delegates the generated list lacks)');
+    expect(
+      tester.takeException(),
+      isNull,
+      reason: 'the helper carries the app delegate list (lib/app.dart)',
+    );
+    expect(
+      l10n?.localeName,
+      'ru',
+      reason: 'AppLocalizations resolves for the pinned locale',
+    );
+    expect(
+      material?.backButtonTooltip,
+      'Назад',
+      reason:
+          'material_ui\'s own MaterialLocalizations resolves with '
+          'ru content (the delegates the generated list lacks)',
+    );
   });
 
   testWidgets('helper MaterialApp holds the shared lib delegate const '
@@ -39,14 +53,16 @@ void main() {
 
   testWidgets('defaults to en', (tester) async {
     AppLocalizations? l10n;
-    await tester.pumpWidget(localizedTestApp(
-      child: Builder(
-        builder: (context) {
-          l10n = AppLocalizations.of(context);
-          return const SizedBox.shrink();
-        },
+    await tester.pumpWidget(
+      localizedTestApp(
+        child: Builder(
+          builder: (context) {
+            l10n = AppLocalizations.of(context);
+            return const SizedBox.shrink();
+          },
+        ),
       ),
-    ));
+    );
     await tester.pump();
 
     expect(l10n?.localeName, 'en');

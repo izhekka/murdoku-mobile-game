@@ -1,4 +1,5 @@
 import 'dart:io';
+
 import 'package:image/image.dart' as img;
 
 /// Renders all item sprites on a neutral background with their ru names —
@@ -26,7 +27,9 @@ void main() {
   final cols = 5;
   final rows = (items.length + cols - 1) ~/ cols;
   final canvas = img.Image(
-      width: cols * (tile + 40) + 20, height: rows * (tile + 60) + 20);
+    width: cols * (tile + 40) + 20,
+    height: rows * (tile + 60) + 20,
+  );
   img.fill(canvas, color: img.ColorRgb8(120, 120, 130));
   var i = 0;
   for (final entry in items.entries) {
@@ -36,15 +39,20 @@ void main() {
       continue;
     }
     final image = img.decodePng(file.readAsBytesSync())!;
-    final big = img.copyResize(image,
-        width: tile, height: tile, interpolation: img.Interpolation.nearest);
+    final big = img.copyResize(image, width: tile, height: tile);
     final px = (i % cols) * (tile + 40) + 20;
     final py = (i ~/ cols) * (tile + 60) + 20;
     img.compositeImage(canvas, big, dstX: px, dstY: py);
     final label = img.Image(width: 200, height: 36);
     img.fill(label, color: img.ColorRgb8(255, 240, 150));
-    img.drawString(label, entry.value, font: img.arial14, x: 4, y: 8,
-        color: img.ColorRgb8(0, 0, 0));
+    img.drawString(
+      label,
+      entry.value,
+      font: img.arial14,
+      x: 4,
+      y: 8,
+      color: img.ColorRgb8(0, 0, 0),
+    );
     img.compositeImage(canvas, label, dstX: px, dstY: py + tile + 4);
     i++;
   }

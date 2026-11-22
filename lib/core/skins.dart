@@ -1,6 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
-import '../storage/prefs_repository.dart' show SkinSetting;
+import 'package:murdoku/storage/prefs_repository.dart' show SkinSetting;
 
 /// Immutable visual configuration of one skin (issue 23). Everything a
 /// widget needs to restyle itself comes from here — no hardcoded skin
@@ -159,38 +159,38 @@ class SkinTokens {
 
   @override
   int get hashCode => Object.hashAll([
-        skin,
-        isCartoon,
-        pageColor,
-        pageGradient,
-        pageDotColor,
-        pageBlobColor,
-        appBackground,
-        ink,
-        inkSoft,
-        card,
-        roomTints,
-        badge,
-        mortarColor,
-        solidRooms,
-        roomRadius,
-        roomLineWidth,
-        victimFill,
-        victimStripeColor,
-        actions,
-        dangerColor,
-        buttonRadius,
-        buttonShadow,
-        sheetBackground,
-        sheetRadius,
-        menuIcons,
-        panelHeaderUppercase,
-        chip,
-        frame,
-        frameMargin,
-        frameRingWidth,
-        frameRingColor,
-      ]);
+    skin,
+    isCartoon,
+    pageColor,
+    pageGradient,
+    pageDotColor,
+    pageBlobColor,
+    appBackground,
+    ink,
+    inkSoft,
+    card,
+    roomTints,
+    badge,
+    mortarColor,
+    solidRooms,
+    roomRadius,
+    roomLineWidth,
+    victimFill,
+    victimStripeColor,
+    actions,
+    dangerColor,
+    buttonRadius,
+    buttonShadow,
+    sheetBackground,
+    sheetRadius,
+    menuIcons,
+    panelHeaderUppercase,
+    chip,
+    frame,
+    frameMargin,
+    frameRingWidth,
+    frameRingColor,
+  ]);
 }
 
 /// A card surface: background fill, border, corner radius and one shadow.
@@ -303,8 +303,8 @@ class SkinActions {
       other.menu == menu;
 
   @override
-  int get hashCode => Object.hash(place, mark, erase, undo, hint, check,
-      accuse, menu);
+  int get hashCode =>
+      Object.hash(place, mark, erase, undo, hint, check, accuse, menu);
 }
 
 /// Shared cartoon toolbar palette (issue 23). The mockups show no Accuse
@@ -509,47 +509,51 @@ SkinTokens skinTokensFor(SkinSetting skin, ColorScheme scheme) =>
       SkinSetting.sticker => stickerTokens,
       SkinSetting.comic => comicTokens,
       SkinSetting.classic => SkinTokens(
-          skin: SkinSetting.classic,
-          isCartoon: false,
-          pageColor: scheme.surface,
-          appBackground: scheme.surface,
-          ink: scheme.onSurface,
-          inkSoft: scheme.onSurfaceVariant,
-          card: SkinCard(
-            background: scheme.surface,
-            borderColor: scheme.outlineVariant,
-            borderWidth: 1,
-            radius: 12,
-            shadow: const BoxShadow(
-                color: Color(0x1F000000), offset: Offset(0, 2), blurRadius: 4),
+        skin: SkinSetting.classic,
+        isCartoon: false,
+        pageColor: scheme.surface,
+        appBackground: scheme.surface,
+        ink: scheme.onSurface,
+        inkSoft: scheme.onSurfaceVariant,
+        card: SkinCard(
+          background: scheme.surface,
+          borderColor: scheme.outlineVariant,
+          borderWidth: 1,
+          radius: 12,
+          shadow: const BoxShadow(
+            color: Color(0x1F000000),
+            offset: Offset(0, 2),
+            blurRadius: 4,
           ),
-          roomTints: classicRoomTints,
-          badge: SkinBadge(
-              background: scheme.primaryContainer,
-              ink: scheme.onPrimaryContainer),
-          mortarColor: scheme.outline,
-          solidRooms: false,
-          roomRadius: 0,
-          roomLineWidth: 0,
-          victimFill: scheme.errorContainer,
-          victimStripeColor: scheme.errorContainer,
-          actions: SkinActions(
-            place: scheme.primary,
-            mark: scheme.primary,
-            erase: scheme.primary,
-            undo: scheme.primary,
-            hint: scheme.primary,
-            check: scheme.primary,
-            accuse: scheme.primary,
-            menu: scheme.primary,
-          ),
-          dangerColor: scheme.error,
-          buttonRadius: 12,
-          buttonShadow: const BoxShadow(color: Color(0x00000000)),
-          sheetBackground: scheme.surface,
-          sheetRadius: 28,
-          menuIcons: true,
         ),
+        roomTints: classicRoomTints,
+        badge: SkinBadge(
+          background: scheme.primaryContainer,
+          ink: scheme.onPrimaryContainer,
+        ),
+        mortarColor: scheme.outline,
+        solidRooms: false,
+        roomRadius: 0,
+        roomLineWidth: 0,
+        victimFill: scheme.errorContainer,
+        victimStripeColor: scheme.errorContainer,
+        actions: SkinActions(
+          place: scheme.primary,
+          mark: scheme.primary,
+          erase: scheme.primary,
+          undo: scheme.primary,
+          hint: scheme.primary,
+          check: scheme.primary,
+          accuse: scheme.primary,
+          menu: scheme.primary,
+        ),
+        dangerColor: scheme.error,
+        buttonRadius: 12,
+        buttonShadow: const BoxShadow(color: Color(0x00000000)),
+        sheetBackground: scheme.surface,
+        sheetRadius: 28,
+        menuIcons: true,
+      ),
     };
 
 /// The classic vivid room palette (moved verbatim from AppTheme so both
@@ -567,11 +571,7 @@ const classicRoomTints = [
 
 /// Exposes the active skin's tokens to every widget below the app shell.
 class SkinScope extends InheritedWidget {
-  const SkinScope({
-    super.key,
-    required this.tokens,
-    required super.child,
-  });
+  const SkinScope({super.key, required this.tokens, required super.child});
 
   final SkinTokens tokens;
 

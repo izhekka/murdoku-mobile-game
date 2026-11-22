@@ -13,8 +13,7 @@ const List<Color> suspectColors = [
   Color(0xFF74A84C), // moss
 ];
 
-Color suspectColor(int index) =>
-    suspectColors[index % suspectColors.length];
+Color suspectColor(int index) => suspectColors[index % suspectColors.length];
 
 /// A suspect portrait: colored circle with a person glyph. No image assets.
 class Avatar extends StatelessWidget {
@@ -34,15 +33,8 @@ class Avatar extends StatelessWidget {
     final inner = Container(
       width: size,
       height: size,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: color,
-      ),
-      child: Icon(
-        Icons.person,
-        size: size * 0.7,
-        color: Colors.white,
-      ),
+      decoration: BoxDecoration(shape: BoxShape.circle, color: color),
+      child: Icon(Icons.person, size: size * 0.7, color: Colors.white),
     );
     if (!selected) return inner;
     return Container(

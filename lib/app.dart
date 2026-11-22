@@ -1,13 +1,15 @@
-import 'package:cupertino_ui/cupertino_ui.dart' show GlobalCupertinoLocalizations;
+import 'package:cupertino_ui/cupertino_ui.dart'
+    show GlobalCupertinoLocalizations;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
-import 'core/routes.dart';
-import 'core/skins.dart';
-import 'core/theme.dart';
-import 'l10n/generated/app_localizations.dart';
-import 'storage/prefs_repository.dart' show LanguageSetting, SkinSetting;
-import 'state/settings_controller.dart';
+import 'package:murdoku/core/routes.dart';
+import 'package:murdoku/core/skins.dart';
+import 'package:murdoku/core/theme.dart';
+import 'package:murdoku/l10n/generated/app_localizations.dart';
+import 'package:murdoku/state/settings_controller.dart';
+import 'package:murdoku/storage/prefs_repository.dart'
+    show LanguageSetting, SkinSetting;
 
 /// Single source of truth for the app's localization delegates: both
 /// MurdokuApp and test/support/localized_test_app.dart pass exactly this
@@ -53,11 +55,16 @@ class MurdokuApp extends ConsumerWidget {
         // The builder context sits below MaterialApp, so the theme here is
         // the resolved one — classic tokens derive from its live scheme and
         // can never drift from the seed output.
-        final tokens =
-            skinTokensFor(settings.skin, Theme.of(context).colorScheme);
+        final tokens = skinTokensFor(
+          settings.skin,
+          Theme.of(context).colorScheme,
+        );
         return SkinScope(
           tokens: tokens,
-          child: SkinFrame(tokens: tokens, child: child ?? const SizedBox.shrink()),
+          child: SkinFrame(
+            tokens: tokens,
+            child: child ?? const SizedBox.shrink(),
+          ),
         );
       },
     );
@@ -82,8 +89,7 @@ class SkinFrame extends StatelessWidget {
       decoration: BoxDecoration(
         color: frame.background,
         borderRadius: BorderRadius.circular(frame.radius),
-        border: Border.all(
-            color: frame.borderColor, width: frame.borderWidth),
+        border: Border.all(color: frame.borderColor, width: frame.borderWidth),
         boxShadow: [frame.shadow],
       ),
       child: ClipRRect(
@@ -97,7 +103,8 @@ class SkinFrame extends StatelessWidget {
         decoration: BoxDecoration(
           color: tokens.frameRingColor,
           borderRadius: BorderRadius.circular(
-              frame.radius + tokens.frameRingWidth),
+            frame.radius + tokens.frameRingWidth,
+          ),
           boxShadow: [frame.shadow],
         ),
         child: Padding(
@@ -107,7 +114,9 @@ class SkinFrame extends StatelessWidget {
               color: frame.background,
               borderRadius: BorderRadius.circular(frame.radius),
               border: Border.all(
-                  color: frame.borderColor, width: frame.borderWidth),
+                color: frame.borderColor,
+                width: frame.borderWidth,
+              ),
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(frame.radius),
@@ -159,9 +168,11 @@ class SkinBackdropPainter extends CustomPainter {
       final paint = Paint()..color = dot;
       var offsetRow = false;
       for (double y = spacing / 2; y < size.height + radius; y += spacing) {
-        for (double x = offsetRow ? spacing / 2 : 0;
-            x < size.width + radius;
-            x += spacing) {
+        for (
+          double x = offsetRow ? spacing / 2 : 0;
+          x < size.width + radius;
+          x += spacing
+        ) {
           canvas.drawCircle(Offset(x, y), radius, paint);
         }
         offsetRow = !offsetRow;
@@ -171,12 +182,12 @@ class SkinBackdropPainter extends CustomPainter {
     if (blob != null) {
       final paint = Paint()..color = blob;
       // A few soft white cloud blobs along the top, per the candy mockup.
+      canvas.drawOval(const Rect.fromLTWH(-40, 30, 260, 90), paint);
+      canvas.drawOval(Rect.fromLTWH(size.width - 220, 8, 240, 80), paint);
       canvas.drawOval(
-          const Rect.fromLTWH(-40, 30, 260, 90), paint);
-      canvas.drawOval(
-          Rect.fromLTWH(size.width - 220, 8, 240, 80), paint);
-      canvas.drawOval(
-          Rect.fromLTWH(size.width * 0.4, size.height - 120, 280, 100), paint);
+        Rect.fromLTWH(size.width * 0.4, size.height - 120, 280, 100),
+        paint,
+      );
     }
   }
 
@@ -188,20 +199,24 @@ class SkinBackdropPainter extends CustomPainter {
 /// Friendly replacement for the default red error screen; resolved inside
 /// the app so localizations are available.
 Widget fatalErrorWidget(FlutterErrorDetails details) {
-  return Builder(builder: (context) {
-    final l10n = AppLocalizations.of(context);
-    return Material(
-      color: Theme.of(context).colorScheme.errorContainer,
-      child: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Text(
-            l10n?.fatalErrorMessage ?? 'Something went wrong.',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: Theme.of(context).colorScheme.onErrorContainer),
+  return Builder(
+    builder: (context) {
+      final l10n = AppLocalizations.of(context);
+      return Material(
+        color: Theme.of(context).colorScheme.errorContainer,
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Text(
+              l10n?.fatalErrorMessage ?? 'Something went wrong.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onErrorContainer,
+              ),
+            ),
           ),
         ),
-      ),
-    );
-  });
+      );
+    },
+  );
 }

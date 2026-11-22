@@ -1,6 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
-import '../../l10n/generated/app_localizations.dart';
+import 'package:murdoku/l10n/generated/app_localizations.dart';
 
 /// First-launch walkthrough: three pages covering the four rules plus the
 /// X-mark affordance. Shown over the home screen until dismissed; dismissal
@@ -43,8 +43,10 @@ class _TutorialOverlayState extends State<TutorialOverlay> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(l10n.howToPlayTitle,
-                  style: Theme.of(context).textTheme.titleLarge),
+              Text(
+                l10n.howToPlayTitle,
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
               const SizedBox(height: 12),
               Expanded(
                 child: PageView(
@@ -95,8 +97,7 @@ class _TutorialOverlayState extends State<TutorialOverlay> {
                         );
                       }
                     },
-                    child:
-                        Text(isLast ? l10n.tutorialDone : l10n.tutorialNext),
+                    child: Text(isLast ? l10n.tutorialDone : l10n.tutorialNext),
                   ),
                 ],
               ),

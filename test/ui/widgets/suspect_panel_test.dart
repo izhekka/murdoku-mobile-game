@@ -17,37 +17,57 @@ Pos p(int row, int col) => (row: row, col: col);
 /// The 5x5 fixture board; [clues] lets variants stress card sizing (e.g.
 /// suspects carrying several clue cards).
 CaseData buildFixture(List<Clue> clues) => CaseData(
-      seed: 1,
-      difficulty: Difficulty.easy,
-      rooms: [
-        RoomDef(id: 'r0', name: 'Hall', cells: [p(0, 0), p(0, 1), p(0, 2), p(1, 0), p(1, 1)]),
-        RoomDef(id: 'r1', name: 'Library', cells: [p(0, 3), p(0, 4), p(1, 2), p(1, 3), p(1, 4)]),
-        RoomDef(id: 'r2', name: 'Kitchen', cells: [p(2, 0), p(2, 1), p(2, 2), p(3, 0), p(3, 1)]),
-        RoomDef(id: 'r3', name: 'Cellar', cells: [p(2, 3), p(2, 4), p(3, 2), p(3, 3), p(3, 4)]),
-        RoomDef(id: 'r4', name: 'Study', cells: [p(4, 0), p(4, 1), p(4, 2), p(4, 3), p(4, 4)]),
-      ],
-      objects: [
-        ObjectDef(id: 'o0', kind: ObjectKind.piano, pos: p(0, 1)),
-        ObjectDef(id: 'o1', kind: ObjectKind.clock, pos: p(4, 4)),
-      ],
-      suspects: [
-        Suspect(id: 's0', name: 'Ash'),
-        Suspect(id: 's1', name: 'Blair'),
-        Suspect(id: 's2', name: 'Casey'),
-        Suspect(id: 's3', name: 'Drew'),
-        Suspect(id: 's4', name: 'Ellis'),
-      ],
-      victimPos: p(2, 2),
-      murdererId: 's2',
-      clues: clues,
-      solution: {
-        's0': p(0, 0),
-        's1': p(1, 4),
-        's2': p(2, 1),
-        's3': p(3, 3),
-        's4': p(4, 2),
-      },
-    );
+  seed: 1,
+  difficulty: Difficulty.easy,
+  rooms: [
+    RoomDef(
+      id: 'r0',
+      name: 'Hall',
+      cells: [p(0, 0), p(0, 1), p(0, 2), p(1, 0), p(1, 1)],
+    ),
+    RoomDef(
+      id: 'r1',
+      name: 'Library',
+      cells: [p(0, 3), p(0, 4), p(1, 2), p(1, 3), p(1, 4)],
+    ),
+    RoomDef(
+      id: 'r2',
+      name: 'Kitchen',
+      cells: [p(2, 0), p(2, 1), p(2, 2), p(3, 0), p(3, 1)],
+    ),
+    RoomDef(
+      id: 'r3',
+      name: 'Cellar',
+      cells: [p(2, 3), p(2, 4), p(3, 2), p(3, 3), p(3, 4)],
+    ),
+    RoomDef(
+      id: 'r4',
+      name: 'Study',
+      cells: [p(4, 0), p(4, 1), p(4, 2), p(4, 3), p(4, 4)],
+    ),
+  ],
+  objects: [
+    ObjectDef(id: 'o0', kind: ObjectKind.piano, pos: p(0, 1)),
+    ObjectDef(id: 'o1', kind: ObjectKind.clock, pos: p(4, 4)),
+  ],
+  suspects: [
+    Suspect(id: 's0', name: 'Ash'),
+    Suspect(id: 's1', name: 'Blair'),
+    Suspect(id: 's2', name: 'Casey'),
+    Suspect(id: 's3', name: 'Drew'),
+    Suspect(id: 's4', name: 'Ellis'),
+  ],
+  victimPos: p(2, 2),
+  murdererId: 's2',
+  clues: clues,
+  solution: {
+    's0': p(0, 0),
+    's1': p(1, 4),
+    's2': p(2, 1),
+    's3': p(3, 3),
+    's4': p(4, 2),
+  },
+);
 
 /// 5x5 fixture with one clue per suspect (varied types, incl. negations).
 final CaseData fixture = buildFixture([
@@ -55,7 +75,11 @@ final CaseData fixture = buildFixture([
   SameRow(suspectId: 's1', targetId: 'V', negated: true),
   SameCol(suspectId: 's2', targetId: 's4', negated: false),
   DirectionClue(
-      suspectId: 's3', targetId: 'V', direction: Direction.south, negated: true),
+    suspectId: 's3',
+    targetId: 'V',
+    direction: Direction.south,
+    negated: true,
+  ),
   BesideObject(suspectId: 's4', objectId: 'o1', negated: false),
 ]);
 
@@ -70,7 +94,11 @@ final CaseData multiClueFixture = buildFixture([
   SameRow(suspectId: 's1', targetId: 'V', negated: true),
   SameCol(suspectId: 's2', targetId: 's4', negated: false),
   DirectionClue(
-      suspectId: 's3', targetId: 'V', direction: Direction.south, negated: true),
+    suspectId: 's3',
+    targetId: 'V',
+    direction: Direction.south,
+    negated: true,
+  ),
   BesideObject(suspectId: 's4', objectId: 'o1', negated: false),
 ]);
 
@@ -114,77 +142,72 @@ class _HarnessState extends State<Harness> {
 
   @override
   Widget build(BuildContext context) => MaterialApp(
-        // The panel test pins English: it asserts exact en clue wording with
-        // declension forms (see localization_test.dart for the ru grammar).
-        locale: const Locale('en'),
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        home: Scaffold(
-          body: SizedBox(
-            width: 320,
-            child: SuspectPanel(
-              caseData: fixture,
-              placed: {'s2': fixture.solution['s2']!},
-              selectedSuspectId: _selected,
-              onSuspectTap: (id) {
-                widget.onSuspectTap?.call(id);
-                setState(() => _selected = _selected == id ? null : id);
-              },
-            ),
-          ),
+    // The panel test pins English: it asserts exact en clue wording with
+    // declension forms (see localization_test.dart for the ru grammar).
+    locale: const Locale('en'),
+    localizationsDelegates: AppLocalizations.localizationsDelegates,
+    supportedLocales: AppLocalizations.supportedLocales,
+    home: Scaffold(
+      body: SizedBox(
+        width: 320,
+        child: SuspectPanel(
+          caseData: fixture,
+          placed: {'s2': fixture.solution['s2']!},
+          selectedSuspectId: _selected,
+          onSuspectTap: (id) {
+            widget.onSuspectTap?.call(id);
+            setState(() => _selected = _selected == id ? null : id);
+          },
         ),
-      );
+      ),
+    ),
+  );
 }
 
 Widget generatedWrap(
   CaseData c, {
   String? selectedSuspectId,
   void Function(String)? onSuspectTap,
-}) =>
-    MaterialApp(
-      locale: const Locale('en'),
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
-      supportedLocales: AppLocalizations.supportedLocales,
-      home: Scaffold(
-        body: SizedBox(
-          width: 320,
-          child: SuspectPanel(
-            caseData: c,
-            placed: const {},
-            selectedSuspectId: selectedSuspectId,
-            onSuspectTap: onSuspectTap ?? (_) {},
-          ),
-        ),
+}) => MaterialApp(
+  locale: const Locale('en'),
+  localizationsDelegates: AppLocalizations.localizationsDelegates,
+  supportedLocales: AppLocalizations.supportedLocales,
+  home: Scaffold(
+    body: SizedBox(
+      width: 320,
+      child: SuspectPanel(
+        caseData: c,
+        placed: const {},
+        selectedSuspectId: selectedSuspectId,
+        onSuspectTap: onSuspectTap ?? (_) {},
       ),
-    );
+    ),
+  ),
+);
 
 /// The panel's own wide branch: the LayoutBuilder sees >=600px and renders
 /// the vertical card column.
 Widget wideWrap(CaseData c) => MaterialApp(
-      locale: const Locale('en'),
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
-      supportedLocales: AppLocalizations.supportedLocales,
-      home: Scaffold(
-        body: SizedBox(
-          width: 600,
-          child: SuspectPanel(
-            caseData: c,
-            placed: const {},
-            selectedSuspectId: null,
-            onSuspectTap: (_) {},
-          ),
-        ),
+  locale: const Locale('en'),
+  localizationsDelegates: AppLocalizations.localizationsDelegates,
+  supportedLocales: AppLocalizations.supportedLocales,
+  home: Scaffold(
+    body: SizedBox(
+      width: 600,
+      child: SuspectPanel(
+        caseData: c,
+        placed: const {},
+        selectedSuspectId: null,
+        onSuspectTap: (_) {},
       ),
-    );
+    ),
+  ),
+);
 
 /// The panel under a skin scope at the 320px narrow width (issue 23's
 /// builder-level scoping, mirroring lib/app.dart); [selectedId] mirrors the
 /// real panel's selection state.
-Widget skinWrap(
-  SkinTokens tokens, {
-  String? selectedId,
-  CaseData? c,
-}) =>
+Widget skinWrap(SkinTokens tokens, {String? selectedId, CaseData? c}) =>
     MaterialApp(
       locale: const Locale('en'),
       localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -212,60 +235,58 @@ Widget sidePanelWrap(
   CaseData c, {
   Map<String, Pos> placed = const {},
   Locale locale = const Locale('en'),
-}) =>
-    localizedTestApp(
-      locale: locale,
-      child: Align(
-        child: SizedBox(
-          width: 300,
-          child: SuspectPanel(
-            caseData: c,
-            placed: placed,
-            selectedSuspectId: null,
-            onSuspectTap: (_) {},
-          ),
-        ),
+}) => localizedTestApp(
+  locale: locale,
+  child: Align(
+    child: SizedBox(
+      width: 300,
+      child: SuspectPanel(
+        caseData: c,
+        placed: placed,
+        selectedSuspectId: null,
+        onSuspectTap: (_) {},
       ),
-    );
+    ),
+  ),
+);
 
 /// The 300px side slot under a skin scope: same loose-height hosting as
 /// [sidePanelWrap], with the skin's tokens live (issue 26).
-Widget skinSidePanelWrap(SkinTokens tokens, CaseData c) =>
-    localizedTestApp(
-      child: SkinScope(
-        tokens: tokens,
-        child: Align(
-          child: SizedBox(
-            width: 300,
-            child: SuspectPanel(
-              caseData: c,
-              placed: const {},
-              selectedSuspectId: null,
-              onSuspectTap: (_) {},
-            ),
-          ),
+Widget skinSidePanelWrap(SkinTokens tokens, CaseData c) => localizedTestApp(
+  child: SkinScope(
+    tokens: tokens,
+    child: Align(
+      child: SizedBox(
+        width: 300,
+        child: SuspectPanel(
+          caseData: c,
+          placed: const {},
+          selectedSuspectId: null,
+          onSuspectTap: (_) {},
         ),
       ),
-    );
+    ),
+  ),
+);
 
 /// The panel's own wide branch (>=600px) under a skin scope (issue 26).
 Widget skinWideWrap(SkinTokens tokens, CaseData c) => MaterialApp(
-      locale: const Locale('en'),
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
-      supportedLocales: AppLocalizations.supportedLocales,
-      builder: (context, child) => SkinScope(tokens: tokens, child: child!),
-      home: Scaffold(
-        body: SizedBox(
-          width: 600,
-          child: SuspectPanel(
-            caseData: c,
-            placed: const {},
-            selectedSuspectId: null,
-            onSuspectTap: (_) {},
-          ),
-        ),
+  locale: const Locale('en'),
+  localizationsDelegates: AppLocalizations.localizationsDelegates,
+  supportedLocales: AppLocalizations.supportedLocales,
+  builder: (context, child) => SkinScope(tokens: tokens, child: child!),
+  home: Scaffold(
+    body: SizedBox(
+      width: 600,
+      child: SuspectPanel(
+        caseData: c,
+        placed: const {},
+        selectedSuspectId: null,
+        onSuspectTap: (_) {},
       ),
-    );
+    ),
+  ),
+);
 
 /// Ideal (unclamped) height the paragraph's text needs at its laid-out
 /// width: a rendered paragraph shorter than this is being clipped.
@@ -285,8 +306,9 @@ double idealParagraphHeight(RenderParagraph paragraph) {
 }
 
 void main() {
-  testWidgets('every suspect card shows its name and its clue sentences',
-      (tester) async {
+  testWidgets('every suspect card shows its name and its clue sentences', (
+    tester,
+  ) async {
     String? tapped;
     await tester.pumpWidget(Harness(onSuspectTap: (id) => tapped = id));
     await tester.pump();
@@ -295,15 +317,22 @@ void main() {
     expect(find.text('Ash'), findsOneWidget);
     expect(find.text('Ash was in the Hall.'), findsOneWidget);
     expect(find.text('Blair'), findsOneWidget);
-    expect(find.text('Blair was not on the same floor as the victim.'),
-        findsOneWidget);
+    expect(
+      find.text('Blair was not on the same floor as the victim.'),
+      findsOneWidget,
+    );
     expect(find.text('Casey'), findsOneWidget);
-    expect(find.text('Casey was in the same corridor as Ellis.'),
-        findsOneWidget);
+    expect(
+      find.text('Casey was in the same corridor as Ellis.'),
+      findsOneWidget,
+    );
     expect(find.text('Drew'), findsOneWidget);
     expect(find.text('Drew was not south of the victim.'), findsOneWidget);
     expect(find.text('Ellis'), findsOneWidget);
-    expect(find.text('Ellis was in the same room as the Clock.'), findsOneWidget);
+    expect(
+      find.text('Ellis was in the same room as the Clock.'),
+      findsOneWidget,
+    );
 
     // Placed suspect is marked.
     expect(find.byIcon(Icons.check_circle), findsOneWidget);
@@ -313,44 +342,58 @@ void main() {
     expect(tapped, 's3');
   });
 
-  testWidgets('suspects render as a 3x2 grid; no horizontal strip (UX-2)',
-      (tester) async {
+  testWidgets('suspects render as a 3x2 grid; no horizontal strip (UX-2)', (
+    tester,
+  ) async {
     final c = generateCase(difficulty: Difficulty.easy, seed: 3);
     await tester.pumpWidget(generatedWrap(c));
     await tester.pump();
 
     expect(find.byType(GridView), findsOneWidget);
     final grid = tester.widget<GridView>(find.byType(GridView));
-    expect(grid.physics, isA<NeverScrollableScrollPhysics>(),
-        reason: '5 suspects fit the grid; no scrolling needed');
+    expect(
+      grid.physics,
+      isA<NeverScrollableScrollPhysics>(),
+      reason: '5 suspects fit the grid; no scrolling needed',
+    );
     final delegate =
         grid.gridDelegate as SliverGridDelegateWithFixedCrossAxisCount;
     expect(delegate.crossAxisCount, 3, reason: '3 columns');
     final childrenDelegate = grid.childrenDelegate as SliverChildListDelegate;
-    expect(childrenDelegate.children.length, 6,
-        reason: '5 cards + 1 empty decorative slot = 6 slots (2 rows)');
+    expect(
+      childrenDelegate.children.length,
+      6,
+      reason: '5 cards + 1 empty decorative slot = 6 slots (2 rows)',
+    );
     for (final s in c.suspects) {
-      expect(find.text(s.name), findsOneWidget,
-          reason: 'all 5 cards visible at once');
+      expect(
+        find.text(s.name),
+        findsOneWidget,
+        reason: 'all 5 cards visible at once',
+      );
     }
-    expect(find.byType(ListView), findsNothing,
-        reason: 'the horizontally scrolling strip is gone');
+    expect(
+      find.byType(ListView),
+      findsNothing,
+      reason: 'the horizontally scrolling strip is gone',
+    );
   });
 
-  testWidgets('clue text is uncapped on selected and unselected cards (UX-9)',
-      (tester) async {
+  testWidgets('clue text is uncapped on selected and unselected cards (UX-9)', (
+    tester,
+  ) async {
     await tester.pumpWidget(const Harness());
     await tester.pump();
 
     // Initially Ash (s0) is selected: uncapped clue text.
-    final ashSelected =
-        tester.widget<Text>(find.text('Ash was in the Hall.'));
+    final ashSelected = tester.widget<Text>(find.text('Ash was in the Hall.'));
     expect(ashSelected.maxLines, isNull);
 
     // Unselected cards are uncapped too: the (taller) card height bounds
     // the text instead of a 2-line ellipsis (UX-9).
-    final blair = tester
-        .widget<Text>(find.text('Blair was not on the same floor as the victim.'));
+    final blair = tester.widget<Text>(
+      find.text('Blair was not on the same floor as the victim.'),
+    );
     expect(blair.maxLines, isNull);
     expect(blair.overflow, isNull);
 
@@ -358,157 +401,185 @@ void main() {
     await tester.tap(find.text('Blair'));
     await tester.pump();
 
-    final blairSelected = tester
-        .widget<Text>(find.text('Blair was not on the same floor as the victim.'));
+    final blairSelected = tester.widget<Text>(
+      find.text('Blair was not on the same floor as the victim.'),
+    );
     expect(blairSelected.maxLines, isNull);
     final ash = tester.widget<Text>(find.text('Ash was in the Hall.'));
     expect(ash.maxLines, isNull);
   });
 
-  testWidgets('grid fills a pinned height; cards stretch taller (UX-9)',
-      (tester) async {
-    await tester.pumpWidget(MaterialApp(
-      locale: const Locale('en'),
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
-      supportedLocales: AppLocalizations.supportedLocales,
-      home: Scaffold(
-        body: Center(
-          child: SizedBox(
-            width: 412,
-            height: 400,
-            child: SuspectPanel(
-              caseData: fixture,
-              placed: const {},
-              selectedSuspectId: null,
-              onSuspectTap: (_) {},
+  testWidgets('grid fills a pinned height; cards stretch taller (UX-9)', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('en'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 412,
+              height: 400,
+              child: SuspectPanel(
+                caseData: fixture,
+                placed: const {},
+                selectedSuspectId: null,
+                onSuspectTap: (_) {},
+              ),
             ),
           ),
         ),
       ),
-    ));
+    );
     await tester.pump();
 
     final gridRect = tester.getRect(find.byType(GridView));
     // The grid fills the pinned slot minus the header row (issue 27): the
     // no-dead-space property is preserved with the header above the grid.
     final headerRect = tester.getRect(find.byKey(suspectsPanelHeaderKey));
-    expect(gridRect.height, closeTo(400 - headerRect.height, 0.5),
-        reason: 'the grid fills the pinned slot below the header');
+    expect(
+      gridRect.height,
+      closeTo(400 - headerRect.height, 0.5),
+      reason: 'the grid fills the pinned slot below the header',
+    );
     // Two rows split the 400px slot minus 8px padding and one 4px gutter;
     // each card's InkWell fills its tile minus the 4px card padding.
     final cardRect = tester.getRect(find.byType(InkWell).first);
-    expect(cardRect.height, closeTo((400 - 2 * 4 - 4) / 2 - 2 * 4, 0.5),
-        reason: 'cards stretch to fill the slot height');
-  });
-
-  testWidgets('each card is a semantic button labelled name + first clue (UX-2)',
-      (tester) async {
-    final semantics = tester.ensureSemantics();
-    await tester.pumpWidget(const Harness());
-    await tester.pump();
-
-    final node = tester.getSemantics(find.text('Ash'));
-    expect(node.flagsCollection.isButton, isTrue);
-    expect(node.label, contains('Ash was in the Hall.'));
-    semantics.dispose();
+    expect(
+      cardRect.height,
+      closeTo((400 - 2 * 4 - 4) / 2 - 2 * 4, 0.5),
+      reason: 'cards stretch to fill the slot height',
+    );
   });
 
   testWidgets(
-      'wide layout: cards size to their full clue text, no clipping (UX-9)',
-      (tester) async {
-    tester.view.physicalSize = const Size(800, 1400);
-    tester.view.devicePixelRatio = 1.0;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
-    tester.platformDispatcher.textScaleFactorTestValue = 2.0;
-    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    'each card is a semantic button labelled name + first clue (UX-2)',
+    (tester) async {
+      final semantics = tester.ensureSemantics();
+      await tester.pumpWidget(const Harness());
+      await tester.pump();
 
-    await tester.pumpWidget(wideWrap(multiClueFixture));
-    await tester.pump();
-
-    expect(find.byType(ListView), findsOneWidget);
-    final context = tester.element(find.byType(SuspectPanel));
-    final l10n = AppLocalizations.of(context)!;
-    final names = NameForms.forLocale(l10n.localeName, multiClueFixture);
-    // Per suspect, the exact string its unselected card renders.
-    final joinedBySuspect = <String, String>{};
-    for (final clue in multiClueFixture.clues) {
-      final text = describeClue(clue, multiClueFixture, l10n, names);
-      joinedBySuspect[clue.suspectId] = joinedBySuspect[clue.suspectId] == null
-          ? text
-          : '${joinedBySuspect[clue.suspectId]}\n$text';
-    }
-
-    // Every paragraph box must be at least the text's ideal height —
-    // anything shorter means the pinned 150px card clipped it (Expanded
-    // stretches short paragraphs to fill the card, so taller is fine).
-    for (final entry in joinedBySuspect.entries) {
-      final paragraph =
-          tester.renderObject<RenderParagraph>(find.text(entry.value));
-      expect(
-        paragraph.size.height,
-        greaterThanOrEqualTo(idealParagraphHeight(paragraph) - 0.5),
-        reason: 'clues of ${entry.key} render in full on the wide card',
-      );
-    }
-  });
+      final node = tester.getSemantics(find.text('Ash'));
+      expect(node.flagsCollection.isButton, isTrue);
+      expect(node.label, contains('Ash was in the Hall.'));
+      semantics.dispose();
+    },
+  );
 
   testWidgets(
-      'side panel at 300px: guest names render in full, unclipped (issue 15)',
-      (tester) async {
-    await tester.pumpWidget(sidePanelWrap(
-      longNameFixture,
-      placed: {'s1': longNameFixture.solution['s1']!},
-    ));
-    await tester.pump();
+    'wide layout: cards size to their full clue text, no clipping (UX-9)',
+    (tester) async {
+      tester.view.physicalSize = const Size(800, 1400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      tester.platformDispatcher.textScaleFactorTestValue = 2.0;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
 
-    for (final s in longNameFixture.suspects) {
-      final paragraph =
-          tester.renderObject<RenderParagraph>(find.text(s.name));
-      // Height: the box must be at least the name's ideal height at its
-      // laid-out width — shorter means the name row clipped the text (the
-      // issue's no-clipping property applied to the name row).
-      expect(
-        paragraph.size.height,
-        greaterThanOrEqualTo(idealParagraphHeight(paragraph) - 0.5),
-        reason:
-            'name of ${s.id} ("${s.name}") renders in full on the 300px card',
+      await tester.pumpWidget(wideWrap(multiClueFixture));
+      await tester.pump();
+
+      expect(find.byType(ListView), findsOneWidget);
+      final context = tester.element(find.byType(SuspectPanel));
+      final l10n = AppLocalizations.of(context)!;
+      final names = NameForms.forLocale(l10n.localeName, multiClueFixture);
+      // Per suspect, the exact string its unselected card renders.
+      final joinedBySuspect = <String, String>{};
+      for (final clue in multiClueFixture.clues) {
+        final text = describeClue(clue, multiClueFixture, l10n, names);
+        joinedBySuspect[clue.suspectId] =
+            joinedBySuspect[clue.suspectId] == null
+            ? text
+            : '${joinedBySuspect[clue.suspectId]}\n$text';
+      }
+
+      // Every paragraph box must be at least the text's ideal height —
+      // anything shorter means the pinned 150px card clipped it (Expanded
+      // stretches short paragraphs to fill the card, so taller is fine).
+      for (final entry in joinedBySuspect.entries) {
+        final paragraph = tester.renderObject<RenderParagraph>(
+          find.text(entry.value),
+        );
+        expect(
+          paragraph.size.height,
+          greaterThanOrEqualTo(idealParagraphHeight(paragraph) - 0.5),
+          reason: 'clues of ${entry.key} render in full on the wide card',
+        );
+      }
+    },
+  );
+
+  testWidgets(
+    'side panel at 300px: guest names render in full, unclipped (issue 15)',
+    (tester) async {
+      await tester.pumpWidget(
+        sidePanelWrap(
+          longNameFixture,
+          placed: {'s1': longNameFixture.solution['s1']!},
+        ),
       );
-      // Width: pool names are single words and cannot wrap, so nothing may
-      // cut them either — the paragraph must lay out at its natural width
-      // (today's ellipsis truncates it inside a ~36.7px box).
-      expect(
-        paragraph.size.width,
-        greaterThanOrEqualTo(
-            paragraph.getMinIntrinsicWidth(paragraph.size.height) - 0.5),
-        reason:
-            'name of ${s.id} ("${s.name}") is not truncated on the 300px card',
-      );
-    }
-  });
+      await tester.pump();
+
+      for (final s in longNameFixture.suspects) {
+        final paragraph = tester.renderObject<RenderParagraph>(
+          find.text(s.name),
+        );
+        // Height: the box must be at least the name's ideal height at its
+        // laid-out width — shorter means the name row clipped the text (the
+        // issue's no-clipping property applied to the name row).
+        expect(
+          paragraph.size.height,
+          greaterThanOrEqualTo(idealParagraphHeight(paragraph) - 0.5),
+          reason:
+              'name of ${s.id} ("${s.name}") renders in full on the 300px card',
+        );
+        // Width: pool names are single words and cannot wrap, so nothing may
+        // cut them either — the paragraph must lay out at its natural width
+        // (today's ellipsis truncates it inside a ~36.7px box).
+        expect(
+          paragraph.size.width,
+          greaterThanOrEqualTo(
+            paragraph.getMinIntrinsicWidth(paragraph.size.height) - 0.5,
+          ),
+          reason:
+              'name of ${s.id} ("${s.name}") is not truncated on the 300px card',
+        );
+      }
+    },
+  );
 
   /// Pumps [poolNameFixture] with every suspect placed at the 300px side
   /// slot and asserts each placed name renders at a readable scale
   /// (issue 18).
   Future<void> expectPlacedNamesAtReadableScale(
-      WidgetTester tester, Locale locale) async {
-    await tester.pumpWidget(sidePanelWrap(
-      poolNameFixture,
-      locale: locale,
-      placed: {
-        for (final s in poolNameFixture.suspects)
-          s.id: poolNameFixture.solution[s.id]!,
-      },
-    ));
+    WidgetTester tester,
+    Locale locale,
+  ) async {
+    await tester.pumpWidget(
+      sidePanelWrap(
+        poolNameFixture,
+        locale: locale,
+        placed: {
+          for (final s in poolNameFixture.suspects)
+            s.id: poolNameFixture.solution[s.id]!,
+        },
+      ),
+    );
     await tester.pump();
 
     final names = NameForms.forLocale(locale.languageCode, poolNameFixture);
     for (final s in poolNameFixture.suspects) {
       final displayed = names.nom(s.id);
-      final paragraph =
-          tester.renderObject<RenderParagraph>(find.text(displayed));
+      final paragraph = tester.renderObject<RenderParagraph>(
+        find.text(displayed),
+      );
       final fitted = tester.renderObject<RenderFittedBox>(
-        find.ancestor(of: find.text(displayed), matching: find.byType(FittedBox)),
+        find.ancestor(
+          of: find.text(displayed),
+          matching: find.byType(FittedBox),
+        ),
       );
       // FittedBox(scaleDown) lays its child out unconstrained, so the
       // paragraph's size is the name's natural, unscaled size; the painted
@@ -536,51 +607,56 @@ void main() {
       expect(
         paragraph.size.width,
         greaterThanOrEqualTo(
-            paragraph.getMinIntrinsicWidth(paragraph.size.height) - 0.5),
+          paragraph.getMinIntrinsicWidth(paragraph.size.height) - 0.5,
+        ),
         reason: 'placed name "$displayed" ($locale) is not truncated',
       );
     }
   }
 
-  testWidgets(
-      'side panel at 300px: placed names render at a readable scale '
+  testWidgets('side panel at 300px: placed names render at a readable scale '
       '(issue 18, en)', (tester) async {
     await expectPlacedNamesAtReadableScale(tester, const Locale('en'));
   });
 
-  testWidgets(
-      'side panel at 300px: placed names render at a readable scale '
+  testWidgets('side panel at 300px: placed names render at a readable scale '
       '(issue 18, ru)', (tester) async {
     await expectPlacedNamesAtReadableScale(tester, const Locale('ru'));
   });
 
   testWidgets('cartoon skin renders suspect cards with token card styling '
       '(issue 23)', (tester) async {
-    await tester.pumpWidget(MaterialApp(
-      locale: const Locale('en'),
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
-      supportedLocales: AppLocalizations.supportedLocales,
-      // Scope at the builder level, mirroring lib/app.dart.
-      builder: (context, child) =>
-          SkinScope(tokens: stickerTokens, child: child!),
-      home: Scaffold(
-        body: SizedBox(
-          width: 320,
-          child: SuspectPanel(
-            caseData: fixture,
-            placed: const {},
-            selectedSuspectId: null,
-            onSuspectTap: (_) {},
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('en'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        // Scope at the builder level, mirroring lib/app.dart.
+        builder: (context, child) =>
+            SkinScope(tokens: stickerTokens, child: child!),
+        home: Scaffold(
+          body: SizedBox(
+            width: 320,
+            child: SuspectPanel(
+              caseData: fixture,
+              placed: const {},
+              selectedSuspectId: null,
+              onSuspectTap: (_) {},
+            ),
           ),
         ),
       ),
-    ));
+    );
     await tester.pumpAndSettle();
 
     final container = tester.widget<Container>(
-        find.descendant(
+      find
+          .descendant(
             of: find.byType(SuspectPanel),
-            matching: find.byType(Container)).first);
+            matching: find.byType(Container),
+          )
+          .first,
+    );
     final decoration = container.decoration as BoxDecoration;
     expect(decoration.color, stickerTokens.card.background);
     expect(decoration.border?.top.color, stickerTokens.card.borderColor);
@@ -600,10 +676,12 @@ void main() {
 
   Iterable<Container> chipContainers(WidgetTester tester, SkinTokens tokens) =>
       tester.widgetList<Container>(
-        find.byWidgetPredicate((w) =>
-            w is Container &&
-            w.decoration is BoxDecoration &&
-            (w.decoration as BoxDecoration).color == tokens.chip!.background),
+        find.byWidgetPredicate(
+          (w) =>
+              w is Container &&
+              w.decoration is BoxDecoration &&
+              (w.decoration as BoxDecoration).color == tokens.chip!.background,
+        ),
       );
 
   testWidgets('every clue sentence sits in the skin chip on selected and '
@@ -615,43 +693,56 @@ void main() {
       await tester.pumpAndSettle();
 
       var chips = chipContainers(tester, tokens).toList();
-      expect(chips.length, fixture.clues.length,
-          reason: '${tokens.skin}: every clue gets its own chip');
+      expect(
+        chips.length,
+        fixture.clues.length,
+        reason: '${tokens.skin}: every clue gets its own chip',
+      );
       expect(
         chips.map((c) => (c.child! as Text).data!).toSet(),
         clueSentences,
         reason: '${tokens.skin}: the chips carry the clue sentences',
       );
       for (final chip in chips) {
-        expect(chip.padding, tokens.chip!.padding,
-            reason: '${tokens.skin}: chip padding comes from the token');
-        expect((chip.decoration as BoxDecoration).borderRadius,
-            BorderRadius.circular(tokens.chip!.radius),
-            reason: '${tokens.skin}: chip radius comes from the token');
+        expect(
+          chip.padding,
+          tokens.chip!.padding,
+          reason: '${tokens.skin}: chip padding comes from the token',
+        );
+        expect(
+          (chip.decoration as BoxDecoration).borderRadius,
+          BorderRadius.circular(tokens.chip!.radius),
+          reason: '${tokens.skin}: chip radius comes from the token',
+        );
       }
 
       // Unselected rendering chips its clue too.
-      await tester.pumpWidget(skinWrap(tokens, selectedId: null));
+      await tester.pumpWidget(skinWrap(tokens));
       await tester.pumpAndSettle();
       chips = chipContainers(tester, tokens).toList();
-      expect(chips.length, fixture.clues.length,
-          reason: '${tokens.skin}: unselected cards chip their clues too');
+      expect(
+        chips.length,
+        fixture.clues.length,
+        reason: '${tokens.skin}: unselected cards chip their clues too',
+      );
     }
   });
 
-  testWidgets('classic keeps the pre-existing plain clue rendering (issue 26)',
-      (tester) async {
-    await tester.pumpWidget(const Harness());
-    await tester.pump();
+  testWidgets(
+    'classic keeps the pre-existing plain clue rendering (issue 26)',
+    (tester) async {
+      await tester.pumpWidget(const Harness());
+      await tester.pump();
 
-    expect(
-      chipContainers(tester, stickerTokens),
-      isEmpty,
-      reason: 'no chip containers without a cartoon skin scope',
-    );
-    // The clue sentences still render (joined plain text, as shipped).
-    expect(find.text('Ash was in the Hall.'), findsOneWidget);
-  });
+      expect(
+        chipContainers(tester, stickerTokens),
+        isEmpty,
+        reason: 'no chip containers without a cartoon skin scope',
+      );
+      // The clue sentences still render (joined plain text, as shipped).
+      expect(find.text('Ash was in the Hall.'), findsOneWidget);
+    },
+  );
 
   /// Describes [multiClueFixture]'s clues in the panel under test: s0's four
   /// clue sentences come first (the fixture lists them first).
@@ -666,77 +757,92 @@ void main() {
   }
 
   testWidgets(
-      'side panel at 300px: chip clues render in full and rows grow to the '
-      'chip content (UX-9, issue 26)', (tester) async {
-    // A tall surface: the chip rows grow past the default 600px test
-    // viewport, and the shrink-wrap grid never builds off-screen rows.
-    tester.view.physicalSize = const Size(800, 2200);
-    tester.view.devicePixelRatio = 1.0;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
-    await tester.pumpWidget(skinSidePanelWrap(stickerTokens, multiClueFixture));
-    await tester.pump();
-
-    final clueTexts = describeMultiClueSentences(tester);
-    // Every chip's paragraph box is at least the text's ideal height —
-    // anything shorter means the card clipped the sentence.
-    for (final text in clueTexts) {
-      final paragraph = tester.renderObject<RenderParagraph>(find.text(text));
-      expect(
-        paragraph.size.height,
-        greaterThanOrEqualTo(idealParagraphHeight(paragraph) - 0.5),
-        reason: 'clue "$text" renders in full on the 300px side panel',
+    'side panel at 300px: chip clues render in full and rows grow to the '
+    'chip content (UX-9, issue 26)',
+    (tester) async {
+      // A tall surface: the chip rows grow past the default 600px test
+      // viewport, and the shrink-wrap grid never builds off-screen rows.
+      tester.view.physicalSize = const Size(800, 2200);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await tester.pumpWidget(
+        skinSidePanelWrap(stickerTokens, multiClueFixture),
       );
-    }
+      await tester.pump();
 
-    // s0 carries the four clues: its row must grow to the chip content
-    // (per-chip padding + gaps + the narrower chip wrap width), so the
-    // scroll viewport shows the whole chip column — nothing hidden below
-    // the fold, no scrolling needed (UX-9).
-    final scrollView = find.ancestor(
-      of: find.text(clueTexts.first),
-      matching: find.byType(SingleChildScrollView),
-    );
-    final viewportHeight = tester.getSize(scrollView).height;
-    final contentHeight = tester.getSize(
-      find.descendant(of: scrollView, matching: find.byType(Column)).first,
-    ).height;
-    expect(
-      contentHeight,
-      lessThanOrEqualTo(viewportHeight + 0.5),
-      reason: 'the s0 row grew to its chip content '
-          '($contentHeight > $viewportHeight means text sits below the fold)',
-    );
-  });
+      final clueTexts = describeMultiClueSentences(tester);
+      // Every chip's paragraph box is at least the text's ideal height —
+      // anything shorter means the card clipped the sentence.
+      for (final text in clueTexts) {
+        final paragraph = tester.renderObject<RenderParagraph>(find.text(text));
+        expect(
+          paragraph.size.height,
+          greaterThanOrEqualTo(idealParagraphHeight(paragraph) - 0.5),
+          reason: 'clue "$text" renders in full on the 300px side panel',
+        );
+      }
 
-  testWidgets(
-      'narrow pinned slot: chip clues stay uncapped and never overflow '
+      // s0 carries the four clues: its row must grow to the chip content
+      // (per-chip padding + gaps + the narrower chip wrap width), so the
+      // scroll viewport shows the whole chip column — nothing hidden below
+      // the fold, no scrolling needed (UX-9).
+      final scrollView = find.ancestor(
+        of: find.text(clueTexts.first),
+        matching: find.byType(SingleChildScrollView),
+      );
+      final viewportHeight = tester.getSize(scrollView).height;
+      final contentHeight = tester
+          .getSize(
+            find
+                .descendant(of: scrollView, matching: find.byType(Column))
+                .first,
+          )
+          .height;
+      expect(
+        contentHeight,
+        lessThanOrEqualTo(viewportHeight + 0.5),
+        reason:
+            'the s0 row grew to its chip content '
+            '($contentHeight > $viewportHeight means text sits below the fold)',
+      );
+    },
+  );
+
+  testWidgets('narrow pinned slot: chip clues stay uncapped and never overflow '
       '(UX-9, issue 26)', (tester) async {
-    await tester.pumpWidget(MaterialApp(
-      locale: const Locale('en'),
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
-      supportedLocales: AppLocalizations.supportedLocales,
-      builder: (context, child) => SkinScope(tokens: comicTokens, child: child!),
-      home: Scaffold(
-        body: Center(
-          child: SizedBox(
-            width: 412,
-            height: 400,
-            child: SuspectPanel(
-              caseData: multiClueFixture,
-              placed: const {},
-              selectedSuspectId: null,
-              onSuspectTap: (_) {},
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('en'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        builder: (context, child) =>
+            SkinScope(tokens: comicTokens, child: child!),
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 412,
+              height: 400,
+              child: SuspectPanel(
+                caseData: multiClueFixture,
+                placed: const {},
+                selectedSuspectId: null,
+                onSuspectTap: (_) {},
+              ),
             ),
           ),
         ),
       ),
-    ));
+    );
     await tester.pump();
 
-    expect(tester.takeException(), isNull,
-        reason: 'chip columns scroll in the pinned slot; no RenderFlex '
-            'overflow, classic pinned behavior preserved');
+    expect(
+      tester.takeException(),
+      isNull,
+      reason:
+          'chip columns scroll in the pinned slot; no RenderFlex '
+          'overflow, classic pinned behavior preserved',
+    );
 
     final clueTexts = describeMultiClueSentences(tester);
     for (final text in clueTexts) {
@@ -750,28 +856,30 @@ void main() {
   });
 
   testWidgets(
-      'wide layout: chip clues size cards to their content, no clipping '
-      '(UX-9, issue 26)', (tester) async {
-    tester.view.physicalSize = const Size(800, 1400);
-    tester.view.devicePixelRatio = 1.0;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
-    tester.platformDispatcher.textScaleFactorTestValue = 2.0;
-    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    'wide layout: chip clues size cards to their content, no clipping '
+    '(UX-9, issue 26)',
+    (tester) async {
+      tester.view.physicalSize = const Size(800, 1400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      tester.platformDispatcher.textScaleFactorTestValue = 2.0;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
 
-    await tester.pumpWidget(skinWideWrap(candyTokens, multiClueFixture));
-    await tester.pump();
+      await tester.pumpWidget(skinWideWrap(candyTokens, multiClueFixture));
+      await tester.pump();
 
-    final clueTexts = describeMultiClueSentences(tester);
-    for (final text in clueTexts) {
-      final paragraph = tester.renderObject<RenderParagraph>(find.text(text));
-      expect(
-        paragraph.size.height,
-        greaterThanOrEqualTo(idealParagraphHeight(paragraph) - 0.5),
-        reason: 'clue "$text" renders in full on the wide card at scale 2.0',
-      );
-    }
-  });
+      final clueTexts = describeMultiClueSentences(tester);
+      for (final text in clueTexts) {
+        final paragraph = tester.renderObject<RenderParagraph>(find.text(text));
+        expect(
+          paragraph.size.height,
+          greaterThanOrEqualTo(idealParagraphHeight(paragraph) - 0.5),
+          reason: 'clue "$text" renders in full on the wide card at scale 2.0',
+        );
+      }
+    },
+  );
 
   testWidgets('panel header renders the localized title above the grid '
       '(issue 27)', (tester) async {
@@ -781,14 +889,21 @@ void main() {
     expect(find.text('Suspects'), findsOneWidget);
     final headerRect = tester.getRect(find.byKey(suspectsPanelHeaderKey));
     final gridRect = tester.getRect(find.byType(GridView));
-    expect(headerRect.bottom, lessThanOrEqualTo(gridRect.top + 0.5),
-        reason: 'header sits above the suspect grid');
-    expect(headerRect.width, lessThanOrEqualTo(320.0),
-        reason: 'the header row stays inside the 320px viewport');
+    expect(
+      headerRect.bottom,
+      lessThanOrEqualTo(gridRect.top + 0.5),
+      reason: 'header sits above the suspect grid',
+    );
+    expect(
+      headerRect.width,
+      lessThanOrEqualTo(320.0),
+      reason: 'the header row stays inside the 320px viewport',
+    );
   });
 
-  testWidgets('panel header shows «Подозреваемые» in ru (issue 27)',
-      (tester) async {
+  testWidgets('panel header shows «Подозреваемые» in ru (issue 27)', (
+    tester,
+  ) async {
     await tester.pumpWidget(sidePanelWrap(fixture, locale: const Locale('ru')));
     await tester.pump();
 
@@ -800,15 +915,21 @@ void main() {
       'plain (issue 27)', (tester) async {
     await tester.pumpWidget(skinWrap(comicTokens));
     await tester.pump();
-    expect(find.text('SUSPECTS'), findsOneWidget,
-        reason: 'comic renders the header uppercase per its token');
+    expect(
+      find.text('SUSPECTS'),
+      findsOneWidget,
+      reason: 'comic renders the header uppercase per its token',
+    );
     expect(find.text('Suspects'), findsNothing);
 
     for (final tokens in [candyTokens, stickerTokens]) {
       await tester.pumpWidget(skinWrap(tokens));
       await tester.pump();
-      expect(find.text('Suspects'), findsOneWidget,
-          reason: '${tokens.skin} header stays title case per its mockup');
+      expect(
+        find.text('Suspects'),
+        findsOneWidget,
+        reason: '${tokens.skin} header stays title case per its mockup',
+      );
       expect(find.text('SUSPECTS'), findsNothing);
     }
 

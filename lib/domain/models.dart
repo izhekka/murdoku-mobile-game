@@ -13,46 +13,51 @@ int dailySeedFor(DateTime utcDate) =>
 const victimId = 'V';
 
 List<int> posToJson(Pos p) => [p.row, p.col];
-Pos posFromJson(List<dynamic> json) => (row: json[0] as int, col: json[1] as int);
+Pos posFromJson(List<dynamic> json) =>
+    (row: json[0] as int, col: json[1] as int);
 
 enum Difficulty { easy, standard, hard }
 
 extension DifficultyX on Difficulty {
   int get gridSize => switch (this) {
-        Difficulty.easy => 5,
-        Difficulty.standard => 6,
-        Difficulty.hard => 7,
-      };
+    Difficulty.easy => 5,
+    Difficulty.standard => 6,
+    Difficulty.hard => 7,
+  };
+
   /// Total furniture items (occupiable + blocking).
   int get objectCount => occupiableCount + blockingCount;
   int get minClues => switch (this) {
-        Difficulty.easy => 6,
-        Difficulty.standard => 8,
-        Difficulty.hard => 10,
-      };
+    Difficulty.easy => 6,
+    Difficulty.standard => 8,
+    Difficulty.hard => 10,
+  };
   int get maxClues => switch (this) {
-        Difficulty.easy => 9,
-        Difficulty.standard => 12,
-        Difficulty.hard => 14,
-      };
+    Difficulty.easy => 9,
+    Difficulty.standard => 12,
+    Difficulty.hard => 14,
+  };
+
   /// Negated clue variants allowed per generated case (issue #10).
   int get maxNegatedClues => switch (this) {
-        Difficulty.easy => 0,
-        Difficulty.standard => 1,
-        Difficulty.hard => 3,
-      };
+    Difficulty.easy => 0,
+    Difficulty.standard => 1,
+    Difficulty.hard => 3,
+  };
+
   /// Furniture a guest may sit on.
   int get occupiableCount => switch (this) {
-        Difficulty.easy => 3,
-        Difficulty.standard => 4,
-        Difficulty.hard => 5,
-      };
+    Difficulty.easy => 3,
+    Difficulty.standard => 4,
+    Difficulty.hard => 5,
+  };
+
   /// Furniture that blocks its cell.
   int get blockingCount => switch (this) {
-        Difficulty.easy => 5,
-        Difficulty.standard => 6,
-        Difficulty.hard => 9,
-      };
+    Difficulty.easy => 5,
+    Difficulty.standard => 6,
+    Difficulty.hard => 9,
+  };
 
   static Difficulty fromName(String name) =>
       Difficulty.values.firstWhere((d) => d.name == name);
@@ -88,11 +93,7 @@ extension ObjectKindX on ObjectKind {
 }
 
 class Suspect {
-  const Suspect({
-    required this.id,
-    required this.name,
-    this.poolIndex = -1,
-  });
+  const Suspect({required this.id, required this.name, this.poolIndex = -1});
 
   final String id; // "s0", "s1", ...
   final String name;
@@ -100,19 +101,25 @@ class Suspect {
 
   @override
   bool operator ==(Object other) =>
-      other is Suspect && other.id == id && other.name == name && other.poolIndex == poolIndex;
+      other is Suspect &&
+      other.id == id &&
+      other.name == name &&
+      other.poolIndex == poolIndex;
 
   @override
   int get hashCode => Object.hash(id, name, poolIndex);
 
-  Map<String, Object?> toJson() =>
-      {'id': id, 'name': name, 'poolIndex': poolIndex};
+  Map<String, Object?> toJson() => {
+    'id': id,
+    'name': name,
+    'poolIndex': poolIndex,
+  };
 
   factory Suspect.fromJson(Map<String, Object?> json) => Suspect(
-        id: json['id'] as String,
-        name: json['name'] as String,
-        poolIndex: json['poolIndex'] as int? ?? -1,
-      );
+    id: json['id'] as String,
+    name: json['name'] as String,
+    poolIndex: json['poolIndex'] as int? ?? -1,
+  );
 }
 
 class RoomDef {
@@ -142,18 +149,18 @@ class RoomDef {
   int get hashCode => Object.hash(id, name, poolIndex, Object.hashAll(cells));
 
   Map<String, Object?> toJson() => {
-        'id': id,
-        'name': name,
-        'cells': cells.map(posToJson).toList(),
-        'poolIndex': poolIndex,
-      };
+    'id': id,
+    'name': name,
+    'cells': cells.map(posToJson).toList(),
+    'poolIndex': poolIndex,
+  };
 
   factory RoomDef.fromJson(Map<String, Object?> json) => RoomDef(
-        id: json['id'] as String,
-        name: json['name'] as String,
-        cells: (json['cells'] as List).map((c) => posFromJson(c as List)).toList(),
-        poolIndex: json['poolIndex'] as int? ?? -1,
-      );
+    id: json['id'] as String,
+    name: json['name'] as String,
+    cells: (json['cells'] as List).map((c) => posFromJson(c as List)).toList(),
+    poolIndex: json['poolIndex'] as int? ?? -1,
+  );
 }
 
 /// Kinds a guest may share a cell with (chairs, sofas). Everything else
@@ -207,18 +214,18 @@ class ObjectDef {
   int get hashCode => Object.hash(id, kind, pos, occupiable);
 
   Map<String, Object?> toJson() => {
-        'id': id,
-        'kind': kind.name,
-        'pos': posToJson(pos),
-        'occupiable': occupiable,
-      };
+    'id': id,
+    'kind': kind.name,
+    'pos': posToJson(pos),
+    'occupiable': occupiable,
+  };
 
   factory ObjectDef.fromJson(Map<String, Object?> json) => ObjectDef(
-        id: json['id'] as String,
-        kind: ObjectKindX.fromName(json['kind'] as String),
-        pos: posFromJson(json['pos'] as List),
-        occupiable: json['occupiable'] as bool? ?? false,
-      );
+    id: json['id'] as String,
+    kind: ObjectKindX.fromName(json['kind'] as String),
+    pos: posFromJson(json['pos'] as List),
+    occupiable: json['occupiable'] as bool? ?? false,
+  );
 }
 
 /// Returns the id of the room containing [p], or null when [p] is in no room.
@@ -241,14 +248,18 @@ sealed class Clue {
   String get typeName;
 
   Map<String, Object?> toJson() => {
-        'type': typeName,
-        'suspectId': suspectId,
-        'negated': negated,
-      };
+    'type': typeName,
+    'suspectId': suspectId,
+    'negated': negated,
+  };
 }
 
 class InRoom extends Clue {
-  const InRoom({required super.suspectId, required this.roomId, required super.negated});
+  const InRoom({
+    required super.suspectId,
+    required this.roomId,
+    required super.negated,
+  });
 
   final String roomId;
 
@@ -271,7 +282,11 @@ class InRoom extends Clue {
 
 /// [targetId] may be a suspect id or [victimId].
 class SameRow extends Clue {
-  const SameRow({required super.suspectId, required this.targetId, required super.negated});
+  const SameRow({
+    required super.suspectId,
+    required this.targetId,
+    required super.negated,
+  });
 
   final String targetId;
 
@@ -294,7 +309,11 @@ class SameRow extends Clue {
 
 /// [targetId] may be a suspect id or [victimId].
 class SameCol extends Clue {
-  const SameCol({required super.suspectId, required this.targetId, required super.negated});
+  const SameCol({
+    required super.suspectId,
+    required this.targetId,
+    required super.negated,
+  });
 
   final String targetId;
 
@@ -339,16 +358,24 @@ class DirectionClue extends Clue {
       other.direction == direction;
 
   @override
-  int get hashCode => Object.hash(DirectionClue, suspectId, negated, targetId, direction);
+  int get hashCode =>
+      Object.hash(DirectionClue, suspectId, negated, targetId, direction);
 
   @override
-  Map<String, Object?> toJson() =>
-      {...super.toJson(), 'targetId': targetId, 'direction': direction.name};
+  Map<String, Object?> toJson() => {
+    ...super.toJson(),
+    'targetId': targetId,
+    'direction': direction.name,
+  };
 }
 
 /// Manhattan distance exactly 1 (diagonal does not count).
 class Beside extends Clue {
-  const Beside({required super.suspectId, required this.targetId, required super.negated});
+  const Beside({
+    required super.suspectId,
+    required this.targetId,
+    required super.negated,
+  });
 
   final String targetId;
 
@@ -370,7 +397,11 @@ class Beside extends Clue {
 }
 
 class BesideObject extends Clue {
-  const BesideObject({required super.suspectId, required this.objectId, required super.negated});
+  const BesideObject({
+    required super.suspectId,
+    required this.objectId,
+    required super.negated,
+  });
 
   final String objectId;
 
@@ -396,11 +427,23 @@ Clue _clueFromJson(Map<String, Object?> json) {
   final negated = json['negated'] as bool;
   switch (json['type'] as String) {
     case 'inRoom':
-      return InRoom(suspectId: suspectId, roomId: json['roomId'] as String, negated: negated);
+      return InRoom(
+        suspectId: suspectId,
+        roomId: json['roomId'] as String,
+        negated: negated,
+      );
     case 'sameRow':
-      return SameRow(suspectId: suspectId, targetId: json['targetId'] as String, negated: negated);
+      return SameRow(
+        suspectId: suspectId,
+        targetId: json['targetId'] as String,
+        negated: negated,
+      );
     case 'sameCol':
-      return SameCol(suspectId: suspectId, targetId: json['targetId'] as String, negated: negated);
+      return SameCol(
+        suspectId: suspectId,
+        targetId: json['targetId'] as String,
+        negated: negated,
+      );
     case 'direction':
       return DirectionClue(
         suspectId: suspectId,
@@ -409,10 +452,17 @@ Clue _clueFromJson(Map<String, Object?> json) {
         negated: negated,
       );
     case 'beside':
-      return Beside(suspectId: suspectId, targetId: json['targetId'] as String, negated: negated);
+      return Beside(
+        suspectId: suspectId,
+        targetId: json['targetId'] as String,
+        negated: negated,
+      );
     case 'besideObject':
       return BesideObject(
-          suspectId: suspectId, objectId: json['objectId'] as String, negated: negated);
+        suspectId: suspectId,
+        objectId: json['objectId'] as String,
+        negated: negated,
+      );
     default:
       throw FormatException('unknown clue type: ${json['type']}');
   }
@@ -455,18 +505,17 @@ class CaseData {
     String? murdererId,
     List<Clue>? clues,
     Map<String, Pos>? solution,
-  }) =>
-      CaseData(
-        seed: seed ?? this.seed,
-        difficulty: difficulty ?? this.difficulty,
-        rooms: rooms ?? this.rooms,
-        objects: objects ?? this.objects,
-        suspects: suspects ?? this.suspects,
-        victimPos: victimPos ?? this.victimPos,
-        murdererId: murdererId ?? this.murdererId,
-        clues: clues ?? this.clues,
-        solution: solution ?? this.solution,
-      );
+  }) => CaseData(
+    seed: seed ?? this.seed,
+    difficulty: difficulty ?? this.difficulty,
+    rooms: rooms ?? this.rooms,
+    objects: objects ?? this.objects,
+    suspects: suspects ?? this.suspects,
+    victimPos: victimPos ?? this.victimPos,
+    murdererId: murdererId ?? this.murdererId,
+    clues: clues ?? this.clues,
+    solution: solution ?? this.solution,
+  );
 
   @override
   bool operator ==(Object other) =>
@@ -483,47 +532,52 @@ class CaseData {
 
   @override
   int get hashCode => Object.hash(
-        seed,
-        difficulty,
-        Object.hashAll(rooms),
-        Object.hashAll(objects),
-        Object.hashAll(suspects),
-        victimPos,
-        murdererId,
-        Object.hashAll(clues),
-        Object.hashAllUnordered(solution.entries
-            .map((e) => Object.hash(e.key, e.value))
-            .toList()),
-      );
+    seed,
+    difficulty,
+    Object.hashAll(rooms),
+    Object.hashAll(objects),
+    Object.hashAll(suspects),
+    victimPos,
+    murdererId,
+    Object.hashAll(clues),
+    Object.hashAllUnordered(
+      solution.entries.map((e) => Object.hash(e.key, e.value)).toList(),
+    ),
+  );
 
   Map<String, Object?> toJson() => {
-        'seed': seed,
-        'difficulty': difficulty.name,
-        'rooms': rooms.map((r) => r.toJson()).toList(),
-        'objects': objects.map((o) => o.toJson()).toList(),
-        'suspects': suspects.map((s) => s.toJson()).toList(),
-        'victimPos': posToJson(victimPos),
-        'murdererId': murdererId,
-        'clues': clues.map((c) => c.toJson()).toList(),
-        'solution': solution.map((k, v) => MapEntry(k, posToJson(v))),
-      };
+    'seed': seed,
+    'difficulty': difficulty.name,
+    'rooms': rooms.map((r) => r.toJson()).toList(),
+    'objects': objects.map((o) => o.toJson()).toList(),
+    'suspects': suspects.map((s) => s.toJson()).toList(),
+    'victimPos': posToJson(victimPos),
+    'murdererId': murdererId,
+    'clues': clues.map((c) => c.toJson()).toList(),
+    'solution': solution.map((k, v) => MapEntry(k, posToJson(v))),
+  };
 
   factory CaseData.fromJson(Map<String, Object?> json) => CaseData(
-        seed: json['seed'] as int,
-        difficulty: DifficultyX.fromName(json['difficulty'] as String),
-        rooms: (json['rooms'] as List).map((r) => RoomDef.fromJson(r as Map<String, Object?>)).toList(),
-        objects: (json['objects'] as List)
-            .map((o) => ObjectDef.fromJson(o as Map<String, Object?>))
-            .toList(),
-        suspects: (json['suspects'] as List)
-            .map((s) => Suspect.fromJson(s as Map<String, Object?>))
-            .toList(),
-        victimPos: posFromJson(json['victimPos'] as List),
-        murdererId: json['murdererId'] as String,
-        clues: (json['clues'] as List).map((c) => _clueFromJson(c as Map<String, Object?>)).toList(),
-        solution: (json['solution'] as Map<String, Object?>)
-            .map((k, v) => MapEntry(k, posFromJson(v as List))),
-      );
+    seed: json['seed'] as int,
+    difficulty: DifficultyX.fromName(json['difficulty'] as String),
+    rooms: (json['rooms'] as List)
+        .map((r) => RoomDef.fromJson(r as Map<String, Object?>))
+        .toList(),
+    objects: (json['objects'] as List)
+        .map((o) => ObjectDef.fromJson(o as Map<String, Object?>))
+        .toList(),
+    suspects: (json['suspects'] as List)
+        .map((s) => Suspect.fromJson(s as Map<String, Object?>))
+        .toList(),
+    victimPos: posFromJson(json['victimPos'] as List),
+    murdererId: json['murdererId'] as String,
+    clues: (json['clues'] as List)
+        .map((c) => _clueFromJson(c as Map<String, Object?>))
+        .toList(),
+    solution: (json['solution'] as Map<String, Object?>).map(
+      (k, v) => MapEntry(k, posFromJson(v as List)),
+    ),
+  );
 }
 
 /// Persisted mid-game board state (what the player has done so far).
@@ -556,36 +610,41 @@ class BoardSnapshot {
 
   @override
   int get hashCode => Object.hash(
-        Object.hashAllUnordered(placed.entries.map((e) => Object.hash(e.key, e.value))),
-        Object.hashAllUnordered(xMarks),
-        elapsed,
-        hintsUsed,
-        wrongAccusations,
-        Object.hashAllUnordered(eliminatedSuspects),
-      );
+    Object.hashAllUnordered(
+      placed.entries.map((e) => Object.hash(e.key, e.value)),
+    ),
+    Object.hashAllUnordered(xMarks),
+    elapsed,
+    hintsUsed,
+    wrongAccusations,
+    Object.hashAllUnordered(eliminatedSuspects),
+  );
 
   Map<String, Object?> toJson() => {
-        'placed': placed.map((k, v) => MapEntry(k, posToJson(v))),
-        'xMarks': xMarks.map(posToJson).toList(),
-        'elapsedSeconds': elapsed.inSeconds,
-        'hintsUsed': hintsUsed,
-        'wrongAccusations': wrongAccusations,
-        'eliminatedSuspects': eliminatedSuspects.toList(),
-      };
+    'placed': placed.map((k, v) => MapEntry(k, posToJson(v))),
+    'xMarks': xMarks.map(posToJson).toList(),
+    'elapsedSeconds': elapsed.inSeconds,
+    'hintsUsed': hintsUsed,
+    'wrongAccusations': wrongAccusations,
+    'eliminatedSuspects': eliminatedSuspects.toList(),
+  };
 
   factory BoardSnapshot.fromJson(Map<String, Object?> json) => BoardSnapshot(
-        placed: (json['placed'] as Map<String, Object?>)
-            .map((k, v) => MapEntry(k, posFromJson(v as List))),
-        xMarks: (json['xMarks'] as List).map((v) => posFromJson(v as List)).toSet(),
-        elapsed: Duration(seconds: json['elapsedSeconds'] as int),
-        hintsUsed: json['hintsUsed'] as int,
-        wrongAccusations: json['wrongAccusations'] as int,
-        eliminatedSuspects:
-            (json['eliminatedSuspects'] as List? ?? []).cast<String>().toSet(),
-      );
+    placed: (json['placed'] as Map<String, Object?>).map(
+      (k, v) => MapEntry(k, posFromJson(v as List)),
+    ),
+    xMarks: (json['xMarks'] as List).map((v) => posFromJson(v as List)).toSet(),
+    elapsed: Duration(seconds: json['elapsedSeconds'] as int),
+    hintsUsed: json['hintsUsed'] as int,
+    wrongAccusations: json['wrongAccusations'] as int,
+    eliminatedSuspects: (json['eliminatedSuspects'] as List? ?? [])
+        .cast<String>()
+        .toSet(),
+  );
 }
 
-bool _setsEqual<T>(Set<T> a, Set<T> b) => a.length == b.length && a.containsAll(b);
+bool _setsEqual<T>(Set<T> a, Set<T> b) =>
+    a.length == b.length && a.containsAll(b);
 
 bool _listsEqual<T>(List<T> a, List<T> b) {
   if (a.length != b.length) return false;

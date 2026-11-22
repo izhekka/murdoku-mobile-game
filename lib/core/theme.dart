@@ -1,7 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
-import 'skins.dart';
-import '../storage/prefs_repository.dart' show SkinSetting;
+import 'package:murdoku/core/skins.dart';
+import 'package:murdoku/storage/prefs_repository.dart' show SkinSetting;
 
 /// Maps skins to ThemeData (issue 23): the classic noir palette (deep
 /// indigo/charcoal surfaces with an amber accent) keeps its light/dark
@@ -47,10 +47,7 @@ class AppTheme {
   /// overridden with the token surfaces so stock Material chrome (scaffold,
   /// app bar, dialogs, sheets, cards) matches the skin.
   static ThemeData _buildCartoon(SkinTokens t) {
-    final scheme = ColorScheme.fromSeed(
-      seedColor: t.ink,
-      brightness: Brightness.light,
-    ).copyWith(
+    final scheme = ColorScheme.fromSeed(seedColor: t.ink).copyWith(
       surface: t.appBackground,
       onSurface: t.ink,
       onSurfaceVariant: t.inkSoft,
@@ -89,13 +86,18 @@ class AppTheme {
         backgroundColor: t.sheetBackground,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(t.sheetRadius),
-          side: BorderSide(color: t.card.borderColor, width: t.card.borderWidth),
+          side: BorderSide(
+            color: t.card.borderColor,
+            width: t.card.borderWidth,
+          ),
         ),
       ),
       bottomSheetTheme: BottomSheetThemeData(
         backgroundColor: t.sheetBackground,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(t.sheetRadius)),
+          borderRadius: BorderRadius.vertical(
+            top: Radius.circular(t.sheetRadius),
+          ),
         ),
       ),
       filledButtonTheme: FilledButtonThemeData(
@@ -111,8 +113,10 @@ class AppTheme {
   /// Room tints of the given skin, extended/wrapped to [count]. Classic
   /// keeps the vivid noir palette; cartoon skins use their mockup tints
   /// extended to 8 distinct entries (hard difficulty).
-  static List<Color> roomColors(int count,
-      [SkinSetting skin = SkinSetting.classic]) {
+  static List<Color> roomColors(
+    int count, [
+    SkinSetting skin = SkinSetting.classic,
+  ]) {
     final tints = skinTokensFor(skin, light.colorScheme).roomTints;
     return List.generate(count, (i) => tints[i % tints.length]);
   }

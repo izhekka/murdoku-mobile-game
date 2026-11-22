@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 /// Injectable clock: returns the current UTC time. Tests override this
 /// provider to simulate midnight crossings.
 final clockProvider = Provider<DateTime Function()>(
-    (ref) => () => DateTime.now().toUtc());
+  (ref) =>
+      () => DateTime.now().toUtc(),
+);
 
 /// yyyy-mm-dd (UTC) used for daily identity and streak bookkeeping.
 String formatUtcDate(DateTime utc) =>

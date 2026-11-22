@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:murdoku/domain/generator/case_factory.dart';
 import 'package:murdoku/domain/game_logic.dart' show Tool, boardSolved;
+import 'package:murdoku/domain/generator/case_factory.dart';
 import 'package:murdoku/domain/models.dart';
 import 'package:murdoku/state/game_controller.dart';
 import 'package:murdoku/state/providers.dart';
@@ -15,9 +15,9 @@ final CaseData fixedCase = generateCase(difficulty: Difficulty.easy, seed: 3);
 Future<ProviderContainer> makeContainer() async {
   SharedPreferences.setMockInitialValues({});
   final prefs = await SharedPreferences.getInstance();
-  return ProviderContainer(overrides: [
-    sharedPreferencesProvider.overrideWithValue(prefs),
-  ]);
+  return ProviderContainer(
+    overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+  );
 }
 
 void main() {
@@ -59,8 +59,9 @@ void main() {
     final notifier = container.read(gameControllerProvider.notifier);
     notifier.startNewCase(Difficulty.easy, seed: 3);
 
-    final innocent = fixedCase.suspects.map((s) => s.id).firstWhere(
-        (id) => id != fixedCase.murdererId);
+    final innocent = fixedCase.suspects
+        .map((s) => s.id)
+        .firstWhere((id) => id != fixedCase.murdererId);
     final correct = notifier.accuse(innocent);
     expect(correct, isFalse);
     final state = container.read(gameControllerProvider)!;
@@ -86,19 +87,28 @@ void main() {
 
     // Tapping the suspect's own cell removes it (toggle).
     notifier.tapCell(s0);
-    expect(container.read(gameControllerProvider)!.placed.containsKey('s0'), isFalse);
+    expect(
+      container.read(gameControllerProvider)!.placed.containsKey('s0'),
+      isFalse,
+    );
 
     // Place s0 again, then try to place s1 onto the same cell -> no-op.
     notifier.tapCell(s0);
     expect(container.read(gameControllerProvider)!.placed['s0'], s0);
     notifier.selectSuspect('s1');
     notifier.tapCell(s0);
-    expect(container.read(gameControllerProvider)!.placed.containsKey('s1'), isFalse);
+    expect(
+      container.read(gameControllerProvider)!.placed.containsKey('s1'),
+      isFalse,
+    );
     expect(container.read(gameControllerProvider)!.placed['s0'], s0);
 
     // Victim cell cannot be placed on.
     notifier.tapCell(fixedCase.victimPos);
-    expect(container.read(gameControllerProvider)!.placed.containsKey('s1'), isFalse);
+    expect(
+      container.read(gameControllerProvider)!.placed.containsKey('s1'),
+      isFalse,
+    );
   });
 
   test('tapCell ignores input when phase is not playing', () async {
@@ -175,81 +185,100 @@ void main() {
     expect(state.phase, GamePhase.playing);
   });
 
-  test('hints: placement locks a correct guest; third hint is a no-op', () async {
-    final container = await makeContainer();
-    addTearDown(container.dispose);
-    final notifier = container.read(gameControllerProvider.notifier);
-    notifier.startNewCase(Difficulty.easy, seed: 3);
+  test(
+    'hints: placement locks a correct guest; third hint is a no-op',
+    () async {
+      final container = await makeContainer();
+      addTearDown(container.dispose);
+      final notifier = container.read(gameControllerProvider.notifier);
+      notifier.startNewCase(Difficulty.easy, seed: 3);
 
-    notifier.hintPlacement();
-    var state = container.read(gameControllerProvider)!;
-    expect(state.hintsUsed, 1);
-    final hintedSuspect = state.placed.keys.single;
-    expect(state.placed[hintedSuspect], fixedCase.solution[hintedSuspect]);
-    expect(state.lockedSuspects, {hintedSuspect});
+      notifier.hintPlacement();
+      var state = container.read(gameControllerProvider)!;
+      expect(state.hintsUsed, 1);
+      final hintedSuspect = state.placed.keys.single;
+      expect(state.placed[hintedSuspect], fixedCase.solution[hintedSuspect]);
+      expect(state.lockedSuspects, {hintedSuspect});
 
-    // Locked guest cannot be removed by tapping.
-    notifier.selectSuspect(hintedSuspect);
-    notifier.setTool(Tool.place);
-    notifier.tapCell(state.placed[hintedSuspect]!);
-    expect(container.read(gameControllerProvider)!.placed.containsKey(hintedSuspect), isTrue);
+      // Locked guest cannot be removed by tapping.
+      notifier.selectSuspect(hintedSuspect);
+      notifier.setTool(Tool.place);
+      notifier.tapCell(state.placed[hintedSuspect]!);
+      expect(
+        container
+            .read(gameControllerProvider)!
+            .placed
+            .containsKey(hintedSuspect),
+        isTrue,
+      );
 
-    notifier.hintPlacement();
-    notifier.hintPlacement();
-    state = container.read(gameControllerProvider)!;
-    expect(state.hintsUsed, 2, reason: 'only two hints per game');
-  });
+      notifier.hintPlacement();
+      notifier.hintPlacement();
+      state = container.read(gameControllerProvider)!;
+      expect(state.hintsUsed, 2, reason: 'only two hints per game');
+    },
+  );
 
-  test('hintEliminate never eliminates the murderer and consumes the budget',
-      () async {
-    final container = await makeContainer();
-    addTearDown(container.dispose);
-    final notifier = container.read(gameControllerProvider.notifier);
-    notifier.startNewCase(Difficulty.easy, seed: 3);
+  test(
+    'hintEliminate never eliminates the murderer and consumes the budget',
+    () async {
+      final container = await makeContainer();
+      addTearDown(container.dispose);
+      final notifier = container.read(gameControllerProvider.notifier);
+      notifier.startNewCase(Difficulty.easy, seed: 3);
 
-    // Two elimination hints (the full shared budget of 2).
-    notifier.hintEliminate();
-    var state = container.read(gameControllerProvider)!;
-    expect(state.eliminatedSuspects, isNotEmpty);
-    expect(state.eliminatedSuspects.contains(fixedCase.murdererId), isFalse);
-    expect(state.hintsUsed, 1);
-    final afterFirst = state.eliminatedSuspects.length;
+      // Two elimination hints (the full shared budget of 2).
+      notifier.hintEliminate();
+      var state = container.read(gameControllerProvider)!;
+      expect(state.eliminatedSuspects, isNotEmpty);
+      expect(state.eliminatedSuspects.contains(fixedCase.murdererId), isFalse);
+      expect(state.hintsUsed, 1);
+      final afterFirst = state.eliminatedSuspects.length;
 
-    notifier.hintEliminate();
-    state = container.read(gameControllerProvider)!;
-    expect(state.hintsUsed, 2);
-    expect(state.eliminatedSuspects.length, afterFirst + 1);
+      notifier.hintEliminate();
+      state = container.read(gameControllerProvider)!;
+      expect(state.hintsUsed, 2);
+      expect(state.eliminatedSuspects.length, afterFirst + 1);
 
-    // Budget exhausted: further hints are no-ops.
-    notifier.hintEliminate();
-    notifier.hintEliminate();
-    state = container.read(gameControllerProvider)!;
-    expect(state.hintsUsed, 2);
-    expect(state.eliminatedSuspects.length, afterFirst + 1,
-        reason: 'no elimination beyond the 2-hint budget');
-  });
+      // Budget exhausted: further hints are no-ops.
+      notifier.hintEliminate();
+      notifier.hintEliminate();
+      state = container.read(gameControllerProvider)!;
+      expect(state.hintsUsed, 2);
+      expect(
+        state.eliminatedSuspects.length,
+        afterFirst + 1,
+        reason: 'no elimination beyond the 2-hint budget',
+      );
+    },
+  );
 
-  test('hintPlacement never double-occupies a cell held by a wrong guest',
-      () async {
-    final container = await makeContainer();
-    addTearDown(container.dispose);
-    final notifier = container.read(gameControllerProvider.notifier);
-    notifier.startNewCase(Difficulty.easy, seed: 3);
+  test(
+    'hintPlacement never double-occupies a cell held by a wrong guest',
+    () async {
+      final container = await makeContainer();
+      addTearDown(container.dispose);
+      final notifier = container.read(gameControllerProvider.notifier);
+      notifier.startNewCase(Difficulty.easy, seed: 3);
 
-    // Wrongly place s1 on s0's solution cell.
-    notifier.selectSuspect('s1');
-    notifier.tapCell(fixedCase.solution['s0']!);
-    expect(container.read(gameControllerProvider)!.placed.length, 1);
+      // Wrongly place s1 on s0's solution cell.
+      notifier.selectSuspect('s1');
+      notifier.tapCell(fixedCase.solution['s0']!);
+      expect(container.read(gameControllerProvider)!.placed.length, 1);
 
-    notifier.hintPlacement();
-    final state = container.read(gameControllerProvider)!;
-    final positions = state.placed.values.toSet();
-    expect(positions.length, state.placed.length,
-        reason: 'no two suspects may share a cell');
-    expect(state.hintsUsed, 1);
-    // The wrongly placed guest is untouched (no silent eviction).
-    expect(state.placed['s1'], fixedCase.solution['s0']);
-  });
+      notifier.hintPlacement();
+      final state = container.read(gameControllerProvider)!;
+      final positions = state.placed.values.toSet();
+      expect(
+        positions.length,
+        state.placed.length,
+        reason: 'no two suspects may share a cell',
+      );
+      expect(state.hintsUsed, 1);
+      // The wrongly placed guest is untouched (no silent eviction).
+      expect(state.placed['s1'], fixedCase.solution['s0']);
+    },
+  );
 
   test('runCheck reports correct/total', () async {
     final container = await makeContainer();

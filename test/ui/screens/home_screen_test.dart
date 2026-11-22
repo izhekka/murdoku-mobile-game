@@ -24,14 +24,23 @@ void main() {
     // Home layout tests assume the first-launch tutorial is already dismissed;
     // the tutorial has its own test suite.
     await PrefsRepository(prefs).saveTutorialSeen(true);
-    container = ProviderContainer(overrides: [
-      sharedPreferencesProvider.overrideWithValue(prefs),
-    ]);
+    container = ProviderContainer(
+      overrides: [
+        sharedPreferencesProvider.overrideWithValue(prefs),
+        // The discard-then-start test drives the real UI button, which starts
+        // a case without an explicit seed; pin the seed so the generated clue
+        // mix (and with it the coverage data the CRAP gate consumes) is
+        // deterministic per run.
+        forcedSeedProvider.overrideWithValue(3),
+      ],
+    );
     addTearDown(container.dispose);
-    await tester.pumpWidget(UncontrolledProviderScope(
-      container: container,
-      child: const MurdokuApp(),
-    ));
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MurdokuApp(),
+      ),
+    );
     await tester.pumpAndSettle();
   }
 
@@ -58,7 +67,9 @@ void main() {
     fail('pumpUntil gave up after $maxPumps pumps: $finder');
   }
 
-  testWidgets('no save: Continue button absent; nav rows present', (tester) async {
+  testWidgets('no save: Continue button absent; nav rows present', (
+    tester,
+  ) async {
     await pumpHome(tester);
     final l10n = l10nOf(tester);
     expect(find.text(l10n.continueCase), findsNothing);
@@ -69,7 +80,9 @@ void main() {
     expect(find.text(l10n.howToPlayTitle), findsOneWidget);
   });
 
-  testWidgets('saved game: Continue visible with difficulty label', (tester) async {
+  testWidgets('saved game: Continue visible with difficulty label', (
+    tester,
+  ) async {
     await pumpHome(tester);
     final l10n = l10nOf(tester);
     final notifier = container.read(gameControllerProvider.notifier);
@@ -81,8 +94,9 @@ void main() {
     expect(find.textContaining(l10n.difficultyEasy), findsOneWidget);
   });
 
-  testWidgets('new case over an active save asks to discard, then starts',
-      (tester) async {
+  testWidgets('new case over an active save asks to discard, then starts', (
+    tester,
+  ) async {
     await pumpHome(tester);
     final l10n = l10nOf(tester);
     final notifier = container.read(gameControllerProvider.notifier);
@@ -127,18 +141,22 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
     final preRepo = PrefsRepository(prefs);
-    await preRepo.saveDailyState(DailyState(
-      lastCompletedDate: formatUtcDate(DateTime.now().toUtc()),
-      streak: 1,
-    ));
-    container = ProviderContainer(overrides: [
-      sharedPreferencesProvider.overrideWithValue(prefs),
-    ]);
+    await preRepo.saveDailyState(
+      DailyState(
+        lastCompletedDate: formatUtcDate(DateTime.now().toUtc()),
+        streak: 1,
+      ),
+    );
+    container = ProviderContainer(
+      overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+    );
     addTearDown(container.dispose);
-    await tester.pumpWidget(UncontrolledProviderScope(
-      container: container,
-      child: const MurdokuApp(),
-    ));
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MurdokuApp(),
+      ),
+    );
     await tester.pumpAndSettle();
     final l10n = l10nOf(tester);
 
@@ -150,14 +168,21 @@ void main() {
     await pumpHome(tester); // default skin: sticker
     final cardContainers = find
         .descendant(
-            of: find.byType(HomeScreen), matching: find.byType(Container))
+          of: find.byType(HomeScreen),
+          matching: find.byType(Container),
+        )
         .evaluate()
-        .where((e) =>
-            (e.widget as Container).decoration is BoxDecoration &&
-            ((e.widget as Container).decoration as BoxDecoration).color ==
-                stickerTokens.card.background)
+        .where(
+          (e) =>
+              (e.widget as Container).decoration is BoxDecoration &&
+              ((e.widget as Container).decoration as BoxDecoration).color ==
+                  stickerTokens.card.background,
+        )
         .toList();
-    expect(cardContainers.length, 3,
-        reason: 'new case, daily case and the nav card restyle to tokens');
+    expect(
+      cardContainers.length,
+      3,
+      reason: 'new case, daily case and the nav card restyle to tokens',
+    );
   });
 }

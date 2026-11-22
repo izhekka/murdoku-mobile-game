@@ -1,19 +1,46 @@
 import 'dart:math';
 
-import '../models.dart';
-import '../solver.dart';
-import 'rooms.dart';
+import 'package:murdoku/domain/generator/rooms.dart';
+import 'package:murdoku/domain/models.dart';
+import 'package:murdoku/domain/solver.dart';
 
 /// Curated name pools (content data, not UI strings).
 const _suspectNames = [
-  'Ash', 'Blair', 'Casey', 'Drew', 'Ellis', 'Frank', 'Gale', 'Harper',
-  'Iris', 'Jack', 'Kai', 'Lane', 'Morgan', 'Noel', 'Oakley', 'Piper',
+  'Ash',
+  'Blair',
+  'Casey',
+  'Drew',
+  'Ellis',
+  'Frank',
+  'Gale',
+  'Harper',
+  'Iris',
+  'Jack',
+  'Kai',
+  'Lane',
+  'Morgan',
+  'Noel',
+  'Oakley',
+  'Piper',
 ];
 
 const _roomNames = [
-  'Hall', 'Library', 'Kitchen', 'Cellar', 'Study', 'Ballroom',
-  'Conservatory', 'Parlor', 'Attic', 'Pantry', 'Gallery', 'Chapel',
-  'Solarium', 'Den', 'Foyer', 'Observatory',
+  'Hall',
+  'Library',
+  'Kitchen',
+  'Cellar',
+  'Study',
+  'Ballroom',
+  'Conservatory',
+  'Parlor',
+  'Attic',
+  'Pantry',
+  'Gallery',
+  'Chapel',
+  'Solarium',
+  'Den',
+  'Foyer',
+  'Observatory',
 ];
 
 const _retryBudget = 40;
@@ -35,7 +62,8 @@ CaseData generateCase({required Difficulty difficulty, required int seed}) {
     }
   }
   throw StateError(
-      'no unique case found for $difficulty within budget (seed $seed)');
+    'no unique case found for $difficulty within budget (seed $seed)',
+  );
 }
 
 CaseData? _attempt(Difficulty difficulty, int seed, int widen) {
@@ -49,8 +77,8 @@ CaseData? _attempt(Difficulty difficulty, int seed, int widen) {
   // lengths as before, so the rng stream and the drawn names are unchanged.
   final rawRooms = generateRooms(gridSize: g, rng: rng);
   final roomSlots = List.generate(_roomNames.length, (i) => i)..shuffle(rng);
-  final suspectSlots =
-      List.generate(_suspectNames.length, (i) => i)..shuffle(rng);
+  final suspectSlots = List.generate(_suspectNames.length, (i) => i)
+    ..shuffle(rng);
   final rooms = [
     for (var i = 0; i < g; i++)
       RoomDef(
@@ -63,9 +91,10 @@ CaseData? _attempt(Difficulty difficulty, int seed, int widen) {
   final suspects = [
     for (var i = 0; i < g; i++)
       Suspect(
-          id: 's$i',
-          name: _suspectNames[suspectSlots[i]],
-          poolIndex: suspectSlots[i]),
+        id: 's$i',
+        name: _suspectNames[suspectSlots[i]],
+        poolIndex: suspectSlots[i],
+      ),
   ];
 
   // 2. random placement search: first valid assignment is the solution.
@@ -101,43 +130,70 @@ CaseData? _attempt(Difficulty difficulty, int seed, int widen) {
   ]..shuffle(rng);
   final used = <Pos>{victimPos};
   final occupiableKinds = occupiableKindsList..shuffle(rng);
-  final blockingKinds = ObjectKind.values
-      .where((k) => !kindOccupiable(k) && spriteBackedBlockingKinds.contains(k))
-      .toList()
-    ..shuffle(rng);
+  final blockingKinds =
+      ObjectKind.values
+          .where(
+            (k) => !kindOccupiable(k) && spriteBackedBlockingKinds.contains(k),
+          )
+          .toList()
+        ..shuffle(rng);
   final objects = <ObjectDef>[];
   for (final cell in allCells) {
     if (objects.length >= difficulty.occupiableCount) break;
     if (used.contains(cell)) continue;
     used.add(cell); // occupiable cells are taken even when under a guest
-    objects.add(ObjectDef(
-      id: 'o${objects.length}',
-      kind: occupiableKinds[objects.length % occupiableKinds.length],
-      pos: cell,
-      occupiable: true,
-    ));
+    objects.add(
+      ObjectDef(
+        id: 'o${objects.length}',
+        kind: occupiableKinds[objects.length % occupiableKinds.length],
+        pos: cell,
+        occupiable: true,
+      ),
+    );
   }
   for (final cell in allCells) {
     if (objects.length >= difficulty.objectCount) break;
     if (used.contains(cell) || occupied.contains(cell)) continue;
     used.add(cell);
-    objects.add(ObjectDef(
-      id: 'o${objects.length}',
-      kind: blockingKinds[objects.length % blockingKinds.length],
-      pos: cell,
-      occupiable: false,
-    ));
+    objects.add(
+      ObjectDef(
+        id: 'o${objects.length}',
+        kind: blockingKinds[objects.length % blockingKinds.length],
+        pos: cell,
+      ),
+    );
   }
   if (objects.length < difficulty.objectCount) return null;
 
   // 5. clue pool: candidates true of the solution, per type capped at 10.
-  final pool = _cluePool(difficulty, suspects, rooms, solution, victimPos, objects, rng);
+  final pool = _cluePool(
+    difficulty,
+    suspects,
+    rooms,
+    solution,
+    victimPos,
+    objects,
+    rng,
+  );
 
   // 6. minimize to unique, then enforce the clue window.
-  final minimized = _minimizeToUnique(pool, g, rooms, suspectIds(suspects),
-      victimPos, objects);
+  final minimized = _minimizeToUnique(
+    pool,
+    g,
+    rooms,
+    suspectIds(suspects),
+    victimPos,
+    objects,
+  );
   if (minimized == null) return null;
-  final pruned = _prune(minimized, g, rooms, suspectIds(suspects), victimPos, objects);
+  final pruned = _prune(
+    minimized,
+    g,
+    rooms,
+    suspectIds(suspects),
+    victimPos,
+    objects,
+  );
   var picked = pruned;
   // Coverage: no suspect may end up without a clue (empty cards confuse
   // players). Pool clues are all true of the solution, so additions are
@@ -148,9 +204,10 @@ CaseData? _attempt(Difficulty difficulty, int seed, int widen) {
     final candidate = pool.firstWhere(
       (cl) => cl.suspectId == s.id,
       orElse: () => InRoom(
-          suspectId: s.id,
-          roomId: roomOf(rooms, solution[s.id]!)!,
-          negated: false),
+        suspectId: s.id,
+        roomId: roomOf(rooms, solution[s.id]!)!,
+        negated: false,
+      ),
     );
     picked.add(candidate);
   }
@@ -207,8 +264,7 @@ List<String> suspectIds(List<Suspect> suspects) =>
     suspects.map((s) => s.id).toList();
 
 /// Backtracking over rows in random order; first complete assignment wins.
-Map<String, Pos>? _randomPlacement(
-    int g, List<RoomDef> rooms, Random rng) {
+Map<String, Pos>? _randomPlacement(int g, List<RoomDef> rooms, Random rng) {
   final solution = <String, Pos>{};
   final usedCols = List<bool>.filled(g, false);
   final usedRooms = <String>{};
@@ -262,77 +318,138 @@ List<Clue> _cluePool(
   for (final s in ids) {
     final sp = solution[s]!;
     // InRoom: only the suspect's actual room is true of the solution.
-    byType['inRoom']!
-        .add(InRoom(suspectId: s, roomId: roomOf(rooms, sp)!, negated: false));
+    byType['inRoom']!.add(
+      InRoom(suspectId: s, roomId: roomOf(rooms, sp)!, negated: false),
+    );
     for (final t in ids) {
       if (t == s) continue;
       final tp = solution[t]!;
       if (sp.row == tp.row) {
-        byType['sameRow']!.add(SameRow(suspectId: s, targetId: t, negated: false));
+        byType['sameRow']!.add(
+          SameRow(suspectId: s, targetId: t, negated: false),
+        );
       }
       if (sp.col == tp.col) {
-        byType['sameCol']!.add(SameCol(suspectId: s, targetId: t, negated: false));
+        byType['sameCol']!.add(
+          SameCol(suspectId: s, targetId: t, negated: false),
+        );
       }
       if (sp.row < tp.row) {
-        byType['direction']!.add(DirectionClue(
-            suspectId: s, targetId: t, direction: Direction.north, negated: false));
+        byType['direction']!.add(
+          DirectionClue(
+            suspectId: s,
+            targetId: t,
+            direction: Direction.north,
+            negated: false,
+          ),
+        );
       }
       if (sp.row > tp.row) {
-        byType['direction']!.add(DirectionClue(
-            suspectId: s, targetId: t, direction: Direction.south, negated: false));
+        byType['direction']!.add(
+          DirectionClue(
+            suspectId: s,
+            targetId: t,
+            direction: Direction.south,
+            negated: false,
+          ),
+        );
       }
       if (sp.col < tp.col) {
-        byType['direction']!.add(DirectionClue(
-            suspectId: s, targetId: t, direction: Direction.west, negated: false));
+        byType['direction']!.add(
+          DirectionClue(
+            suspectId: s,
+            targetId: t,
+            direction: Direction.west,
+            negated: false,
+          ),
+        );
       }
       if (sp.col > tp.col) {
-        byType['direction']!.add(DirectionClue(
-            suspectId: s, targetId: t, direction: Direction.east, negated: false));
+        byType['direction']!.add(
+          DirectionClue(
+            suspectId: s,
+            targetId: t,
+            direction: Direction.east,
+            negated: false,
+          ),
+        );
       }
       if (manhattan(sp, tp) == 1) {
-        byType['beside']!.add(Beside(suspectId: s, targetId: t, negated: false));
+        byType['beside']!.add(
+          Beside(suspectId: s, targetId: t, negated: false),
+        );
       }
     }
     // Victim-targeted candidates.
     if (sp.row == victimPos.row) {
-      byType['sameRow']!.add(SameRow(suspectId: s, targetId: victimId, negated: false));
+      byType['sameRow']!.add(
+        SameRow(suspectId: s, targetId: victimId, negated: false),
+      );
     }
     if (sp.col == victimPos.col) {
-      byType['sameCol']!.add(SameCol(suspectId: s, targetId: victimId, negated: false));
+      byType['sameCol']!.add(
+        SameCol(suspectId: s, targetId: victimId, negated: false),
+      );
     }
     if (sp.row < victimPos.row) {
-      byType['direction']!.add(DirectionClue(
-          suspectId: s, targetId: victimId, direction: Direction.north, negated: false));
+      byType['direction']!.add(
+        DirectionClue(
+          suspectId: s,
+          targetId: victimId,
+          direction: Direction.north,
+          negated: false,
+        ),
+      );
     }
     if (sp.row > victimPos.row) {
-      byType['direction']!.add(DirectionClue(
-          suspectId: s, targetId: victimId, direction: Direction.south, negated: false));
+      byType['direction']!.add(
+        DirectionClue(
+          suspectId: s,
+          targetId: victimId,
+          direction: Direction.south,
+          negated: false,
+        ),
+      );
     }
     if (sp.col < victimPos.col) {
-      byType['direction']!.add(DirectionClue(
-          suspectId: s, targetId: victimId, direction: Direction.west, negated: false));
+      byType['direction']!.add(
+        DirectionClue(
+          suspectId: s,
+          targetId: victimId,
+          direction: Direction.west,
+          negated: false,
+        ),
+      );
     }
     if (sp.col > victimPos.col) {
-      byType['direction']!.add(DirectionClue(
-          suspectId: s, targetId: victimId, direction: Direction.east, negated: false));
+      byType['direction']!.add(
+        DirectionClue(
+          suspectId: s,
+          targetId: victimId,
+          direction: Direction.east,
+          negated: false,
+        ),
+      );
     }
     if (manhattan(sp, victimPos) == 1) {
-      byType['beside']!.add(Beside(suspectId: s, targetId: victimId, negated: false));
+      byType['beside']!.add(
+        Beside(suspectId: s, targetId: victimId, negated: false),
+      );
     }
     for (final obj in objects) {
       // UX-8 / ADR 0004: propose the full same-room relation, matching the
       // new BesideObject semantics (not just Manhattan-1 cells).
       if (roomOf(rooms, sp) == roomOf(rooms, obj.pos)) {
-        byType['besideObject']!
-            .add(BesideObject(suspectId: s, objectId: obj.id, negated: false));
+        byType['besideObject']!.add(
+          BesideObject(suspectId: s, objectId: obj.id, negated: false),
+        );
       }
     }
   }
 
   // Cap each type at 10, sampled deterministically.
   final pool = [
-    for (final entry in byType.entries)
-      ...(entry.value..shuffle(rng)).take(10),
+    for (final entry in byType.entries) ...(entry.value..shuffle(rng)).take(10),
   ];
 
   // Issue #10: negated candidates, drawn TRUE of the solution (a card clue
@@ -371,8 +488,14 @@ List<Clue> _cluePool(
             Direction.east => sp.col > tp.col,
           };
           if (!raw) {
-            negated.add(DirectionClue(
-                suspectId: s, targetId: t, direction: d, negated: true));
+            negated.add(
+              DirectionClue(
+                suspectId: s,
+                targetId: t,
+                direction: d,
+                negated: true,
+              ),
+            );
           }
         }
         if (manhattan(sp, tp) != 1) {
@@ -382,7 +505,8 @@ List<Clue> _cluePool(
       for (final obj in objects) {
         if (roomOf(rooms, obj.pos) != sRoom) {
           negated.add(
-              BesideObject(suspectId: s, objectId: obj.id, negated: true));
+            BesideObject(suspectId: s, objectId: obj.id, negated: true),
+          );
         }
       }
     }
@@ -433,14 +557,16 @@ List<Clue> _prune(
   var i = 0;
   while (i < kept.length) {
     final trial = [...kept]..removeAt(i);
-    final unique = countSolutions(
+    final unique =
+        countSolutions(
           gridSize: g,
           rooms: rooms,
           clues: trial,
           suspectIds: ids,
           victimPos: victimPos,
           objects: objects,
-        ) == 1;
+        ) ==
+        1;
     if (unique) {
       kept = trial;
     } else {

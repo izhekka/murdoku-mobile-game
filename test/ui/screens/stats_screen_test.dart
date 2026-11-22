@@ -14,14 +14,13 @@ import 'package:shared_preferences/shared_preferences.dart';
 Future<ProviderContainer> pumpStats(WidgetTester tester) async {
   SharedPreferences.setMockInitialValues({});
   final prefs = await SharedPreferences.getInstance();
-  final container = ProviderContainer(overrides: [
-    sharedPreferencesProvider.overrideWithValue(prefs),
-  ]);
+  final container = ProviderContainer(
+    overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+  );
   addTearDown(container.dispose);
-  await tester.pumpWidget(UncontrolledProviderScope(
-    container: container,
-    child: const MurdokuApp(),
-  ));
+  await tester.pumpWidget(
+    UncontrolledProviderScope(container: container, child: const MurdokuApp()),
+  );
   await tester.pumpAndSettle();
   final context = tester.element(find.byType(Scaffold).first);
   GoRouter.of(context).go('/stats');
@@ -42,8 +41,9 @@ void main() {
     expect(find.text(l10n.currentStreak(0)), findsOneWidget);
   });
 
-  testWidgets('renders per-difficulty rows from persisted stats',
-      (tester) async {
+  testWidgets('renders per-difficulty rows from persisted stats', (
+    tester,
+  ) async {
     final container = await pumpStats(tester);
     final l10n = l10nOf(tester);
     final repo = container.read(prefsRepositoryProvider);
@@ -54,7 +54,9 @@ void main() {
       ..totalTime[Difficulty.easy] = const Duration(seconds: 150)
       ..totalCases = 2;
     await repo.saveStats(stats);
-    await repo.saveDailyState(const DailyState(lastCompletedDate: 'x', streak: 5));
+    await repo.saveDailyState(
+      const DailyState(lastCompletedDate: 'x', streak: 5),
+    );
 
     // Force the screen to re-read persisted data.
     container.invalidate(statsControllerProvider);

@@ -23,42 +23,63 @@ bool contiguous(RoomDef room) {
 }
 
 void main() {
-  test('generates G contiguous, balanced, fully covering rooms for 100 seeds',
-      () {
-    for (final g in [5, 6, 7]) {
-      for (var seed = 1; seed <= 100; seed++) {
-        final rooms = generateRooms(gridSize: g, rng: Random(seed));
+  test(
+    'generates G contiguous, balanced, fully covering rooms for 100 seeds',
+    () {
+      for (final g in [5, 6, 7]) {
+        for (var seed = 1; seed <= 100; seed++) {
+          final rooms = generateRooms(gridSize: g, rng: Random(seed));
 
-        expect(rooms.length, g, reason: 'seed $seed g $g: room count');
+          expect(rooms.length, g, reason: 'seed $seed g $g: room count');
 
-        // Full coverage, no overlap, no empty rooms.
-        final ownership = <Pos, String>{};
-        for (final room in rooms) {
-          expect(room.cells, isNotEmpty, reason: 'seed $seed g $g: empty room');
-          for (final cell in room.cells) {
-            expect(ownership.containsKey(cell), isFalse,
-                reason: 'seed $seed g $g: cell $cell in two rooms');
-            ownership[cell] = room.id;
+          // Full coverage, no overlap, no empty rooms.
+          final ownership = <Pos, String>{};
+          for (final room in rooms) {
+            expect(
+              room.cells,
+              isNotEmpty,
+              reason: 'seed $seed g $g: empty room',
+            );
+            for (final cell in room.cells) {
+              expect(
+                ownership.containsKey(cell),
+                isFalse,
+                reason: 'seed $seed g $g: cell $cell in two rooms',
+              );
+              ownership[cell] = room.id;
+            }
           }
+          expect(
+            ownership.length,
+            g * g,
+            reason: 'seed $seed g $g: coverage incomplete',
+          );
+
+          // Orthogonal contiguity.
+          for (final room in rooms) {
+            expect(
+              contiguous(room),
+              isTrue,
+              reason: 'seed $seed g $g: room ${room.id} not contiguous',
+            );
+          }
+
+          // Soft balance: max room size at most min + 3.
+          final sizes = rooms.map((r) => r.cells.length).toList();
+          expect(
+            sizes.reduce(max) - sizes.reduce(min),
+            lessThanOrEqualTo(3),
+            reason: 'seed $seed g $g: sizes $sizes unbalanced',
+          );
+
+          // Unique room ids.
+          expect(
+            rooms.map((r) => r.id).toSet().length,
+            g,
+            reason: 'seed $seed g $g: duplicate room ids',
+          );
         }
-        expect(ownership.length, g * g,
-            reason: 'seed $seed g $g: coverage incomplete');
-
-        // Orthogonal contiguity.
-        for (final room in rooms) {
-          expect(contiguous(room), isTrue,
-              reason: 'seed $seed g $g: room ${room.id} not contiguous');
-        }
-
-        // Soft balance: max room size at most min + 3.
-        final sizes = rooms.map((r) => r.cells.length).toList();
-        expect(sizes.reduce(max) - sizes.reduce(min), lessThanOrEqualTo(3),
-            reason: 'seed $seed g $g: sizes $sizes unbalanced');
-
-        // Unique room ids.
-        expect(rooms.map((r) => r.id).toSet().length, g,
-            reason: 'seed $seed g $g: duplicate room ids');
       }
-    }
-  });
+    },
+  );
 }

@@ -1,0 +1,18 @@
+#!/bin/sh
+# Pre-commit quality gate (issue #33, decision record 0006):
+# 1. format-check every staged Dart file,
+# 2. run `flutter analyze`.
+#
+# Tests are deliberately NOT run here (too slow for a hook) — `make quality`
+# and CI cover them. The format check is check-only (`--output=none`): the
+# hook never rewrites files, so a rejected commit cannot be "retried" into
+# landing a stale, unformatted staged blob. Install with `make hooks`.
+#
+# Staged files only: added/copied/modified/renamed (deleted files skip).
+files=$(git diff --cached --name-only --diff-filter=ACMR -- '*.dart')
+if [ -n "$files" ]; then
+	# shellcheck disable=SC2086
+	dart format --output=none --set-exit-if-changed $files || exit 1
+fi
+
+flutter analyze || exit 1

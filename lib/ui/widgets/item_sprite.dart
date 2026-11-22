@@ -1,23 +1,23 @@
 import 'package:material_ui/material_ui.dart';
 
-import '../../domain/models.dart';
+import 'package:murdoku/domain/models.dart';
 
 IconData objectIcon(ObjectKind kind) => switch (kind) {
-      ObjectKind.piano => Icons.piano,
-      ObjectKind.plant => Icons.local_florist,
-      ObjectKind.armor => Icons.shield,
-      ObjectKind.chest => Icons.inventory_2,
-      ObjectKind.clock => Icons.schedule,
-      ObjectKind.globe => Icons.public,
-      ObjectKind.portrait => Icons.portrait,
-      ObjectKind.fireplace => Icons.local_fire_department,
-      ObjectKind.table => Icons.table_restaurant,
-      ObjectKind.chair => Icons.chair,
-      ObjectKind.flowers => Icons.local_florist,
-      ObjectKind.sofa => Icons.weekend,
-      ObjectKind.bookshelf => Icons.shelves,
-      ObjectKind.lamp => Icons.light,
-    };
+  ObjectKind.piano => Icons.piano,
+  ObjectKind.plant => Icons.local_florist,
+  ObjectKind.armor => Icons.shield,
+  ObjectKind.chest => Icons.inventory_2,
+  ObjectKind.clock => Icons.schedule,
+  ObjectKind.globe => Icons.public,
+  ObjectKind.portrait => Icons.portrait,
+  ObjectKind.fireplace => Icons.local_fire_department,
+  ObjectKind.table => Icons.table_restaurant,
+  ObjectKind.chair => Icons.chair,
+  ObjectKind.flowers => Icons.local_florist,
+  ObjectKind.sofa => Icons.weekend,
+  ObjectKind.bookshelf => Icons.shelves,
+  ObjectKind.lamp => Icons.light,
+};
 
 /// Asset path for an item kind's generated sprite (tool/gen_items.dart).
 String itemAssetPath(ObjectKind kind) => 'assets/items/${kind.name}.png';
@@ -50,7 +50,6 @@ class ItemSprite extends StatelessWidget {
         itemAssetPath(kind),
         width: size * 1.35,
         height: size * 1.35,
-        filterQuality: FilterQuality.medium,
         errorBuilder: (_, _, _) => icon,
       ),
     );

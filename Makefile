@@ -19,7 +19,17 @@ CLAUDE_DST := .claude/agents
 # ZCode-only frontmatter key: UI chip color per agent (name=color)
 ZCODE_COLORS := task-executor=green issue-triage=orange code-reviewer=cyan ux-verifier=purple
 
-.PHONY: init zcode claude
+.PHONY: init zcode claude hooks quality
+
+hooks: ## install the pre-commit quality gate: git config core.hooksPath .githooks
+	git config core.hooksPath .githooks
+	@echo "Pre-commit hook installed (core.hooksPath=.githooks)"
+
+quality: ## one-command local gate: format check + analyze + test --coverage + CRAP ratchet
+	dart format --output=none --set-exit-if-changed .
+	flutter analyze
+	flutter test --coverage
+	dart run tool/crap_check.dart --lcov coverage/lcov.info
 
 init: ## usage: make init <zcode|claude> — project .agents/agents/ into a harness dir
 	@if [ -z "$(filter-out init,$(MAKECMDGOALS))" ]; then \

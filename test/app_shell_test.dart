@@ -20,10 +20,12 @@ Future<SharedPreferences> mockPrefs() async {
 void main() {
   testWidgets('home renders the app title from l10n', (tester) async {
     final prefs = await mockPrefs();
-    await tester.pumpWidget(ProviderScope(
-      overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
-      child: const MurdokuApp(),
-    ));
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+        child: const MurdokuApp(),
+      ),
+    );
     await tester.pumpAndSettle();
 
     final context = tester.element(find.byType(HomeScreen));
@@ -34,17 +36,23 @@ void main() {
   testWidgets('dark mode toggle changes material app brightness for the '
       'classic skin (issue 23)', (tester) async {
     final prefs = await mockPrefs();
-    await tester.pumpWidget(ProviderScope(
-      overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
-      child: const MurdokuApp(),
-    ));
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+        child: const MurdokuApp(),
+      ),
+    );
     await tester.pumpAndSettle();
 
     final element = tester.element(find.byType(HomeScreen));
     final container = ProviderScope.containerOf(element);
-    container.read(settingsControllerProvider.notifier).setSkin(SkinSetting.classic);
+    container
+        .read(settingsControllerProvider.notifier)
+        .setSkin(SkinSetting.classic);
     await tester.pumpAndSettle();
-    container.read(settingsControllerProvider.notifier).setThemeMode(ThemeMode.dark);
+    container
+        .read(settingsControllerProvider.notifier)
+        .setThemeMode(ThemeMode.dark);
     await tester.pumpAndSettle();
 
     // The theme swap rebuilds the tree; read the live element afterwards.
@@ -52,19 +60,24 @@ void main() {
     expect(Theme.of(rebuilt).brightness, Brightness.dark);
   });
 
-  testWidgets('cartoon skins are light-only: themeMode is ignored (issue 23)',
-      (tester) async {
+  testWidgets('cartoon skins are light-only: themeMode is ignored (issue 23)', (
+    tester,
+  ) async {
     final prefs = await mockPrefs();
-    await tester.pumpWidget(ProviderScope(
-      overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
-      child: const MurdokuApp(),
-    ));
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+        child: const MurdokuApp(),
+      ),
+    );
     await tester.pumpAndSettle();
 
     final element = tester.element(find.byType(HomeScreen));
     final container = ProviderScope.containerOf(element);
     // Default skin is sticker; asking for dark must not darken it.
-    container.read(settingsControllerProvider.notifier).setThemeMode(ThemeMode.dark);
+    container
+        .read(settingsControllerProvider.notifier)
+        .setThemeMode(ThemeMode.dark);
     await tester.pumpAndSettle();
 
     final rebuilt = tester.element(find.byType(HomeScreen));
@@ -74,10 +87,12 @@ void main() {
   testWidgets('the app shell exposes the active skin tokens in context '
       '(issue 23)', (tester) async {
     final prefs = await mockPrefs();
-    await tester.pumpWidget(ProviderScope(
-      overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
-      child: const MurdokuApp(),
-    ));
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+        child: const MurdokuApp(),
+      ),
+    );
     await tester.pumpAndSettle();
 
     SkinTokens tokensOfHome() =>
@@ -86,7 +101,9 @@ void main() {
 
     final element = tester.element(find.byType(HomeScreen));
     final container = ProviderScope.containerOf(element);
-    container.read(settingsControllerProvider.notifier).setSkin(SkinSetting.comic);
+    container
+        .read(settingsControllerProvider.notifier)
+        .setSkin(SkinSetting.comic);
     await tester.pumpAndSettle();
 
     expect(tokensOfHome().skin, SkinSetting.comic);
@@ -96,23 +113,28 @@ void main() {
   testWidgets('MurdokuApp holds the shared delegate const (identity check, '
       'issue 24)', (tester) async {
     final prefs = await mockPrefs();
-    await tester.pumpWidget(ProviderScope(
-      overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
-      child: const MurdokuApp(),
-    ));
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+        child: const MurdokuApp(),
+      ),
+    );
     await tester.pumpAndSettle();
 
     final app = tester.widget<MaterialApp>(find.byType(MaterialApp));
     expect(app.localizationsDelegates, same(murdokuLocalizationsDelegates));
   });
 
-  testWidgets('navigating to /stats renders the stats placeholder via l10n',
-      (tester) async {
+  testWidgets('navigating to /stats renders the stats placeholder via l10n', (
+    tester,
+  ) async {
     final prefs = await mockPrefs();
-    await tester.pumpWidget(ProviderScope(
-      overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
-      child: const MurdokuApp(),
-    ));
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+        child: const MurdokuApp(),
+      ),
+    );
     await tester.pumpAndSettle();
 
     final context = tester.element(find.byType(HomeScreen));

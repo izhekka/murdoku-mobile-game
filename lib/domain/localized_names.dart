@@ -1,4 +1,4 @@
-import 'models.dart';
+import 'package:murdoku/domain/models.dart';
 
 /// A Russian suspect name in the two grammatical forms the clue templates
 /// need: nominative (subject) and genitive (около/севернее ...).

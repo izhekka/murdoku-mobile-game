@@ -2,13 +2,13 @@ import 'dart:math' as math;
 
 import 'package:material_ui/material_ui.dart';
 
-import '../../core/skins.dart';
-import '../../core/theme.dart';
-import '../../domain/localized_names.dart';
-import '../../domain/models.dart';
-import '../../l10n/generated/app_localizations.dart';
-import 'avatar.dart';
-import 'item_sprite.dart';
+import 'package:murdoku/core/skins.dart';
+import 'package:murdoku/core/theme.dart';
+import 'package:murdoku/domain/localized_names.dart';
+import 'package:murdoku/domain/models.dart';
+import 'package:murdoku/l10n/generated/app_localizations.dart';
+import 'package:murdoku/ui/widgets/avatar.dart';
+import 'package:murdoku/ui/widgets/item_sprite.dart';
 
 /// The mansion map: G×G rooms with suspects, the victim, objects and X marks.
 /// Square by construction; scales to any width. All cells are tappable with
@@ -69,9 +69,9 @@ class _BoardViewState extends State<BoardView> {
           // carries the number badge shown in the legend.
           final anchors = <Pos>{
             for (final room in widget.caseData.rooms)
-              ([...room.cells]..sort((a, b) => a.row != b.row
-                      ? a.row - b.row
-                      : a.col - b.col))
+              ([...room.cells]..sort(
+                    (a, b) => a.row != b.row ? a.row - b.row : a.col - b.col,
+                  ))
                   .firstWhere((cell) => cell != widget.caseData.victimPos),
           };
 
@@ -81,8 +81,7 @@ class _BoardViewState extends State<BoardView> {
               _lastDragCell = null;
               _fireDrag(details.localPosition, cell, g);
             },
-            onPanUpdate: (details) =>
-                _fireDrag(details.localPosition, cell, g),
+            onPanUpdate: (details) => _fireDrag(details.localPosition, cell, g),
             child: SizedBox(
               key: const Key('board_view'),
               width: side,
@@ -120,10 +119,10 @@ class _BoardViewState extends State<BoardView> {
                           caseData: widget.caseData,
                           pos: (row: row, col: col),
                           roomNumber: anchors.contains((row: row, col: col))
-                              ? widget.caseData.rooms
-                                      .indexWhere((r) =>
-                                          r.contains((row: row, col: col))) +
-                                  1
+                              ? widget.caseData.rooms.indexWhere(
+                                      (r) => r.contains((row: row, col: col)),
+                                    ) +
+                                    1
                               : null,
                           placed: widget.placed,
                           xMarks: widget.xMarks,
@@ -160,7 +159,6 @@ class _Cell extends StatelessWidget {
   final String? selectedSuspectId;
   final void Function(Pos) onCellTap;
   final int? roomNumber;
-
 
   @override
   Widget build(BuildContext context) {
@@ -230,29 +228,40 @@ class _Cell extends StatelessWidget {
           : null;
       cellBorder = Border(
         top: BorderSide(
-            width: northRoom != room.id ? thick : thin, color: scheme.outline),
+          width: northRoom != room.id ? thick : thin,
+          color: scheme.outline,
+        ),
         left: BorderSide(
-            width: westRoom != room.id ? thick : thin, color: scheme.outline),
+          width: westRoom != room.id ? thick : thin,
+          color: scheme.outline,
+        ),
         right: BorderSide(
-            width: eastRoom != room.id ? thick : thin, color: scheme.outline),
+          width: eastRoom != room.id ? thick : thin,
+          color: scheme.outline,
+        ),
         bottom: BorderSide(
-            width: southRoom != room.id ? thick : thin, color: scheme.outline),
+          width: southRoom != room.id ? thick : thin,
+          color: scheme.outline,
+        ),
       );
     }
 
     final furnitureName = objectHere.isNotEmpty
-        ? NameForms.forLocale(l10n.localeName, c).objectNom(objectHere.first.kind)
+        ? NameForms.forLocale(
+            l10n.localeName,
+            c,
+          ).objectNom(objectHere.first.kind)
         : null;
     final blocking = objectHere.isNotEmpty && !objectHere.first.occupiable;
     var state = isVictim
         ? l10n.stateVictim
         : suspectIdHere != null
-            ? c.suspects.firstWhere((s) => s.id == suspectIdHere).name
-            : [
-                if (hasX) l10n.stateExcluded,
-                ?furnitureName,
-                if (blocking) l10n.stateBlocked,
-              ].join(' · ');
+        ? c.suspects.firstWhere((s) => s.id == suspectIdHere).name
+        : [
+            if (hasX) l10n.stateExcluded,
+            ?furnitureName,
+            if (blocking) l10n.stateBlocked,
+          ].join(' · ');
     if (state.isEmpty) state = l10n.stateEmpty;
     final label = l10n.cellSemantics(pos.row, pos.col, room.name, state);
 
@@ -271,10 +280,11 @@ class _Cell extends StatelessWidget {
                       ? tokens.badge.background
                       : scheme.primaryContainer,
                   border: Border.all(
-                      width: 1,
-                      color: cartoon
-                          ? tokens.badge.ink
-                          : scheme.onPrimaryContainer),
+                    width: 1,
+                    color: cartoon
+                        ? tokens.badge.ink
+                        : scheme.onPrimaryContainer,
+                  ),
                 ),
                 child: Center(
                   child: Text(
@@ -292,13 +302,15 @@ class _Cell extends StatelessWidget {
             ),
           );
 
-    Widget furniture(IconData icon,
-            {double size = 28, Alignment alignment = Alignment.center}) =>
-        ItemSprite(
-          kind: objectHere.first.kind,
-          size: size,
-          opacity: blocking && !hasX ? 0.85 : 1.0,
-        );
+    Widget furniture(
+      IconData icon, {
+      double size = 28,
+      Alignment alignment = Alignment.center,
+    }) => ItemSprite(
+      kind: objectHere.first.kind,
+      size: size,
+      opacity: blocking && !hasX ? 0.85 : 1.0,
+    );
 
     Widget content;
     if (isVictim) {
@@ -312,7 +324,8 @@ class _Cell extends StatelessWidget {
                 child: ClipRect(
                   child: CustomPaint(
                     painter: SkinVictimStripePainter(
-                        color: tokens.victimStripeColor),
+                      color: tokens.victimStripeColor,
+                    ),
                   ),
                 ),
               ),
@@ -321,7 +334,6 @@ class _Cell extends StatelessWidget {
                 'assets/items/victim.png',
                 width: 40,
                 height: 40,
-                filterQuality: FilterQuality.medium,
                 // Chalk outline always beats a letter — the letter is a
                 // last-resort fallback if the asset is missing.
                 errorBuilder: (_, _, _) => Text(
@@ -338,8 +350,9 @@ class _Cell extends StatelessWidget {
         ),
       );
     } else {
-      final itemIcon =
-          objectHere.isNotEmpty ? objectIcon(objectHere.first.kind) : null;
+      final itemIcon = objectHere.isNotEmpty
+          ? objectIcon(objectHere.first.kind)
+          : null;
       content = Stack(
         children: [
           roomBadge(),
@@ -362,8 +375,11 @@ class _Cell extends StatelessWidget {
             )
           else if (hasX)
             Center(
-              child: Icon(Icons.close,
-                  color: cartoon ? tokens.ink : scheme.error, size: 22),
+              child: Icon(
+                Icons.close,
+                color: cartoon ? tokens.ink : scheme.error,
+                size: 22,
+              ),
             )
           else if (itemIcon != null)
             Center(child: furniture(itemIcon))
@@ -445,7 +461,11 @@ class SkinRoomPainter extends CustomPainter {
         final roomIndex = _roomIndexAt((row, col));
         if (roomIndex < 0) continue;
         final rect = Rect.fromLTWH(
-            col * cellSize, row * cellSize, cellSize, cellSize);
+          col * cellSize,
+          row * cellSize,
+          cellSize,
+          cellSize,
+        );
         final north = _boundary(row, col, -1, 0);
         final south = _boundary(row, col, 1, 0);
         final west = _boundary(row, col, 0, -1);
@@ -550,7 +570,11 @@ class SkinVictimStripePainter extends CustomPainter {
       ..strokeCap = StrokeCap.butt;
     const spacing = 12.0;
     for (var d = -size.height; d < size.width + size.height; d += spacing) {
-      canvas.drawLine(Offset(d, 0), Offset(d + size.height, size.height), paint);
+      canvas.drawLine(
+        Offset(d, 0),
+        Offset(d + size.height, size.height),
+        paint,
+      );
     }
   }
 

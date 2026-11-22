@@ -1,29 +1,30 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:murdoku/app.dart';
 import 'package:murdoku/l10n/generated/app_localizations.dart';
 import 'package:murdoku/state/providers.dart';
 import 'package:murdoku/ui/screens/how_to_play_screen.dart';
 import 'package:murdoku/ui/widgets/tutorial_overlay.dart';
-import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 AppLocalizations l10nOf(WidgetTester tester) =>
     AppLocalizations.of(tester.element(find.byType(Scaffold).first))!;
 
-Future<ProviderContainer> pumpApp(WidgetTester tester,
-    {SharedPreferences? withPrefs}) async {
+Future<ProviderContainer> pumpApp(
+  WidgetTester tester, {
+  SharedPreferences? withPrefs,
+}) async {
   SharedPreferences.setMockInitialValues({});
   final prefs = withPrefs ?? await SharedPreferences.getInstance();
-  final container = ProviderContainer(overrides: [
-    sharedPreferencesProvider.overrideWithValue(prefs),
-  ]);
+  final container = ProviderContainer(
+    overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+  );
   addTearDown(container.dispose);
-  await tester.pumpWidget(UncontrolledProviderScope(
-    container: container,
-    child: const MurdokuApp(),
-  ));
+  await tester.pumpWidget(
+    UncontrolledProviderScope(container: container, child: const MurdokuApp()),
+  );
   await tester.pumpAndSettle();
   return container;
 }
@@ -55,8 +56,9 @@ void main() {
     expect(repo.loadTutorialSeen(), isTrue);
   });
 
-  testWidgets('tutorial is not shown again after the flag is set',
-      (tester) async {
+  testWidgets('tutorial is not shown again after the flag is set', (
+    tester,
+  ) async {
     SharedPreferences.setMockInitialValues({'murdoku.tutorialSeen': true});
     final prefs = await SharedPreferences.getInstance();
     await pumpApp(tester, withPrefs: prefs);
@@ -64,8 +66,9 @@ void main() {
     expect(find.byType(TutorialOverlay), findsNothing);
   });
 
-  testWidgets('how-to-play screen shows all four rules and the glossary',
-      (tester) async {
+  testWidgets('how-to-play screen shows all four rules and the glossary', (
+    tester,
+  ) async {
     await pumpApp(tester);
     final l10n = l10nOf(tester);
     final context = tester.element(find.byType(Scaffold).first);
@@ -82,7 +85,10 @@ void main() {
     // builds it on scroll, so scroll to it before asserting.
     final glossaryDirections = find.text(l10n.glossaryDirections);
     await tester.dragUntilVisible(
-        glossaryDirections, find.byType(ListView), const Offset(0, -100));
+      glossaryDirections,
+      find.byType(ListView),
+      const Offset(0, -100),
+    );
     await tester.pumpAndSettle();
     expect(find.text(l10n.glossaryBeside), findsOneWidget);
     expect(glossaryDirections, findsOneWidget);

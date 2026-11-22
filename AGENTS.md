@@ -29,6 +29,8 @@ flutter test integration_test/smoke_test.dart -d <device> # full-loop smoke test
 bash tool/build_item_icons.sh                             # rebuild the item sprites in assets/items/
 dart run tool/gen_icon.dart                               # regenerate the launcher icon
 dart run tool/preview_items.dart                          # render a labeled preview of the item sprite set
+make hooks                                                # install the pre-commit quality gate (core.hooksPath=.githooks)
+make quality                                              # local one-command gate: format + analyze + test --coverage + CRAP ratchet
 ```
 
 ## Development notes
@@ -46,13 +48,15 @@ dart run tool/preview_items.dart                          # render a labeled pre
 |-------|-------|
 | Branches, commits | [docs/git-workflow.md](docs/git-workflow.md) |
 | Decision records | [docs/spec/README.md](docs/spec/README.md) |
+| Code conventions, enforced lints | [docs/code-guidelines.md](docs/code-guidelines.md) |
 
 ## Guardrails (summary of plan §1)
 
 - Work task-by-task, TDD: failing test first, then minimal implementation, then green.
 - Gate after every task: `flutter analyze` (0 issues) && `flutter test` (all pass), then commit.
 - Runtime dependencies are exactly: flutter_riverpod, go_router, shared_preferences
-  (plus Flutter-template defaults). Dev-only extras: image, flutter_launcher_icons (Task 17).
+  (plus Flutter-template defaults). Dev-only extras: image, flutter_launcher_icons
+  (Task 17), analyzer (CRAP gate, issue #33).
 - No code generation / build_runner / freezed. Hand-written toJson/fromJson.
 - Fully offline; no networking, analytics, ads, or permissions.
 - All user-facing strings go through AppLocalizations (arb files).

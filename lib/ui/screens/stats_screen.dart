@@ -1,11 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
-import '../../core/format.dart';
-import '../../domain/models.dart';
-import '../../l10n/generated/app_localizations.dart';
-import '../../state/stats_controller.dart';
-import '../../state/providers.dart';
+import 'package:murdoku/core/format.dart';
+import 'package:murdoku/domain/models.dart';
+import 'package:murdoku/l10n/generated/app_localizations.dart';
+import 'package:murdoku/state/providers.dart';
+import 'package:murdoku/state/stats_controller.dart';
 
 class StatsScreen extends ConsumerWidget {
   const StatsScreen({super.key});
@@ -18,10 +18,10 @@ class StatsScreen extends ConsumerWidget {
     final daily = repo.loadDailyState();
 
     String difficultyLabel(Difficulty d) => switch (d) {
-          Difficulty.easy => l10n.difficultyEasy,
-          Difficulty.standard => l10n.difficultyStandard,
-          Difficulty.hard => l10n.difficultyHard,
-        };
+      Difficulty.easy => l10n.difficultyEasy,
+      Difficulty.standard => l10n.difficultyStandard,
+      Difficulty.hard => l10n.difficultyHard,
+    };
 
     return Scaffold(
       appBar: AppBar(title: Text(l10n.statsTitle)),
@@ -44,12 +44,20 @@ class StatsScreen extends ConsumerWidget {
                   children: [
                     Text(l10n.statsSolved(stats.solved[difficulty] ?? 0)),
                     if (stats.bestTime[difficulty] != null)
-                      Text(l10n.statsBest(
-                          formatDuration(stats.bestTime[difficulty]!))),
+                      Text(
+                        l10n.statsBest(
+                          formatDuration(stats.bestTime[difficulty]!),
+                        ),
+                      ),
                     if ((stats.solved[difficulty] ?? 0) > 0)
-                      Text(l10n.statsAverage(formatDuration(
-                          (stats.totalTime[difficulty] ?? Duration.zero) ~/
-                              (stats.solved[difficulty] ?? 1)))),
+                      Text(
+                        l10n.statsAverage(
+                          formatDuration(
+                            (stats.totalTime[difficulty] ?? Duration.zero) ~/
+                                (stats.solved[difficulty] ?? 1),
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               ),

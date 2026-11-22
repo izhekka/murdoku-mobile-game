@@ -1,6 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
-import '../../core/skins.dart';
+import 'package:murdoku/core/skins.dart';
 
 /// Card in the active skin (issue 23): the classic skin keeps the stock
 /// Material Card; cartoon skins render the token card (background, border,
@@ -30,10 +30,7 @@ class SkinCard extends StatelessWidget {
         ),
         // ListTiles paint their ink on the nearest Material; a transparent
         // one keeps splashes visible under the token container.
-        child: Material(
-          type: MaterialType.transparency,
-          child: child,
-        ),
+        child: Material(type: MaterialType.transparency, child: child),
       ),
     );
   }

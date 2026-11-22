@@ -1,13 +1,14 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
-import '../../l10n/generated/app_localizations.dart';
-import '../../state/game_controller.dart';
-import '../../state/providers.dart';
-import '../../state/settings_controller.dart';
-import '../../state/stats_controller.dart';
-import '../../storage/prefs_repository.dart' show LanguageSetting, SkinSetting;
-import '../widgets/dialogs.dart';
+import 'package:murdoku/l10n/generated/app_localizations.dart';
+import 'package:murdoku/state/game_controller.dart';
+import 'package:murdoku/state/providers.dart';
+import 'package:murdoku/state/settings_controller.dart';
+import 'package:murdoku/state/stats_controller.dart';
+import 'package:murdoku/storage/prefs_repository.dart'
+    show LanguageSetting, SkinSetting;
+import 'package:murdoku/ui/widgets/dialogs.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -24,17 +25,22 @@ class SettingsScreen extends ConsumerWidget {
         children: [
           Padding(
             padding: const EdgeInsets.only(left: 16, top: 8, bottom: 8),
-            child: Text(l10n.themeModeLabel,
-                style: Theme.of(context).textTheme.titleMedium),
+            child: Text(
+              l10n.themeModeLabel,
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
           ),
           SegmentedButton<ThemeMode>(
             segments: [
               ButtonSegment(
-                  value: ThemeMode.system, label: Text(l10n.themeSystem)),
+                value: ThemeMode.system,
+                label: Text(l10n.themeSystem),
+              ),
               ButtonSegment(
-                  value: ThemeMode.light, label: Text(l10n.themeLight)),
-              ButtonSegment(
-                  value: ThemeMode.dark, label: Text(l10n.themeDark)),
+                value: ThemeMode.light,
+                label: Text(l10n.themeLight),
+              ),
+              ButtonSegment(value: ThemeMode.dark, label: Text(l10n.themeDark)),
             ],
             selected: {settings.themeMode},
             onSelectionChanged: (selection) => ref
@@ -45,24 +51,36 @@ class SettingsScreen extends ConsumerWidget {
           // ThemeMode choice applies to Классика alone.
           Padding(
             padding: const EdgeInsets.only(left: 16, top: 6),
-            child: Text(l10n.themeModeCaption,
-                style: Theme.of(context).textTheme.bodySmall),
+            child: Text(
+              l10n.themeModeCaption,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
           ),
           Padding(
             padding: const EdgeInsets.only(left: 16, top: 16, bottom: 8),
-            child: Text(l10n.skinLabel,
-                style: Theme.of(context).textTheme.titleMedium),
+            child: Text(
+              l10n.skinLabel,
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
           ),
           SegmentedButton<SkinSetting>(
             segments: [
               ButtonSegment(
-                  value: SkinSetting.classic, label: Text(l10n.skinClassic)),
+                value: SkinSetting.classic,
+                label: Text(l10n.skinClassic),
+              ),
               ButtonSegment(
-                  value: SkinSetting.candy, label: Text(l10n.skinCandy)),
+                value: SkinSetting.candy,
+                label: Text(l10n.skinCandy),
+              ),
               ButtonSegment(
-                  value: SkinSetting.sticker, label: Text(l10n.skinSticker)),
+                value: SkinSetting.sticker,
+                label: Text(l10n.skinSticker),
+              ),
               ButtonSegment(
-                  value: SkinSetting.comic, label: Text(l10n.skinComic)),
+                value: SkinSetting.comic,
+                label: Text(l10n.skinComic),
+              ),
             ],
             selected: {settings.skin},
             onSelectionChanged: (selection) => ref
@@ -72,27 +90,31 @@ class SettingsScreen extends ConsumerWidget {
           SwitchListTile(
             title: Text(l10n.hapticsLabel),
             value: settings.haptics,
-            onChanged: (value) => ref
-                .read(settingsControllerProvider.notifier)
-                .setHaptics(value),
+            onChanged: (value) =>
+                ref.read(settingsControllerProvider.notifier).setHaptics(value),
           ),
           const SizedBox(height: 16),
           Padding(
             padding: const EdgeInsets.only(left: 16, bottom: 8),
-            child: Text(l10n.languageLabel,
-                style: Theme.of(context).textTheme.titleMedium),
+            child: Text(
+              l10n.languageLabel,
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
           ),
           SegmentedButton<LanguageSetting>(
             segments: [
               ButtonSegment(
-                  value: LanguageSetting.system,
-                  label: Text(l10n.languageSystem)),
+                value: LanguageSetting.system,
+                label: Text(l10n.languageSystem),
+              ),
               ButtonSegment(
-                  value: LanguageSetting.russian,
-                  label: Text(l10n.languageRussian)),
+                value: LanguageSetting.russian,
+                label: Text(l10n.languageRussian),
+              ),
               ButtonSegment(
-                  value: LanguageSetting.english,
-                  label: Text(l10n.languageEnglish)),
+                value: LanguageSetting.english,
+                label: Text(l10n.languageEnglish),
+              ),
             ],
             selected: {settings.language},
             onSelectionChanged: (selection) => ref
@@ -119,7 +141,10 @@ class SettingsScreen extends ConsumerWidget {
   }
 
   Future<void> _resetProgress(
-      BuildContext context, WidgetRef ref, AppLocalizations l10n) async {
+    BuildContext context,
+    WidgetRef ref,
+    AppLocalizations l10n,
+  ) async {
     final confirmed = await showConfirmDialog(
       context,
       title: l10n.resetConfirmTitle,
@@ -131,9 +156,8 @@ class SettingsScreen extends ConsumerWidget {
     ref.read(gameControllerProvider.notifier).quit();
     ref.invalidate(statsControllerProvider);
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.progressReset)),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(l10n.progressReset)));
     }
   }
 }

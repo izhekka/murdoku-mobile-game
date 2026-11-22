@@ -1,8 +1,8 @@
 import 'package:material_ui/material_ui.dart';
 
-import '../../core/format.dart';
-import '../../l10n/generated/app_localizations.dart';
-import '../../domain/models.dart';
+import 'package:murdoku/core/format.dart';
+import 'package:murdoku/domain/models.dart';
+import 'package:murdoku/l10n/generated/app_localizations.dart';
 
 /// Shown after a correct accusation: time, difficulty and mistake count.
 class VictoryDialog extends StatelessWidget {

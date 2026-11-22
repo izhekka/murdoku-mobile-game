@@ -1,6 +1,6 @@
 import 'dart:math';
 
-import '../models.dart';
+import 'package:murdoku/domain/models.dart';
 
 const _directions = [(-1, 0), (1, 0), (0, -1), (0, 1)];
 
@@ -55,9 +55,11 @@ List<RoomDef> _growOnce({required int gridSize, required Random rng}) {
   var remaining = g * g - g;
   while (remaining > 0) {
     final order = List.generate(g, (i) => i)
-      ..sort((a, b) => roomCells[a].length != roomCells[b].length
-          ? roomCells[a].length - roomCells[b].length
-          : rng.nextInt(3) - 1);
+      ..sort(
+        (a, b) => roomCells[a].length != roomCells[b].length
+            ? roomCells[a].length - roomCells[b].length
+            : rng.nextInt(3) - 1,
+      );
     var grew = false;
     for (final ri in order) {
       if (remaining == 0) break;

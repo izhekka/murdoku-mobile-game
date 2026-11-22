@@ -2,14 +2,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
-import '../../core/format.dart';
-import '../../domain/models.dart';
-import '../../l10n/generated/app_localizations.dart';
-import '../../state/clock.dart';
-import '../../state/game_controller.dart';
-import '../../state/providers.dart';
-import '../widgets/skin_card.dart';
-import '../widgets/tutorial_overlay.dart';
+import 'package:murdoku/core/format.dart';
+import 'package:murdoku/domain/models.dart';
+import 'package:murdoku/l10n/generated/app_localizations.dart';
+import 'package:murdoku/state/clock.dart';
+import 'package:murdoku/state/game_controller.dart';
+import 'package:murdoku/state/providers.dart';
+import 'package:murdoku/ui/widgets/skin_card.dart';
+import 'package:murdoku/ui/widgets/tutorial_overlay.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -52,7 +52,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final controllerState = ref.watch(gameControllerProvider);
     final savedGame = controllerState != null
         ? ref.read(gameControllerProvider.notifier).currentSave() ??
-            repo.loadActiveGame()
+              repo.loadActiveGame()
         : repo.loadActiveGame();
     final daily = repo.loadDailyState();
     final today = utcToday(ref.read(clockProvider));
@@ -69,8 +69,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 leading: const Icon(Icons.play_arrow),
                 title: Text(l10n.continueCase),
                 subtitle: Text(
-                    '${_difficultyLabel(l10n, savedGame.caseData.difficulty)} · '
-                    '${formatDuration(savedGame.board.elapsed)}'),
+                  '${_difficultyLabel(l10n, savedGame.caseData.difficulty)} · '
+                  '${formatDuration(savedGame.board.elapsed)}',
+                ),
                 onTap: () {
                   ref.read(gameControllerProvider.notifier).resume(savedGame);
                   context.go('/game');
@@ -87,8 +88,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           SkinCard(
             child: ListTile(
               leading: Icon(dailyDone ? Icons.check_circle : Icons.event),
-              iconColor:
-                  dailyDone ? Theme.of(context).colorScheme.primary : null,
+              iconColor: dailyDone
+                  ? Theme.of(context).colorScheme.primary
+                  : null,
               title: Text(l10n.dailyCase),
               subtitle: dailyDone ? Text(l10n.dailyCompleted) : null,
               onTap: () {
@@ -132,7 +134,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       };
 
   void _showNewCaseSheet(
-      BuildContext context, WidgetRef ref, AppLocalizations l10n) {
+    BuildContext context,
+    WidgetRef ref,
+    AppLocalizations l10n,
+  ) {
     final repo = ref.read(prefsRepositoryProvider);
     final hasActiveSave = repo.loadActiveGame() != null;
     showModalBottomSheet<void>(
@@ -144,15 +149,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             children: [
               Padding(
                 padding: const EdgeInsets.all(16),
-                child: Text(l10n.chooseDifficulty,
-                    style: Theme.of(sheetContext).textTheme.titleMedium),
+                child: Text(
+                  l10n.chooseDifficulty,
+                  style: Theme.of(sheetContext).textTheme.titleMedium,
+                ),
               ),
               for (final difficulty in Difficulty.values)
                 ListTile(
                   title: Text(_difficultyLabel(l10n, difficulty)),
                   onTap: () {
                     Navigator.of(sheetContext).pop();
-                    _startNewCase(context, ref, l10n, difficulty, hasActiveSave);
+                    _startNewCase(
+                      context,
+                      ref,
+                      l10n,
+                      difficulty,
+                      hasActiveSave,
+                    );
                   },
                 ),
             ],
@@ -162,8 +175,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Future<void> _startNewCase(BuildContext context, WidgetRef ref,
-      AppLocalizations l10n, Difficulty difficulty, bool hasActiveSave) async {
+  Future<void> _startNewCase(
+    BuildContext context,
+    WidgetRef ref,
+    AppLocalizations l10n,
+    Difficulty difficulty,
+    bool hasActiveSave,
+  ) async {
     if (hasActiveSave) {
       final discard = await showDialog<bool>(
         context: context,

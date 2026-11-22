@@ -4,20 +4,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
-import '../../core/format.dart';
-import '../../core/skins.dart';
-import '../../domain/game_logic.dart' show Tool, boardSolved;
-import '../../domain/localized_names.dart';
-import '../../domain/models.dart';
-import '../../l10n/generated/app_localizations.dart';
-import '../../state/game_controller.dart';
-import '../../state/stats_controller.dart';
-import '../widgets/accuse_sheet.dart';
-import '../widgets/board_view.dart';
-import '../widgets/legend_sheet.dart';
-import '../widgets/dialogs.dart';
-import '../widgets/pause_menu_sheet.dart';
-import '../widgets/suspect_panel.dart';
+import 'package:murdoku/core/format.dart';
+import 'package:murdoku/core/skins.dart';
+import 'package:murdoku/domain/game_logic.dart' show Tool, boardSolved;
+import 'package:murdoku/domain/localized_names.dart';
+import 'package:murdoku/domain/models.dart';
+import 'package:murdoku/l10n/generated/app_localizations.dart';
+import 'package:murdoku/state/game_controller.dart';
+import 'package:murdoku/state/stats_controller.dart';
+import 'package:murdoku/ui/widgets/accuse_sheet.dart';
+import 'package:murdoku/ui/widgets/board_view.dart';
+import 'package:murdoku/ui/widgets/dialogs.dart';
+import 'package:murdoku/ui/widgets/legend_sheet.dart';
+import 'package:murdoku/ui/widgets/pause_menu_sheet.dart';
+import 'package:murdoku/ui/widgets/suspect_panel.dart';
 
 class GameScreen extends ConsumerStatefulWidget {
   const GameScreen({super.key});
@@ -63,8 +63,7 @@ class _GameScreenState extends ConsumerState<GameScreen>
     // Auto-open the accuse sheet exactly once per solved transition.
     ref.listen<GameState?>(gameControllerProvider, (prev, next) {
       if (next == null || next.phase != GamePhase.playing) return;
-      final wasSolved =
-          prev != null && boardSolved(prev.caseData, prev.placed);
+      final wasSolved = prev != null && boardSolved(prev.caseData, prev.placed);
       final solved = boardSolved(next.caseData, next.placed);
       if (solved && !wasSolved && !_accuseOpen) {
         _accuseOpen = true;
@@ -104,8 +103,7 @@ class _GameScreenState extends ConsumerState<GameScreen>
         placed: state.placed,
         xMarks: state.xMarks,
         selectedSuspectId: state.selectedSuspectId,
-        onCellTap: (p) =>
-            ref.read(gameControllerProvider.notifier).tapCell(p),
+        onCellTap: (p) => ref.read(gameControllerProvider.notifier).tapCell(p),
         onCellDrag: (p) {
           final notifier = ref.read(gameControllerProvider.notifier);
           if (state.tool != Tool.place) notifier.tapCell(p);
@@ -119,8 +117,7 @@ class _GameScreenState extends ConsumerState<GameScreen>
       selectedSuspectId: state.selectedSuspectId,
       onSuspectTap: (id) {
         final notifier = ref.read(gameControllerProvider.notifier);
-        notifier.selectSuspect(
-            state.selectedSuspectId == id ? null : id);
+        notifier.selectSuspect(state.selectedSuspectId == id ? null : id);
       },
     );
 
@@ -133,7 +130,9 @@ class _GameScreenState extends ConsumerState<GameScreen>
         ),
         title: Semantics(
           label: l10n.timerSemantics(
-              difficultyLabel, formatDuration(state.elapsed)),
+            difficultyLabel,
+            formatDuration(state.elapsed),
+          ),
           excludeSemantics: true,
           child: Text('$difficultyLabel · ${formatDuration(state.elapsed)}'),
         ),
@@ -151,51 +150,50 @@ class _GameScreenState extends ConsumerState<GameScreen>
         ],
       ),
       body: SafeArea(
-        child: LayoutBuilder(builder: (context, constraints) {
-          final wide = constraints.maxWidth >= 600;
-          if (wide) {
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final wide = constraints.maxWidth >= 600;
+            if (wide) {
+              return Column(
+                children: [
+                  Expanded(
+                    child: Row(
+                      children: [
+                        // Bottom-center the square board in its (wider than
+                        // tall) slot so it hugs the toolbar, matching the
+                        // narrow branch's flush seam.
+                        Expanded(
+                          child: Align(
+                            alignment: Alignment.bottomCenter,
+                            child: board,
+                          ),
+                        ),
+                        SizedBox(width: 300, child: panel),
+                      ],
+                    ),
+                  ),
+                  _toolbar(l10n, state),
+                ],
+              );
+            }
             return Column(
               children: [
+                // The square board hugs the suspect grid; whatever vertical
+                // space is left above it (under the app bar) is a few px at
+                // phone sizes — never a dead band, and never a gap between
+                // the board and the panel (UX-6).
                 Expanded(
-                  child: Row(
-                    children: [
-                      // Bottom-center the square board in its (wider than
-                      // tall) slot so it hugs the toolbar, matching the
-                      // narrow branch's flush seam.
-                      Expanded(
-                        child: Align(
-                          alignment: Alignment.bottomCenter,
-                          child: board,
-                        ),
-                      ),
-                      SizedBox(width: 300, child: panel),
-                    ],
-                  ),
+                  child: Align(alignment: Alignment.bottomCenter, child: board),
                 ),
+                // The panel fills all space under the board (UX-9) instead of
+                // a fixed 205px slot, so its cards stretch taller and the
+                // full clue text stays readable.
+                Expanded(child: panel),
                 _toolbar(l10n, state),
               ],
             );
-          }
-          return Column(
-            children: [
-              // The square board hugs the suspect grid; whatever vertical
-              // space is left above it (under the app bar) is a few px at
-              // phone sizes — never a dead band, and never a gap between
-              // the board and the panel (UX-6).
-              Expanded(
-                child: Align(
-                  alignment: Alignment.bottomCenter,
-                  child: board,
-                ),
-              ),
-              // The panel fills all space under the board (UX-9) instead of
-              // a fixed 205px slot, so its cards stretch taller and the
-              // full clue text stays readable.
-              Expanded(child: panel),
-              _toolbar(l10n, state),
-            ],
-          );
-        }),
+          },
+        ),
       ),
     );
   }
@@ -220,79 +218,80 @@ class _GameScreenState extends ConsumerState<GameScreen>
       required String keyName,
       bool active = false,
       Color? pillColor,
-    }) =>
-        Semantics(
-          label: label,
-          button: true,
-          child: Tooltip(
-            message: tooltip,
-            child: InkWell(
-              onTap: onPressed,
-              borderRadius: BorderRadius.circular(12),
-              child: Container(
-                key: Key(keyName),
-                constraints:
-                    const BoxConstraints(minWidth: 48, minHeight: 52),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-                decoration: pillColor == null
-                    ? BoxDecoration(
-                        borderRadius: BorderRadius.circular(12),
-                        color: active
-                            ? Theme.of(context).colorScheme.primaryContainer
-                            : Colors.transparent,
-                      )
-                    : BoxDecoration(
-                        borderRadius:
-                            BorderRadius.circular(tokens!.buttonRadius),
-                        color: pillColor,
-                        boxShadow: [tokens.buttonShadow],
-                        border: active
-                            ? Border.all(color: tokens.ink, width: 2.5)
-                            : null,
-                      ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(icon,
-                        size: 22,
-                        color:
-                            pillColor != null ? Colors.white : null),
-                    const SizedBox(height: 2),
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text(
-                        label,
-                        maxLines: 1,
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: pillColor != null ? Colors.white : null,
-                        ),
-                      ),
-                    ),
-                  ],
+    }) => Semantics(
+      label: label,
+      button: true,
+      child: Tooltip(
+        message: tooltip,
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            key: Key(keyName),
+            constraints: const BoxConstraints(minWidth: 48, minHeight: 52),
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+            decoration: pillColor == null
+                ? BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    color: active
+                        ? Theme.of(context).colorScheme.primaryContainer
+                        : Colors.transparent,
+                  )
+                : BoxDecoration(
+                    borderRadius: BorderRadius.circular(tokens!.buttonRadius),
+                    color: pillColor,
+                    boxShadow: [tokens.buttonShadow],
+                    border: active
+                        ? Border.all(color: tokens.ink, width: 2.5)
+                        : null,
+                  ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  icon,
+                  size: 22,
+                  color: pillColor != null ? Colors.white : null,
                 ),
-              ),
+                const SizedBox(height: 2),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: pillColor != null ? Colors.white : null,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-        );
+        ),
+      ),
+    );
 
-    Widget toolButton(Tool tool, IconData icon, String label,
-            {required String tooltip, required Color? pillColor}) =>
-        miniButton(
-          icon: icon,
-          label: label,
-          tooltip: tooltip,
-          keyName: switch (tool) {
-            Tool.place => 'tool_place',
-            Tool.markX => 'tool_mark',
-            Tool.erase => 'tool_erase',
-          },
-          active: state.tool == tool,
-          pillColor: pillColor,
-          onPressed: () => notifier.setTool(tool),
-        );
+    Widget toolButton(
+      Tool tool,
+      IconData icon,
+      String label, {
+      required String tooltip,
+      required Color? pillColor,
+    }) => miniButton(
+      icon: icon,
+      label: label,
+      tooltip: tooltip,
+      keyName: switch (tool) {
+        Tool.place => 'tool_place',
+        Tool.markX => 'tool_mark',
+        Tool.erase => 'tool_erase',
+      },
+      active: state.tool == tool,
+      pillColor: pillColor,
+      onPressed: () => notifier.setTool(tool),
+    );
 
     Color? actionColor(Color Function(SkinActions) pick) =>
         actions == null ? null : pick(actions);
@@ -303,19 +302,31 @@ class _GameScreenState extends ConsumerState<GameScreen>
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
           Expanded(
-            child: toolButton(Tool.place, Icons.person, l10n.toolPlace,
-                tooltip: l10n.toolPlace,
-                pillColor: actionColor((a) => a.place)),
+            child: toolButton(
+              Tool.place,
+              Icons.person,
+              l10n.toolPlace,
+              tooltip: l10n.toolPlace,
+              pillColor: actionColor((a) => a.place),
+            ),
           ),
           Expanded(
-            child: toolButton(Tool.markX, Icons.close, l10n.toolMark,
-                tooltip: l10n.toolMarkTooltip,
-                pillColor: actionColor((a) => a.mark)),
+            child: toolButton(
+              Tool.markX,
+              Icons.close,
+              l10n.toolMark,
+              tooltip: l10n.toolMarkTooltip,
+              pillColor: actionColor((a) => a.mark),
+            ),
           ),
           Expanded(
-            child: toolButton(Tool.erase, Icons.auto_fix_normal, l10n.toolErase,
-                tooltip: l10n.toolErase,
-                pillColor: actionColor((a) => a.erase)),
+            child: toolButton(
+              Tool.erase,
+              Icons.auto_fix_normal,
+              l10n.toolErase,
+              tooltip: l10n.toolErase,
+              pillColor: actionColor((a) => a.erase),
+            ),
           ),
           Expanded(
             child: miniButton(
@@ -324,7 +335,7 @@ class _GameScreenState extends ConsumerState<GameScreen>
               tooltip: l10n.toolUndo,
               keyName: 'tool_undo',
               pillColor: actionColor((a) => a.undo),
-              onPressed: () => notifier.undo(),
+              onPressed: notifier.undo,
             ),
           ),
           Expanded(
@@ -354,7 +365,7 @@ class _GameScreenState extends ConsumerState<GameScreen>
               tooltip: l10n.accuse,
               keyName: 'tool_accuse',
               pillColor: actionColor((a) => a.accuse),
-              onPressed: () => showAccuseSheet(),
+              onPressed: showAccuseSheet,
             ),
           ),
           Expanded(
@@ -373,10 +384,7 @@ class _GameScreenState extends ConsumerState<GameScreen>
   }
 
   Future<void> _showPauseMenu(AppLocalizations l10n) {
-    return PauseMenuSheet.show(
-      context,
-      onAbandon: () => _confirmQuit(l10n),
-    );
+    return PauseMenuSheet.show(context, onAbandon: () => _confirmQuit(l10n));
   }
 
   Future<void> showAccuseSheet() async {
@@ -395,13 +403,17 @@ class _GameScreenState extends ConsumerState<GameScreen>
     final correct = notifier.accuse(accused);
     if (correct) {
       final won = ref.read(gameControllerProvider)!;
-      unawaited(ref.read(statsControllerProvider.notifier).recordWin(
-        difficulty: won.caseData.difficulty,
-        time: won.elapsed,
-        mistakes: won.wrongAccusations,
-        isDaily: won.isDaily,
-        dailyDate: won.dailyDate ?? '',
-      ));
+      unawaited(
+        ref
+            .read(statsControllerProvider.notifier)
+            .recordWin(
+              difficulty: won.caseData.difficulty,
+              time: won.elapsed,
+              mistakes: won.wrongAccusations,
+              isDaily: won.isDaily,
+              dailyDate: won.dailyDate ?? '',
+            ),
+      );
       await showDialog<void>(
         context: context,
         barrierDismissible: false,
@@ -415,18 +427,16 @@ class _GameScreenState extends ConsumerState<GameScreen>
     } else {
       final l10n = AppLocalizations.of(context)!;
       final names = NameForms.forLocale(l10n.localeName, state.caseData);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.alibi(names.nom(accused)))),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(l10n.alibi(names.nom(accused)))));
     }
   }
 
   void _runCheck(AppLocalizations l10n) {
     final result = ref.read(gameControllerProvider.notifier).runCheck();
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(l10n.checkResult(result.correct, result.total)),
-      ),
+      SnackBar(content: Text(l10n.checkResult(result.correct, result.total))),
     );
   }
 

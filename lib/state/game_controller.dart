@@ -3,11 +3,12 @@ import 'dart:math';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../domain/generator/case_factory.dart';
-import '../domain/game_logic.dart' show Tool, canPlace, correctCount;
-import '../domain/models.dart';
-import '../storage/prefs_repository.dart';
-import 'providers.dart';
+import 'package:murdoku/domain/game_logic.dart'
+    show Tool, canPlace, correctCount;
+import 'package:murdoku/domain/generator/case_factory.dart';
+import 'package:murdoku/domain/models.dart';
+import 'package:murdoku/state/providers.dart';
+import 'package:murdoku/storage/prefs_repository.dart';
 
 enum GamePhase { playing, won, revealed }
 
@@ -89,22 +90,21 @@ class GameState {
     String? selectedSuspectId,
     Tool? tool,
     Duration? elapsed,
-  }) =>
-      GameState(
-        caseData: caseData,
-        phase: phase ?? this.phase,
-        placed: placed,
-        xMarks: xMarks,
-        lockedSuspects: lockedSuspects,
-        selectedSuspectId: selectedSuspectId ?? this.selectedSuspectId,
-        tool: tool ?? this.tool,
-        elapsed: elapsed ?? this.elapsed,
-        hintsUsed: hintsUsed,
-        wrongAccusations: wrongAccusations,
-        isDaily: isDaily,
-        dailyDate: dailyDate,
-        eliminatedSuspects: eliminatedSuspects,
-      );
+  }) => GameState(
+    caseData: caseData,
+    phase: phase ?? this.phase,
+    placed: placed,
+    xMarks: xMarks,
+    lockedSuspects: lockedSuspects,
+    selectedSuspectId: selectedSuspectId ?? this.selectedSuspectId,
+    tool: tool ?? this.tool,
+    elapsed: elapsed ?? this.elapsed,
+    hintsUsed: hintsUsed,
+    wrongAccusations: wrongAccusations,
+    isDaily: isDaily,
+    dailyDate: dailyDate,
+    eliminatedSuspects: eliminatedSuspects,
+  );
 }
 
 /// Drives one active case. Null state means no active game (home screen).
@@ -128,18 +128,25 @@ class GameNotifier extends Notifier<GameState?> {
   GameState? get _state => state;
 
   void startNewCase(Difficulty difficulty, {int? seed}) {
-    _start(generateCase(
+    _start(
+      generateCase(
         difficulty: difficulty,
-        seed: seed ??
-            ref.read(forcedSeedProvider) ??
-            Random().nextInt(1 << 30)),
-        isDaily: false,
-        dailyDate: '');
+        seed: seed ?? ref.read(forcedSeedProvider) ?? Random().nextInt(1 << 30),
+      ),
+      isDaily: false,
+      dailyDate: '',
+    );
   }
 
-  void startDaily(String utcDate, {Difficulty difficulty = Difficulty.standard}) {
+  void startDaily(
+    String utcDate, {
+    Difficulty difficulty = Difficulty.standard,
+  }) {
     _start(
-      generateCase(difficulty: difficulty, seed: dailySeedFor(_utcDate(utcDate))),
+      generateCase(
+        difficulty: difficulty,
+        seed: dailySeedFor(_utcDate(utcDate)),
+      ),
       isDaily: true,
       dailyDate: utcDate,
     );
@@ -163,14 +170,11 @@ class GameNotifier extends Notifier<GameState?> {
     _isDaily = isDaily;
     _dailyDate = dailyDate;
     _history.clear();
-    state = _compose(phase: GamePhase.playing, selectedSuspectId: null);
+    state = _compose(phase: GamePhase.playing);
     _persist();
   }
 
-  GameState _compose({
-    required GamePhase phase,
-    String? selectedSuspectId,
-  }) =>
+  GameState _compose({required GamePhase phase, String? selectedSuspectId}) =>
       GameState(
         caseData: _case,
         phase: phase,
@@ -279,7 +283,10 @@ class GameNotifier extends Notifier<GameState?> {
   ({int correct, int total}) runCheck() {
     final s = _state;
     if (s == null) return (correct: 0, total: 0);
-    return (correct: correctCount(_case, _placed), total: _case.suspects.length);
+    return (
+      correct: correctCount(_case, _placed),
+      total: _case.suspects.length,
+    );
   }
 
   void hintPlacement() {
@@ -325,7 +332,8 @@ class GameNotifier extends Notifier<GameState?> {
     final s = _state;
     if (s == null || s.phase != GamePhase.playing) return false;
     if (suspectId == _case.murdererId) {
-      _wrongAccusations = _wrongAccusations; // unchanged on a correct accusation
+      _wrongAccusations =
+          _wrongAccusations; // unchanged on a correct accusation
       state = _compose(phase: GamePhase.won);
       unawaited(ref.read(prefsRepositoryProvider).clearActiveGame());
       return true;
@@ -389,5 +397,6 @@ class GameNotifier extends Notifier<GameState?> {
   }
 }
 
-final gameControllerProvider =
-    NotifierProvider<GameNotifier, GameState?>(GameNotifier.new);
+final gameControllerProvider = NotifierProvider<GameNotifier, GameState?>(
+  GameNotifier.new,
+);
