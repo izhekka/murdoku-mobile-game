@@ -80,6 +80,26 @@ CaseData poolFixture() => CaseData(
       solution: {'s0': p(0, 0), 's1': p(0, 3), 's2': p(1, 2)},
     );
 
+/// Instrumental forms pinned via `objectGen` before #14 removed the dead
+/// field; each ru prep phrase must still embed the same form (lowercased
+/// inside the phrase).
+const Map<ObjectKind, String> instrumentalForms = {
+  ObjectKind.piano: 'пианино',
+  ObjectKind.plant: 'растением',
+  ObjectKind.armor: 'доспехами',
+  ObjectKind.chest: 'сундуком',
+  ObjectKind.clock: 'часами',
+  ObjectKind.globe: 'глобусом',
+  ObjectKind.portrait: 'портретом',
+  ObjectKind.fireplace: 'камином',
+  ObjectKind.table: 'столом',
+  ObjectKind.chair: 'стулом',
+  ObjectKind.flowers: 'цветами',
+  ObjectKind.sofa: 'диваном',
+  ObjectKind.bookshelf: 'стеллажом',
+  ObjectKind.lamp: 'лампой',
+};
+
 void main() {
   test('ru arb covers exactly the en key set', () {
     final en = jsonDecode(
@@ -141,32 +161,6 @@ void main() {
         reason: 'negated BesideObject');
   });
 
-  test('ru item clue uses instrumental forms for every object kind (UX-8)', () {
-    final names = NameForms.forLocale('ru', poolFixture());
-    const instrumental = {
-      ObjectKind.table: 'Столом',
-      ObjectKind.chair: 'Стулом',
-      ObjectKind.flowers: 'Цветами',
-      ObjectKind.piano: 'Пианино',
-      ObjectKind.plant: 'Растением',
-      ObjectKind.armor: 'Доспехами',
-      ObjectKind.chest: 'Сундуком',
-      ObjectKind.clock: 'Часами',
-      ObjectKind.globe: 'Глобусом',
-      ObjectKind.portrait: 'Портретом',
-      ObjectKind.fireplace: 'Камином',
-      ObjectKind.sofa: 'Диваном',
-      ObjectKind.bookshelf: 'Стеллажом',
-      ObjectKind.lamp: 'Лампой',
-    };
-    expect(instrumental.keys.toSet(), equals(ObjectKind.values.toSet()),
-        reason: 'the instrumental pool must cover every object kind');
-    for (final entry in instrumental.entries) {
-      expect(names.objectGen(entry.key), entry.value,
-          reason: '${entry.key.name} instrumental form');
-    }
-  });
-
   test('ru item prep phrases: euphonic «со» and lowercase for every kind', () {
     final names = NameForms.forLocale('ru', poolFixture());
     const prep = {
@@ -190,6 +184,22 @@ void main() {
     for (final entry in prep.entries) {
       expect(names.objectPrep(entry.key), entry.value,
           reason: '${entry.key.name} prep phrase');
+      // #14: instrumental-case coverage formerly pinned via the removed
+      // `gen` field — each prep phrase embeds the same instrumental form.
+      expect(entry.value.endsWith(instrumentalForms[entry.key]!), isTrue,
+          reason: '${entry.key.name} instrumental form inside prep phrase');
+    }
+  });
+
+  test('ru object form records carry exactly (nom, prep) — no dead gen (#14)',
+      () {
+    // Structural record equality: a leftover `gen` field changes the record
+    // shape, and records of different shapes are never equal.
+    expect(ruObjectForms.keys.toSet(), equals(ObjectKind.values.toSet()));
+    for (final kind in ObjectKind.values) {
+      final form = ruObjectForms[kind]!;
+      expect(form, (nom: form.nom, prep: form.prep),
+          reason: '${kind.name} form has exactly the fields nom and prep');
     }
   });
 
