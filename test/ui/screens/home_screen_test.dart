@@ -38,6 +38,26 @@ void main() {
   AppLocalizations l10nOf(WidgetTester tester) =>
       AppLocalizations.of(tester.element(find.byType(Scaffold).first))!;
 
+  /// Explicit, bounded frame wait: pumps [step] at a time until [finder]
+  /// matches, then returns. Fails fast with a precise reason instead of
+  /// asserting against a possibly unsettled frame (issue 25): pumpAndSettle's
+  /// exit condition can race with post-frame/timer frame scheduling, so the
+  /// multi-dialog flow's stage gates wait on UI presence explicitly. The
+  /// budget (6s of fake time at the default step) is far above any route
+  /// transition and far below pumpAndSettle's runaway timeout.
+  Future<void> pumpUntil(
+    WidgetTester tester,
+    Finder finder, {
+    Duration step = const Duration(milliseconds: 100),
+    int maxPumps = 60,
+  }) async {
+    for (var i = 0; i < maxPumps; i++) {
+      await tester.pump(step);
+      if (finder.evaluate().isNotEmpty) return;
+    }
+    fail('pumpUntil gave up after $maxPumps pumps: $finder');
+  }
+
   testWidgets('no save: Continue button absent; nav rows present', (tester) async {
     await pumpHome(tester);
     final l10n = l10nOf(tester);
@@ -70,16 +90,32 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.tap(find.text(l10n.newCase));
+    // Issue 25 — explicit waiting, no timing guesses: dispatch the frame
+    // that pushes the sheet, then run its entrance animation to completion.
+    await tester.pump();
     await tester.pumpAndSettle();
+    // Stage gate: the difficulty chooser is fully open before interacting.
+    expect(find.text(l10n.chooseDifficulty), findsOneWidget);
 
     // Difficulty chooser bottom sheet.
     await tester.tap(find.text(l10n.difficultyHard).last);
+    // Dispatch the frame that pops the sheet and pushes the discard dialog;
+    // settle both concurrent animations.
+    await tester.pump();
     await tester.pumpAndSettle();
-
-    // Discard confirmation dialog.
+    // Stage gate: the confirm dialog is present.
+    await pumpUntil(tester, find.text(l10n.discardTitle));
     expect(find.text(l10n.discardTitle), findsOneWidget);
+
     await tester.tap(find.text(l10n.discard));
+    // Dispatch the frame carrying the dialog pop, the new-case start and the
+    // /game navigation; settle the concurrent dialog exit and page
+    // transition.
+    await tester.pump();
     await tester.pumpAndSettle();
+    // Stage gate: the game screen is mounted and settled despite its
+    // 1-second tick timer scheduling frames.
+    await pumpUntil(tester, find.byType(GameScreen));
 
     // New hard case started and navigated to the game screen.
     expect(find.byType(GameScreen), findsOneWidget);
