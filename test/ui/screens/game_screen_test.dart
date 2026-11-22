@@ -1,3 +1,4 @@
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -63,6 +64,23 @@ Future<void> tapCell(WidgetTester tester, int row, int col) async {
     boardRect.top + (row + 0.5) * cell,
   ));
   await tester.pumpAndSettle();
+}
+
+/// Ideal (unclamped) height the paragraph's text needs at its laid-out
+/// width: a rendered paragraph shorter than this is being clipped.
+double idealParagraphHeight(RenderParagraph paragraph) {
+  final painter = TextPainter(
+    text: paragraph.text,
+    textAlign: paragraph.textAlign,
+    textDirection: paragraph.textDirection,
+    textScaler: paragraph.textScaler,
+    textWidthBasis: paragraph.textWidthBasis,
+    textHeightBehavior: paragraph.textHeightBehavior,
+    maxLines: paragraph.maxLines,
+  )..layout(maxWidth: paragraph.size.width);
+  final height = painter.height;
+  painter.dispose();
+  return height;
 }
 
 void main() {
@@ -365,6 +383,56 @@ void main() {
         .selectSuspect(longest.suspectId);
     await tester.pumpAndSettle();
 
+    expect(find.text(longest.text), findsOneWidget,
+        reason: 'the longest clue is fully rendered on the expanded card');
+  });
+
+  testWidgets('wide side panel renders every clue in full, unclipped (UX-9)',
+      (tester) async {
+    await pumpGame(tester, size: const Size(1200, 896));
+    expect(tester.takeException(), isNull);
+
+    final l10n = l10nOf(tester);
+    final names = NameForms.forLocale(l10n.localeName, fixedCase);
+    // Per suspect, the exact string its unselected card renders:
+    // clueTexts.join('\n').
+    final joinedBySuspect = <String, String>{};
+    for (final clue in fixedCase.clues) {
+      final text = describeClue(clue, fixedCase, l10n, names);
+      joinedBySuspect[clue.suspectId] = joinedBySuspect[clue.suspectId] == null
+          ? text
+          : '${joinedBySuspect[clue.suspectId]}\n$text';
+    }
+
+    // No suspect is selected yet: every card shows its clue paragraph.
+    // The paragraph box must be at least the text's ideal height — anything
+    // shorter means the card clipped the text (the pre-fix ~90px tiles did).
+    // (Expanded stretches short paragraphs to fill the card, so the box may
+    // legitimately be taller than the text.)
+    for (final entry in joinedBySuspect.entries) {
+      final paragraph = tester.renderObject<RenderParagraph>(
+        find.text(entry.value),
+      );
+      expect(
+        paragraph.size.height,
+        greaterThanOrEqualTo(idealParagraphHeight(paragraph) - 0.5),
+        reason: 'clue of ${entry.key} renders in full on the wide side panel',
+      );
+    }
+
+    // Selecting the longest clue's owner keeps it fully rendered on the
+    // expanded card (issue acceptance: find.text(fullClue) findsOneWidget).
+    final rendered = [
+      for (final clue in fixedCase.clues)
+        (suspectId: clue.suspectId,
+            text: describeClue(clue, fixedCase, l10n, names)),
+    ];
+    final longest =
+        rendered.reduce((a, b) => a.text.length >= b.text.length ? a : b);
+    container
+        .read(gameControllerProvider.notifier)
+        .selectSuspect(longest.suspectId);
+    await tester.pumpAndSettle();
     expect(find.text(longest.text), findsOneWidget,
         reason: 'the longest clue is fully rendered on the expanded card');
   });
