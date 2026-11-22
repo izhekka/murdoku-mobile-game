@@ -812,6 +812,12 @@ abstract class AppLocalizations {
   /// **'Legend'**
   String get legendTitle;
 
+  /// No description provided for @suspectsHeader.
+  ///
+  /// In en, this message translates to:
+  /// **'Suspects'**
+  String get suspectsHeader;
+
   /// No description provided for @legendRooms.
   ///
   /// In en, this message translates to:

@@ -208,6 +208,7 @@
     }
   },
   "legendTitle": "Легенда",
+  "suspectsHeader": "Подозреваемые",
   "legendRooms": "Комнаты",
   "legendItems": "Предметы",
   "legendOccupiable": "гость может сесть",

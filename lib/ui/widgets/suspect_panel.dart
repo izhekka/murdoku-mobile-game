@@ -8,6 +8,9 @@ import '../../domain/models.dart';
 import '../../l10n/generated/app_localizations.dart';
 import 'avatar.dart';
 
+/// Test handle for the panel's header row (issue 27).
+const Key suspectsPanelHeaderKey = Key('suspects_panel_header');
+
 /// Pure clue -> sentence rendering per the spec's wording table (positive and
 /// negated forms). [names] resolves locale- and grammar-appropriate forms:
 /// nominative for subjects, genitive for direction/beside targets, full
@@ -130,9 +133,11 @@ class SuspectPanel extends StatelessWidget {
       if (constraints.maxWidth >= 600) {
         // Wide column of cards: each card sizes itself to its content
         // instead of a pinned 150px height, so longer clue text (or large
-        // text scale) never clips (UX-9).
+        // text scale) never clips (UX-9). The header (issue 27) rides the
+        // top of the list.
         return ListView(
           children: [
+            const _SuspectsHeader(),
             for (final card in cards) IntrinsicHeight(child: card),
           ],
         );
@@ -161,7 +166,7 @@ class SuspectPanel extends StatelessWidget {
             cardBorderWidth, skin?.chip),
       );
       }
-      return GridView.count(
+      final grid = GridView.count(
         crossAxisCount: columns,
         shrinkWrap: true,
         physics: caseData.suspects.length <= 6
@@ -174,6 +179,27 @@ class SuspectPanel extends StatelessWidget {
         children: [
           ...cards,
           const _EmptySlot(),
+        ],
+      );
+      // The localized header row (issue 27) sits above the grid in every
+      // skin. When the host pins the slot height (the narrow game screen),
+      // the grid expands to fill the rest; where the height is loose, the
+      // grid is capped at the space under the header (the same clamp the
+      // bare grid had) and shrink-wraps to its grown rows otherwise (UX-9).
+      final bounded = constraints.maxHeight.isFinite;
+      final pinned =
+          bounded && constraints.maxHeight == constraints.minHeight;
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: pinned ? MainAxisSize.max : MainAxisSize.min,
+        children: [
+          const _SuspectsHeader(),
+          if (pinned)
+            Expanded(child: grid)
+          else if (bounded)
+            Flexible(child: grid)
+          else
+            grid,
         ],
       );
     });
@@ -272,6 +298,43 @@ class SuspectPanel extends StatelessWidget {
       maxHeight = math.max(maxHeight, cardHeight);
     }
     return maxHeight;
+  }
+}
+
+/// The panel's title header (issue 27): the localized «Подозреваемые» /
+/// "Suspects" row above the suspect grid, present in every skin per the
+/// approved mockups. The comic skin renders it uppercase through its
+/// [SkinTokens.panelHeaderUppercase] token; classic and the other cartoon
+/// skins keep title case. ScaleDown keeps the row on one line inside the
+/// 320px viewport at textScale 2.0 — uppercase Cyrillic is the widest case.
+class _SuspectsHeader extends StatelessWidget {
+  const _SuspectsHeader();
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    final tokens = SkinScope.maybeOf(context);
+    final cartoon = tokens != null && tokens.isCartoon;
+    final text = tokens?.panelHeaderUppercase ?? false
+        ? l10n.suspectsHeader.toUpperCase()
+        : l10n.suspectsHeader;
+    final style = theme.textTheme.titleLarge?.copyWith(
+      fontWeight: FontWeight.w600,
+      color: cartoon ? tokens.ink : theme.colorScheme.onSurface,
+    );
+    return Semantics(
+      header: true,
+      key: suspectsPanelHeaderKey,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(4, 4, 4, 0),
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text(text, style: style),
+        ),
+      ),
+    );
   }
 }
 

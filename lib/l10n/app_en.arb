@@ -344,6 +344,7 @@
   "languageEnglish": "English",
   "stateBlocked": "cannot hold a guest",
   "legendTitle": "Legend",
+  "suspectsHeader": "Suspects",
   "legendRooms": "Rooms",
   "legendItems": "Items",
   "legendOccupiable": "a guest can sit here",

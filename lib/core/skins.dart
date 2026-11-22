@@ -36,6 +36,7 @@ class SkinTokens {
     required this.sheetBackground,
     required this.sheetRadius,
     required this.menuIcons,
+    this.panelHeaderUppercase = false,
     this.chip,
     this.frame,
     this.frameMargin = 0,
@@ -105,6 +106,10 @@ class SkinTokens {
   /// clean icon-free list card.
   final bool menuIcons;
 
+  /// Panel headers («Подозреваемые», issue 27) render uppercase — true for
+  /// comic only; the other mockups show the title-case header.
+  final bool panelHeaderUppercase;
+
   /// The rounded chip behind each clue sentence on the suspect cards
   /// (issue 26); null for classic, which keeps the pre-existing plain clue
   /// rendering.
@@ -145,6 +150,7 @@ class SkinTokens {
       other.sheetBackground == sheetBackground &&
       other.sheetRadius == sheetRadius &&
       other.menuIcons == menuIcons &&
+      other.panelHeaderUppercase == panelHeaderUppercase &&
       other.chip == chip &&
       other.frame == frame &&
       other.frameMargin == frameMargin &&
@@ -178,6 +184,7 @@ class SkinTokens {
         sheetBackground,
         sheetRadius,
         menuIcons,
+        panelHeaderUppercase,
         chip,
         frame,
         frameMargin,
@@ -479,6 +486,7 @@ const comicTokens = SkinTokens(
   sheetBackground: Color(0xFFFFFFFF),
   sheetRadius: 20,
   menuIcons: false,
+  panelHeaderUppercase: true,
   chip: _cartoonChip,
   frame: SkinCard(
     background: Color(0xFFFFFFFF),

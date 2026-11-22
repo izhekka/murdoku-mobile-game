@@ -426,6 +426,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get legendTitle => 'Легенда';
 
   @override
+  String get suspectsHeader => 'Подозреваемые';
+
+  @override
   String get legendRooms => 'Комнаты';
 
   @override

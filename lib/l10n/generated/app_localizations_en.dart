@@ -425,6 +425,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get legendTitle => 'Legend';
 
   @override
+  String get suspectsHeader => 'Suspects';
+
+  @override
   String get legendRooms => 'Rooms';
 
   @override

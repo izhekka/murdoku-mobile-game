@@ -389,7 +389,11 @@ void main() {
     await tester.pump();
 
     final gridRect = tester.getRect(find.byType(GridView));
-    expect(gridRect.height, 400, reason: 'the grid fills the pinned slot');
+    // The grid fills the pinned slot minus the header row (issue 27): the
+    // no-dead-space property is preserved with the header above the grid.
+    final headerRect = tester.getRect(find.byKey(suspectsPanelHeaderKey));
+    expect(gridRect.height, closeTo(400 - headerRect.height, 0.5),
+        reason: 'the grid fills the pinned slot below the header');
     // Two rows split the 400px slot minus 8px padding and one 4px gutter;
     // each card's InkWell fills its tile minus the 4px card padding.
     final cardRect = tester.getRect(find.byType(InkWell).first);
@@ -767,5 +771,51 @@ void main() {
         reason: 'clue "$text" renders in full on the wide card at scale 2.0',
       );
     }
+  });
+
+  testWidgets('panel header renders the localized title above the grid '
+      '(issue 27)', (tester) async {
+    await tester.pumpWidget(generatedWrap(fixture));
+    await tester.pump();
+
+    expect(find.text('Suspects'), findsOneWidget);
+    final headerRect = tester.getRect(find.byKey(suspectsPanelHeaderKey));
+    final gridRect = tester.getRect(find.byType(GridView));
+    expect(headerRect.bottom, lessThanOrEqualTo(gridRect.top + 0.5),
+        reason: 'header sits above the suspect grid');
+    expect(headerRect.width, lessThanOrEqualTo(320.0),
+        reason: 'the header row stays inside the 320px viewport');
+  });
+
+  testWidgets('panel header shows «Подозреваемые» in ru (issue 27)',
+      (tester) async {
+    await tester.pumpWidget(sidePanelWrap(fixture, locale: const Locale('ru')));
+    await tester.pump();
+
+    expect(find.text('Подозреваемые'), findsOneWidget);
+    expect(find.text('Suspects'), findsNothing);
+  });
+
+  testWidgets('comic header uppercase; candy/sticker title case; classic '
+      'plain (issue 27)', (tester) async {
+    await tester.pumpWidget(skinWrap(comicTokens));
+    await tester.pump();
+    expect(find.text('SUSPECTS'), findsOneWidget,
+        reason: 'comic renders the header uppercase per its token');
+    expect(find.text('Suspects'), findsNothing);
+
+    for (final tokens in [candyTokens, stickerTokens]) {
+      await tester.pumpWidget(skinWrap(tokens));
+      await tester.pump();
+      expect(find.text('Suspects'), findsOneWidget,
+          reason: '${tokens.skin} header stays title case per its mockup');
+      expect(find.text('SUSPECTS'), findsNothing);
+    }
+
+    // No skin scope (bare harness): classic keeps the header, plain styling.
+    await tester.pumpWidget(const Harness());
+    await tester.pump();
+    expect(find.text('Suspects'), findsOneWidget);
+    expect(find.text('SUSPECTS'), findsNothing);
   });
 }

@@ -47,9 +47,16 @@ Future<void> pumpGame(
   LanguageSetting language = LanguageSetting.russian,
   Difficulty difficulty = Difficulty.easy,
   int seed = 3,
+  SkinSetting skin = SkinSetting.sticker,
+  bool tutorialSeen = false,
 }) async {
   SharedPreferences.setMockInitialValues({
-    'murdoku.settings': jsonEncode(Settings(language: language).toJson()),
+    'murdoku.settings':
+        jsonEncode(Settings(language: language, skin: skin).toJson()),
+    // The first-run tutorial overlay (tutorial_overlay.dart) overflows at
+    // 320px + textScale 2.0 — a pre-existing defect outside issue 27's
+    // scope; tests that isolate the suspects header mark it seen.
+    if (tutorialSeen) 'murdoku.tutorialSeen': true,
   });
   final prefs = await SharedPreferences.getInstance();
   container = ProviderContainer(overrides: [
@@ -357,6 +364,43 @@ void main() {
       expect(find.text(names.nom(s.id)), findsWidgets,
           reason: 'suspect ${s.id} card present at textScale 2.0');
     }
+
+    // The suspects header (issue 27) survives scale 2.0: rendered, one
+    // scaled line tall, and inside the viewport so it never pushes the
+    // grid cards past the fold.
+    expect(find.byKey(suspectsPanelHeaderKey), findsOneWidget);
+    final headerRect = tester.getRect(find.byKey(suspectsPanelHeaderKey));
+    expect(headerRect.width, lessThanOrEqualTo(412.0));
+    expect(headerRect.height, lessThanOrEqualTo(72.0),
+        reason: 'the header stays a single scaled line at textScale 2.0');
+  });
+
+  testWidgets(
+      'suspects header stays inside 320px at scale 2.0, comic uppercase '
+      '(issue 27)', (tester) async {
+    // Worst case: the widest header text (comic's uppercase Cyrillic
+    // ПОДОЗРЕВАЕМЫЕ, 13 glyphs) at textScale 2.0 in the smallest viewport.
+    // tutorialSeen: the first-run tutorial overlay overflows in this
+    // combination (pre-existing, unrelated to the header — see the gap
+    // report); the guard isolates the panel layout.
+    await pumpGame(
+      tester,
+      size: const Size(320, 569),
+      textScale: 2.0,
+      skin: SkinSetting.comic,
+      tutorialSeen: true,
+    );
+    expect(tester.takeException(), isNull);
+
+    expect(find.text('ПОДОЗРЕВАЕМЫЕ'), findsOneWidget,
+        reason: 'the comic skin renders the header uppercase');
+    final headerRect = tester.getRect(find.byKey(suspectsPanelHeaderKey));
+    expect(headerRect.width, lessThanOrEqualTo(320.0),
+        reason: 'the header row fits the 320px viewport');
+    expect(headerRect.height, lessThanOrEqualTo(72.0),
+        reason: 'the header does not squeeze the grid at 320px scale 2.0');
+    // The grid keeps usable room under the header: cards still lay out
+    // without any overflow exception (asserted above).
   });
 
   testWidgets('board sits flush above a full-height suspect panel (UX-6/UX-9)',
@@ -365,9 +409,14 @@ void main() {
     expect(tester.takeException(), isNull);
 
     final boardRect = tester.getRect(find.byKey(const Key('board_view')));
+    // The panel's header row (issue 27) is the board's flush neighbor; the
+    // grid sits directly under the header with only the grid's own padding.
+    final headerRect = tester.getRect(find.byKey(suspectsPanelHeaderKey));
     final gridRect = tester.getRect(find.byType(GridView));
-    expect(boardRect.bottom, closeTo(gridRect.top, 8),
-        reason: 'no dead vertical gap between board and suspect panel');
+    expect(boardRect.bottom, closeTo(headerRect.top, 8),
+        reason: 'no dead vertical gap between board and the panel header');
+    expect(headerRect.bottom, closeTo(gridRect.top, 8),
+        reason: 'the header sits directly above the suspect grid');
     // The panel fills the space under the board instead of the old fixed
     // 205px slot (UX-9): no dead band above the map, panel at least 240px.
     expect(gridRect.height, greaterThanOrEqualTo(240));
@@ -379,9 +428,11 @@ void main() {
     expect(tester.takeException(), isNull);
 
     final boardRect = tester.getRect(find.byKey(const Key('board_view')));
-    final gridRect = tester.getRect(find.byType(GridView));
-    expect(boardRect.bottom, closeTo(gridRect.top, 8),
-        reason: 'board stays flush with the panel on small screens');
+    final headerRect = tester.getRect(find.byKey(suspectsPanelHeaderKey));
+    expect(boardRect.bottom, closeTo(headerRect.top, 8),
+        reason: 'board stays flush with the panel header on small screens');
+    expect(headerRect.height, lessThanOrEqualTo(48),
+        reason: 'the header does not squeeze the grid at 320px');
   });
 
   testWidgets(

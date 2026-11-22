@@ -117,6 +117,19 @@ void main() {
     expect(t.menuIcons, isFalse);
   });
 
+  test('comic renders panel headers uppercase; other skins title case (issue 27)',
+      () {
+    expect(comicTokens.panelHeaderUppercase, isTrue);
+    for (final t in [candyTokens, stickerTokens]) {
+      expect(t.panelHeaderUppercase, isFalse,
+          reason: '${t.skin} header stays title case per its mockup');
+    }
+    expect(
+        skinTokensFor(SkinSetting.classic, scheme).panelHeaderUppercase,
+        isFalse,
+        reason: 'classic header is plain, no uppercase');
+  });
+
   test('shared toolbar action colors on every cartoon skin (issue 23)', () {
     for (final t in [candyTokens, stickerTokens, comicTokens]) {
       expect(t.actions.place, c(0xFFFF6B9D), reason: '${t.skin} place');
