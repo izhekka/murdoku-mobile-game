@@ -35,6 +35,12 @@ extension DifficultyX on Difficulty {
         Difficulty.standard => 12,
         Difficulty.hard => 14,
       };
+  /// Negated clue variants allowed per generated case (issue #10).
+  int get maxNegatedClues => switch (this) {
+        Difficulty.easy => 0,
+        Difficulty.standard => 1,
+        Difficulty.hard => 3,
+      };
   /// Furniture a guest may sit on.
   int get occupiableCount => switch (this) {
         Difficulty.easy => 3,

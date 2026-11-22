@@ -175,6 +175,21 @@ CaseData? _attempt(Difficulty difficulty, int seed, int widen) {
     if (picked.length > maxClues) return null;
   }
 
+  // Issue #10: top the picked set up to the difficulty's negated cap with
+  // remaining pool candidates. Additions only: pool negated entries are true
+  // of the solution, so uniqueness is preserved, and the clue window bounds
+  // how many fit (attempts above maxClues were already rejected above).
+  final negatedCap = difficulty.maxNegatedClues;
+  if (negatedCap > 0) {
+    final left = pool.where((c) => c.negated && !picked.contains(c));
+    var negatedCount = picked.where((c) => c.negated).length;
+    for (final clue in left) {
+      if (negatedCount >= negatedCap || picked.length >= maxClues) break;
+      picked.add(clue);
+      negatedCount++;
+    }
+  }
+
   return CaseData(
     seed: seed,
     difficulty: difficulty,
@@ -315,10 +330,65 @@ List<Clue> _cluePool(
   }
 
   // Cap each type at 10, sampled deterministically.
-  return [
+  final pool = [
     for (final entry in byType.entries)
       ...(entry.value..shuffle(rng)).take(10),
   ];
+
+  // Issue #10: negated candidates, drawn TRUE of the solution (a card clue
+  // is always a true statement): each raw predicate below is false of the
+  // solution, so its negation holds. The pool carries at most the
+  // difficulty's negated cap, so every downstream selection (minimize,
+  // prune, coverage, fill) obeys the cap without any removal step. Guarded
+  // by cap > 0 so easy keeps the exact old pool and rng stream. Per-type
+  // caps: negated candidates join types whose cap is 10; with ≤3 negated in
+  // total, per-type counts stay trivially within it.
+  final negatedCap = difficulty.maxNegatedClues;
+  if (negatedCap > 0) {
+    final negated = <Clue>[];
+    for (final s in ids) {
+      final sp = solution[s]!;
+      final sRoom = roomOf(rooms, sp)!;
+      for (final r in rooms) {
+        if (r.id != sRoom) {
+          negated.add(InRoom(suspectId: s, roomId: r.id, negated: true));
+        }
+      }
+      final targets = [...ids.where((t) => t != s), victimId];
+      for (final t in targets) {
+        final tp = t == victimId ? victimPos : solution[t]!;
+        if (tp.row != sp.row) {
+          negated.add(SameRow(suspectId: s, targetId: t, negated: true));
+        }
+        if (tp.col != sp.col) {
+          negated.add(SameCol(suspectId: s, targetId: t, negated: true));
+        }
+        for (final d in Direction.values) {
+          final raw = switch (d) {
+            Direction.north => sp.row < tp.row,
+            Direction.south => sp.row > tp.row,
+            Direction.west => sp.col < tp.col,
+            Direction.east => sp.col > tp.col,
+          };
+          if (!raw) {
+            negated.add(DirectionClue(
+                suspectId: s, targetId: t, direction: d, negated: true));
+          }
+        }
+        if (manhattan(sp, tp) != 1) {
+          negated.add(Beside(suspectId: s, targetId: t, negated: true));
+        }
+      }
+      for (final obj in objects) {
+        if (roomOf(rooms, obj.pos) != sRoom) {
+          negated.add(
+              BesideObject(suspectId: s, objectId: obj.id, negated: true));
+        }
+      }
+    }
+    pool.addAll((negated..shuffle(rng)).take(negatedCap));
+  }
+  return pool;
 }
 
 List<Clue>? _minimizeToUnique(

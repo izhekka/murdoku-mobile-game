@@ -154,10 +154,18 @@ void main() {
         final c = generateCase(difficulty: difficulty, seed: seed);
         for (final clue in c.clues.whereType<BesideObject>()) {
           final obj = c.objects.firstWhere((o) => o.id == clue.objectId);
-          expect(roomOf(c.rooms, c.solution[clue.suspectId]!),
-              roomOf(c.rooms, obj.pos),
-              reason: 'seed $seed/${difficulty.name}: '
-                  'guest not in item room: ${clue.toJson()}');
+          final guestRoom = roomOf(c.rooms, c.solution[clue.suspectId]!);
+          if (clue.negated) {
+            // Issue #10: a negated item clue means the guest is NOT in the
+            // item's room — the mirror of the UX-8 property.
+            expect(guestRoom, isNot(roomOf(c.rooms, obj.pos)),
+                reason: 'seed $seed/${difficulty.name}: '
+                    'negated item clue must be false of the room: ${clue.toJson()}');
+          } else {
+            expect(guestRoom, roomOf(c.rooms, obj.pos),
+                reason: 'seed $seed/${difficulty.name}: '
+                    'guest not in item room: ${clue.toJson()}');
+          }
         }
       }
     }
@@ -172,7 +180,8 @@ void main() {
     for (final difficulty in Difficulty.values) {
       for (var seed = 1; seed <= 50; seed++) {
         final c = generateCase(difficulty: difficulty, seed: seed);
-        for (final clue in c.clues.whereType<BesideObject>()) {
+        for (final clue in
+            c.clues.whereType<BesideObject>().where((cl) => !cl.negated)) {
           final guest = c.solution[clue.suspectId]!;
           final obj = c.objects.firstWhere((o) => o.id == clue.objectId);
           final d = (guest.row - obj.pos.row).abs() + (guest.col - obj.pos.col).abs();
@@ -182,6 +191,43 @@ void main() {
     }
     expect(nonAdjacent, greaterThan(0),
         reason: 'same-room item clues never appear beyond Manhattan-1');
+  });
+
+  test('property: negated clues obey difficulty caps and are true of the solution (#10)', () {
+    for (final difficulty in Difficulty.values) {
+      final atCap = <int>[];
+      for (var seed = 1; seed <= 50; seed++) {
+        final c = generateCase(difficulty: difficulty, seed: seed);
+        final negated = c.clues.where((cl) => cl.negated).toList();
+        // Cap: easy 0, standard ≤1, hard ≤3.
+        expect(negated.length, lessThanOrEqualTo(difficulty.maxNegatedClues),
+            reason: 'seed $seed/${difficulty.name}: negated cap exceeded');
+        if (difficulty == Difficulty.easy) {
+          expect(negated, isEmpty, reason: 'seed $seed: easy must have none');
+        }
+        // A card clue is always a true statement — negated included.
+        for (final clue in negated) {
+          expect(
+            evaluateClue(
+              clue,
+              placement: c.solution,
+              victimPos: c.victimPos,
+              rooms: c.rooms,
+              objects: c.objects,
+            ),
+            isTrue,
+            reason: 'seed $seed: negated clue not true: ${clue.toJson()}',
+          );
+        }
+        if (negated.length == difficulty.maxNegatedClues) atCap.add(seed);
+      }
+      // Non-vacuous: the caps are actually reached on standard/hard.
+      if (difficulty != Difficulty.easy) {
+        expect(atCap.length, greaterThanOrEqualTo(40),
+            reason:
+                '${difficulty.name}: cap reached in only ${atCap.length}/50 cases');
+      }
+    }
   });
 
   test('different seeds produce different cases (sanity)', () {

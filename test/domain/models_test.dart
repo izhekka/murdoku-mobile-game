@@ -72,6 +72,10 @@ void main() {
     expect(Difficulty.easy.maxClues, 9);
     expect(Difficulty.standard.maxClues, 12);
     expect(Difficulty.hard.maxClues, 14);
+    // Issue #10: negated clues per case, gated by difficulty.
+    expect(Difficulty.easy.maxNegatedClues, 0);
+    expect(Difficulty.standard.maxNegatedClues, 1);
+    expect(Difficulty.hard.maxNegatedClues, 3);
   });
 
   test('occupiable kinds are chairs and sofas only', () {
