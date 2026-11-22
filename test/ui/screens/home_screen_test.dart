@@ -49,9 +49,10 @@ void main() {
 
   /// Explicit, bounded frame wait: pumps [step] at a time until [finder]
   /// matches, then returns. Fails fast with a precise reason instead of
-  /// asserting against a possibly unsettled frame (issue 25): pumpAndSettle's
-  /// exit condition can race with post-frame/timer frame scheduling, so the
-  /// multi-dialog flow's stage gates wait on UI presence explicitly. The
+  /// asserting against a possibly unsettled frame (issues 25/32):
+  /// pumpAndSettle's exit condition can race with post-frame/timer frame
+  /// scheduling, so the multi-dialog flow's stage gates wait on UI presence
+  /// explicitly. The
   /// budget (6s of fake time at the default step) is far above any route
   /// transition and far below pumpAndSettle's runaway timeout.
   Future<void> pumpUntil(
@@ -104,31 +105,44 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.tap(find.text(l10n.newCase));
-    // Issue 25 — explicit waiting, no timing guesses: dispatch the frame
-    // that pushes the sheet, then run its entrance animation to completion.
-    await tester.pump();
-    await tester.pumpAndSettle();
+    // Issue 25/32 — explicit waiting, no timing guesses, and no dependence
+    // on the scheduler's hasScheduledFrame state (pumpAndSettle's exit
+    // condition), which can interact with timer/post-frame frame scheduling
+    // under suite-level load. A fixed fake-time budget is exact: one
+    // jump-frame completes the sheet entrance animation (250 ms Material
+    // default), deterministically.
+    await tester.pump(); // dispatch: sheet route pushed
+    await tester.pump(const Duration(milliseconds: 400));
     // Stage gate: the difficulty chooser is fully open before interacting.
     expect(find.text(l10n.chooseDifficulty), findsOneWidget);
 
     // Difficulty chooser bottom sheet.
     await tester.tap(find.text(l10n.difficultyHard).last);
-    // Dispatch the frame that pops the sheet and pushes the discard dialog;
-    // settle both concurrent animations.
+    // Dispatch the frame carrying the concurrent sheet pop + dialog push.
     await tester.pump();
-    await tester.pumpAndSettle();
+    // Fixed budget: both animations (sheet exit 250 ms, dialog entrance
+    // 200 ms) complete in one jump-frame — no scheduler-state dependence.
+    await tester.pump(const Duration(milliseconds: 400));
     // Stage gate: the confirm dialog is present.
     await pumpUntil(tester, find.text(l10n.discardTitle));
     expect(find.text(l10n.discardTitle), findsOneWidget);
 
     await tester.tap(find.text(l10n.discard));
-    // Dispatch the frame carrying the dialog pop, the new-case start and the
-    // /game navigation; settle the concurrent dialog exit and page
-    // transition.
+    // Dispatch the frame carrying the dialog pop; the microtask flush inside
+    // this pump also runs the confirm side effects (startNewCase +
+    // go('/game'), synchronous completers on Route.didPop).
     await tester.pump();
-    await tester.pumpAndSettle();
-    // Stage gate: the game screen is mounted and settled despite its
-    // 1-second tick timer scheduling frames.
+    // Fixed budget: dialog exit (200 ms), home exit and /game zoom
+    // transition (300 ms) complete in one jump-frame.
+    await tester.pump(const Duration(milliseconds: 600));
+    // Margin pump for any status-followup frame. The flow's total fake time
+    // stays >= 600 ms below GameScreen's 1-second tick timer's first fire,
+    // so the timer can never fire between the pumps of this flow (issue 32).
+    await tester.pump(const Duration(milliseconds: 300));
+    // Stage gate: the game screen is mounted; a bounded presence gate is
+    // immune to late-scheduled frames from the route chain. tick() is
+    // elapsed-only and the assertions below are elapsed-independent, so
+    // even a pumpUntil hunt cannot break them.
     await pumpUntil(tester, find.byType(GameScreen));
 
     // New hard case started and navigated to the game screen.
