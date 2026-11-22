@@ -22,7 +22,7 @@ String describeClue(
       id == victimId ? names.victimGen() : names.gen(id);
 
   String objectNameOf(String objectId) =>
-      names.objectGen(c.objects.firstWhere((o) => o.id == objectId).kind);
+      names.objectPrep(c.objects.firstWhere((o) => o.id == objectId).kind);
 
   String dirName(Direction d) => switch (d) {
         Direction.north => l10n.dirNorth,

@@ -16,6 +16,31 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 Pos p(int row, int col) => (row: row, col: col);
 
+const List<ObjectKind> allKinds = ObjectKind.values;
+
+/// Fixture with one object of every kind so sentence rendering is exercised
+/// for all 14 kinds at once.
+CaseData allKindsFixture() => CaseData(
+      seed: 3,
+      difficulty: Difficulty.easy,
+      rooms: [
+        RoomDef(
+            id: 'r0',
+            name: 'Library',
+            cells: [for (var i = 0; i < 14; i++) p(0, i)],
+            poolIndex: 1),
+      ],
+      objects: [
+        for (var i = 0; i < allKinds.length; i++)
+          ObjectDef(id: 'o$i', kind: allKinds[i], pos: p(0, i)),
+      ],
+      suspects: const [Suspect(id: 's0', name: 'Jack', poolIndex: 9)],
+      victimPos: p(1, 0),
+      murdererId: 's0',
+      clues: const [],
+      solution: {'s0': p(0, 0)},
+    );
+
 /// Fixture whose suspects/rooms carry poolIndex (the factory's new shape).
 CaseData poolFixture() => CaseData(
       seed: 1,
@@ -106,13 +131,13 @@ void main() {
         reason: 'Beside uses genitive victim');
     expect(describeClue(c.clues[5], c, l10n, names), 'Эллис — не на чердаке.',
         reason: 'negated InRoom with prep phrase');
-    expect(describeClue(c.clues[6], c, l10n, names), 'Джек — в комнате с Столом.',
-        reason: 'BesideObject uses the instrumental item form');
+    expect(describeClue(c.clues[6], c, l10n, names), 'Джек — в комнате со столом.',
+        reason: 'BesideObject uses the euphonic prep + lowercase instrumental');
     expect(
         describeClue(
             const BesideObject(suspectId: 's0', objectId: 'o0', negated: true),
             c, l10n, names),
-        'Джек — не в комнате с Столом.',
+        'Джек — не в комнате со столом.',
         reason: 'negated BesideObject');
   });
 
@@ -139,6 +164,72 @@ void main() {
     for (final entry in instrumental.entries) {
       expect(names.objectGen(entry.key), entry.value,
           reason: '${entry.key.name} instrumental form');
+    }
+  });
+
+  test('ru item prep phrases: euphonic «со» and lowercase for every kind', () {
+    final names = NameForms.forLocale('ru', poolFixture());
+    const prep = {
+      ObjectKind.piano: 'с пианино',
+      ObjectKind.plant: 'с растением',
+      ObjectKind.armor: 'с доспехами',
+      ObjectKind.chest: 'с сундуком',
+      ObjectKind.clock: 'с часами',
+      ObjectKind.globe: 'с глобусом',
+      ObjectKind.portrait: 'с портретом',
+      ObjectKind.fireplace: 'с камином',
+      ObjectKind.table: 'со столом',
+      ObjectKind.chair: 'со стулом',
+      ObjectKind.flowers: 'с цветами',
+      ObjectKind.sofa: 'с диваном',
+      ObjectKind.bookshelf: 'со стеллажом',
+      ObjectKind.lamp: 'с лампой',
+    };
+    expect(prep.keys.toSet(), equals(ObjectKind.values.toSet()),
+        reason: 'the prep pool must cover every object kind');
+    for (final entry in prep.entries) {
+      expect(names.objectPrep(entry.key), entry.value,
+          reason: '${entry.key.name} prep phrase');
+    }
+  });
+
+  test('ru item clue: exact «с/со» sentences for every object kind (UX-8 polish)',
+      () {
+    final c = allKindsFixture();
+    final names = NameForms.forLocale('ru', c);
+    final l10n = lookupAppLocalizations(const Locale('ru'));
+    const expected = <ObjectKind, (String, String)>{
+      ObjectKind.piano: ('Джек — в комнате с пианино.', 'Джек — не в комнате с пианино.'),
+      ObjectKind.plant: ('Джек — в комнате с растением.', 'Джек — не в комнате с растением.'),
+      ObjectKind.armor: ('Джек — в комнате с доспехами.', 'Джек — не в комнате с доспехами.'),
+      ObjectKind.chest: ('Джек — в комнате с сундуком.', 'Джек — не в комнате с сундуком.'),
+      ObjectKind.clock: ('Джек — в комнате с часами.', 'Джек — не в комнате с часами.'),
+      ObjectKind.globe: ('Джек — в комнате с глобусом.', 'Джек — не в комнате с глобусом.'),
+      ObjectKind.portrait: ('Джек — в комнате с портретом.', 'Джек — не в комнате с портретом.'),
+      ObjectKind.fireplace: ('Джек — в комнате с камином.', 'Джек — не в комнате с камином.'),
+      ObjectKind.table: ('Джек — в комнате со столом.', 'Джек — не в комнате со столом.'),
+      ObjectKind.chair: ('Джек — в комнате со стулом.', 'Джек — не в комнате со стулом.'),
+      ObjectKind.flowers: ('Джек — в комнате с цветами.', 'Джек — не в комнате с цветами.'),
+      ObjectKind.sofa: ('Джек — в комнате с диваном.', 'Джек — не в комнате с диваном.'),
+      ObjectKind.bookshelf: ('Джек — в комнате со стеллажом.', 'Джек — не в комнате со стеллажом.'),
+      ObjectKind.lamp: ('Джек — в комнате с лампой.', 'Джек — не в комнате с лампой.'),
+    };
+    expect(expected.keys.toSet(), equals(ObjectKind.values.toSet()),
+        reason: 'sentence literals must cover every object kind');
+    for (final entry in expected.entries) {
+      final objectId = c.objects.firstWhere((o) => o.kind == entry.key).id;
+      expect(
+          describeClue(
+              BesideObject(suspectId: 's0', objectId: objectId, negated: false),
+              c, l10n, names),
+          entry.value.$1,
+          reason: '${entry.key.name} positive ru sentence');
+      expect(
+          describeClue(
+              BesideObject(suspectId: 's0', objectId: objectId, negated: true),
+              c, l10n, names),
+          entry.value.$2,
+          reason: '${entry.key.name} negated ru sentence');
     }
   });
 

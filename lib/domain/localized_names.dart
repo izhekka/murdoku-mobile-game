@@ -46,23 +46,31 @@ const List<(String, String)> ruRoomForms = [
   ('Обсерватория', 'в обсерватории'),
 ];
 
-/// Item names by kind: nominative + instrumental (в комнате с ...); the
-/// same-room item clue (UX-8) replaced the old genitive forms (около ...).
-const Map<ObjectKind, NameForm> ruObjectForms = {
-  ObjectKind.piano: (nom: 'Пианино', gen: 'Пианино'),
-  ObjectKind.plant: (nom: 'Растение', gen: 'Растением'),
-  ObjectKind.armor: (nom: 'Доспехи', gen: 'Доспехами'),
-  ObjectKind.chest: (nom: 'Сундук', gen: 'Сундуком'),
-  ObjectKind.clock: (nom: 'Часы', gen: 'Часами'),
-  ObjectKind.globe: (nom: 'Глобус', gen: 'Глобусом'),
-  ObjectKind.portrait: (nom: 'Портрет', gen: 'Портретом'),
-  ObjectKind.fireplace: (nom: 'Камин', gen: 'Камином'),
-  ObjectKind.table: (nom: 'Стол', gen: 'Столом'),
-  ObjectKind.chair: (nom: 'Стул', gen: 'Стулом'),
-  ObjectKind.flowers: (nom: 'Цветы', gen: 'Цветами'),
-  ObjectKind.sofa: (nom: 'Диван', gen: 'Диваном'),
-  ObjectKind.bookshelf: (nom: 'Стеллаж', gen: 'Стеллажом'),
-  ObjectKind.lamp: (nom: 'Лампа', gen: 'Лампой'),
+/// An item name in the three forms the item clue and labels need:
+/// nominative (standalone label), instrumental (`gen`, pinned by tests) and
+/// `prep` — the preposition-attached lowercase instrumental the ru item-clue
+/// parameter carries, with the euphonic «со» before с/ст-initial kinds.
+typedef ObjectNameForm = ({String nom, String gen, String prep});
+
+/// Item names by kind: nominative + instrumental + preposition-attached
+/// lowercase instrumental (hand-written per kind — no runtime euphony
+/// logic). The same-room item clue (UX-8) replaced the old genitive forms
+/// (около ...).
+const Map<ObjectKind, ObjectNameForm> ruObjectForms = {
+  ObjectKind.piano: (nom: 'Пианино', gen: 'Пианино', prep: 'с пианино'),
+  ObjectKind.plant: (nom: 'Растение', gen: 'Растением', prep: 'с растением'),
+  ObjectKind.armor: (nom: 'Доспехи', gen: 'Доспехами', prep: 'с доспехами'),
+  ObjectKind.chest: (nom: 'Сундук', gen: 'Сундуком', prep: 'с сундуком'),
+  ObjectKind.clock: (nom: 'Часы', gen: 'Часами', prep: 'с часами'),
+  ObjectKind.globe: (nom: 'Глобус', gen: 'Глобусом', prep: 'с глобусом'),
+  ObjectKind.portrait: (nom: 'Портрет', gen: 'Портретом', prep: 'с портретом'),
+  ObjectKind.fireplace: (nom: 'Камин', gen: 'Камином', prep: 'с камином'),
+  ObjectKind.table: (nom: 'Стол', gen: 'Столом', prep: 'со столом'),
+  ObjectKind.chair: (nom: 'Стул', gen: 'Стулом', prep: 'со стулом'),
+  ObjectKind.flowers: (nom: 'Цветы', gen: 'Цветами', prep: 'с цветами'),
+  ObjectKind.sofa: (nom: 'Диван', gen: 'Диваном', prep: 'с диваном'),
+  ObjectKind.bookshelf: (nom: 'Стеллаж', gen: 'Стеллажом', prep: 'со стеллажом'),
+  ObjectKind.lamp: (nom: 'Лампа', gen: 'Лампой', prep: 'с лампой'),
 };
 
 const String victimNomRu = 'жертва';
@@ -140,6 +148,16 @@ class NameForms {
     // The en templates already carry the article
     // ("in the same room as the {object}").
     return _capitalized(kind.name);
+  }
+
+  /// The `{object}` filler of the same-room item clue: full preposition
+  /// phrase in ru («со стулом»), bare capitalized name in en (the en template
+  /// carries "in the same room as the").
+  String objectPrep(ObjectKind kind) {
+    if (_ru) {
+      return ruObjectForms[kind]?.prep ?? 'с ${objectGen(kind)}';
+    }
+    return objectGen(kind);
   }
 
   String _capitalized(String s) =>
