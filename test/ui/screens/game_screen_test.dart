@@ -305,6 +305,46 @@ void main() {
         reason: 'board stays flush with the panel on small screens');
   });
 
+  testWidgets(
+      'wide landscape window keeps the board square and the bottom row '
+      'tappable (smoke regression, UX-10)', (tester) async {
+    await pumpGame(tester, size: const Size(1200, 896));
+    expect(tester.takeException(), isNull);
+
+    final boardRect = tester.getRect(find.byKey(const Key('board_view')));
+    // The board is square by construction. On a landscape window its slot
+    // is wider than tall, so the grid must shrink to the available height
+    // — a height-clamped box silently clips the bottom row and its cells
+    // stop receiving taps.
+    expect(boardRect.height, boardRect.width,
+        reason: 'board_view must stay square on landscape windows');
+
+    // A guest can actually be placed in the bottom row through a real tap.
+    // Pick a bottom-row cell the case leaves empty (not the victim's, not
+    // under an object) so the place tool accepts it.
+    final lastRow = fixedCase.gridSize - 1;
+    final freeCol = [
+      for (var col = 0; col < fixedCase.gridSize; col++)
+        if (fixedCase.victimPos != (row: lastRow, col: col) &&
+            fixedCase.objects.every((o) => o.pos != (row: lastRow, col: col)))
+          col,
+    ].first;
+    final cell = boardRect.width / fixedCase.gridSize;
+    final firstId = fixedCase.suspects.first.id;
+    container.read(gameControllerProvider.notifier).selectSuspect(firstId);
+    await tester.pumpAndSettle();
+    await tester.tapAt(Offset(
+      boardRect.left + (freeCol + 0.5) * cell,
+      boardRect.top + (lastRow + 0.5) * cell,
+    ));
+    await tester.pumpAndSettle();
+    final pos = container.read(gameControllerProvider)!.placed[firstId];
+    expect(pos?.row, lastRow,
+        reason: 'the bottom-row cell must receive the tap on wide layouts');
+    expect(pos?.col, freeCol,
+        reason: 'the bottom-row cell must receive the tap on wide layouts');
+  });
+
   testWidgets('longest clue renders in full on its expanded card (UX-9)',
       (tester) async {
     await pumpGame(tester, size: const Size(412, 915));

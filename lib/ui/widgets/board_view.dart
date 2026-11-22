@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:material_ui/material_ui.dart';
 
 import '../../core/theme.dart';
@@ -52,7 +54,11 @@ class _BoardViewState extends State<BoardView> {
       aspectRatio: 1,
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final side = constraints.maxWidth;
+          // Square by construction: fit the smaller constraint so a
+          // landscape window (wider than tall) shrinks the grid instead of
+          // height-clamping the box, which would clip the bottom row and
+          // leave its cells untappable.
+          final side = math.min(constraints.maxWidth, constraints.maxHeight);
           final cell = side / g;
           // Anchor cell of each room (top-left-most, victim cell excluded):
           // carries the number badge shown in the legend.

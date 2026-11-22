@@ -157,7 +157,15 @@ class _GameScreenState extends ConsumerState<GameScreen>
                 Expanded(
                   child: Row(
                     children: [
-                      Expanded(child: board),
+                      // Bottom-center the square board in its (wider than
+                      // tall) slot so it hugs the toolbar, matching the
+                      // narrow branch's flush seam.
+                      Expanded(
+                        child: Align(
+                          alignment: Alignment.bottomCenter,
+                          child: board,
+                        ),
+                      ),
                       SizedBox(width: 300, child: panel),
                     ],
                   ),

@@ -15,11 +15,19 @@ import 'package:murdoku/ui/widgets/suspect_panel.dart';
 ///
 /// Run: `flutter test integration_test/smoke_test.dart -d <device>`
 /// (needs a device/emulator — macOS/iOS builds additionally require Xcode).
+/// On the web there is no `flutter test` device support; serve this target
+/// and drive it per `test_driver/integration_test.dart` (chromedriver).
 void main() {
   integration_test.IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   testWidgets('full game loop smoke test', (tester) async {
-    await murdokuBootstrap(forcedSeed: 3, skipTutorial: true);
+    // The boot configures process-wide globals the test framework verifies
+    // as unchanged after a test (ErrorWidget.builder) and enables semantics
+    // for the app's whole life (its handle must be released by the test).
+    // Snapshot the builder, run the app, then restore both at the end.
+    final originalErrorWidgetBuilder = ErrorWidget.builder;
+    final bootSemanticsHandle =
+        await murdokuBootstrap(forcedSeed: 3, skipTutorial: true);
     await tester.pumpAndSettle();
 
     AppLocalizations l10nOf(WidgetTester t) => AppLocalizations.of(
@@ -78,5 +86,11 @@ void main() {
     await tester.pumpAndSettle();
     final daily = containerOf(tester).read(gameControllerProvider)!;
     expect(daily.isDaily, isTrue);
+
+    // Restore the globals the boot changed: the framework fails a test that
+    // leaves ErrorWidget.builder replaced or a semantics handle active.
+    // Production keeps both for the app's lifetime.
+    ErrorWidget.builder = originalErrorWidgetBuilder;
+    bootSemanticsHandle.dispose();
   });
 }
