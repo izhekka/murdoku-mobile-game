@@ -86,18 +86,31 @@ class _TutorialOverlayState extends State<TutorialOverlay> {
                     tooltip: l10n.tutorialDone,
                     onPressed: widget.onDismiss,
                   ),
-                  FilledButton(
-                    onPressed: () {
-                      if (isLast) {
-                        widget.onDismiss();
-                      } else {
-                        _controller.nextPage(
-                          duration: const Duration(milliseconds: 250),
-                          curve: Curves.easeInOut,
-                        );
-                      }
-                    },
-                    child: Text(isLast ? l10n.tutorialDone : l10n.tutorialNext),
+                  // Issue 31: at 320px with large system text the intrinsic
+                  // label no longer fits beside the close button. The loose
+                  // Flexible caps the button at the space left by the icon;
+                  // the scale-down FittedBox then fits the label into that
+                  // width (the toolbar miniButton pattern).
+                  Flexible(
+                    child: FilledButton(
+                      onPressed: () {
+                        if (isLast) {
+                          widget.onDismiss();
+                        } else {
+                          _controller.nextPage(
+                            duration: const Duration(milliseconds: 250),
+                            curve: Curves.easeInOut,
+                          );
+                        }
+                      },
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          isLast ? l10n.tutorialDone : l10n.tutorialNext,
+                          maxLines: 1,
+                        ),
+                      ),
+                    ),
                   ),
                 ],
               ),
