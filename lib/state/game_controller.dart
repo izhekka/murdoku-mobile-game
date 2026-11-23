@@ -377,8 +377,6 @@ class GameNotifier extends Notifier<GameState?> {
     final s = _state;
     if (s == null || s.phase != GamePhase.playing) return false;
     if (suspectId == _case.murdererId) {
-      _wrongAccusations =
-          _wrongAccusations; // unchanged on a correct accusation
       state = _compose(phase: GamePhase.won);
       unawaited(ref.read(prefsRepositoryProvider).clearActiveGame());
       return true;
