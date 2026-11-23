@@ -8,11 +8,12 @@ import 'package:murdoku/app.dart';
 import 'package:murdoku/domain/localized_names.dart';
 import 'package:murdoku/domain/models.dart';
 import 'package:murdoku/l10n/generated/app_localizations.dart';
-import 'package:murdoku/state/providers.dart';
 import 'package:murdoku/storage/prefs_repository.dart';
 import 'package:murdoku/ui/screens/home_screen.dart';
 import 'package:murdoku/ui/widgets/suspect_panel.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import '../support/seeded_overrides.dart';
 
 Pos p(int row, int col) => (row: row, col: col);
 
@@ -132,9 +133,7 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
     await PrefsRepository(prefs).saveTutorialSeen(true);
-    final container = ProviderContainer(
-      overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
-    );
+    final container = ProviderContainer(overrides: seededOverrides(prefs));
     addTearDown(container.dispose);
     await tester.pumpWidget(
       UncontrolledProviderScope(

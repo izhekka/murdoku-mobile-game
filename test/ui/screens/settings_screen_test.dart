@@ -12,14 +12,14 @@ import 'package:murdoku/storage/prefs_repository.dart';
 import 'package:murdoku/ui/screens/settings_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../support/seeded_overrides.dart';
+
 Future<(ProviderContainer, PrefsRepository)> pumpSettings(
   WidgetTester tester,
 ) async {
   SharedPreferences.setMockInitialValues({});
   final prefs = await SharedPreferences.getInstance();
-  final container = ProviderContainer(
-    overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
-  );
+  final container = ProviderContainer(overrides: seededOverrides(prefs));
   addTearDown(container.dispose);
   await tester.pumpWidget(
     UncontrolledProviderScope(container: container, child: const MurdokuApp()),

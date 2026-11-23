@@ -13,13 +13,14 @@ import 'package:murdoku/domain/localized_names.dart';
 import 'package:murdoku/domain/models.dart';
 import 'package:murdoku/l10n/generated/app_localizations.dart';
 import 'package:murdoku/state/game_controller.dart';
-import 'package:murdoku/state/providers.dart';
 import 'package:murdoku/storage/prefs_repository.dart';
 import 'package:murdoku/ui/screens/home_screen.dart';
 import 'package:murdoku/ui/widgets/accuse_sheet.dart';
 import 'package:murdoku/ui/widgets/dialogs.dart';
 import 'package:murdoku/ui/widgets/suspect_panel.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import '../../support/seeded_overrides.dart';
 
 Pos p(int row, int col) => (row: row, col: col);
 
@@ -62,9 +63,7 @@ Future<void> pumpGame(
     if (tutorialSeen) 'murdoku.tutorialSeen': true,
   });
   final prefs = await SharedPreferences.getInstance();
-  container = ProviderContainer(
-    overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
-  );
+  container = ProviderContainer(overrides: seededOverrides(prefs));
   addTearDown(container.dispose);
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1.0;
@@ -1056,9 +1055,7 @@ void main() {
         'murdoku.tutorialSeen': true,
       });
       final prefs = await SharedPreferences.getInstance();
-      container = ProviderContainer(
-        overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
-      );
+      container = ProviderContainer(overrides: seededOverrides(prefs));
       addTearDown(container.dispose);
       tester.view.physicalSize = const Size(800, 600);
       tester.view.devicePixelRatio = 1.0;

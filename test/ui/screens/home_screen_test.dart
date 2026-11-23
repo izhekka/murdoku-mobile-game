@@ -14,6 +14,8 @@ import 'package:murdoku/ui/screens/game_screen.dart';
 import 'package:murdoku/ui/screens/home_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../support/seeded_overrides.dart';
+
 Pos p(int row, int col) => (row: row, col: col);
 
 void main() {
@@ -162,9 +164,7 @@ void main() {
         streak: 1,
       ),
     );
-    container = ProviderContainer(
-      overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
-    );
+    container = ProviderContainer(overrides: seededOverrides(prefs));
     addTearDown(container.dispose);
     await tester.pumpWidget(
       UncontrolledProviderScope(

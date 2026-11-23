@@ -7,6 +7,8 @@ import 'package:murdoku/state/game_controller.dart';
 import 'package:murdoku/state/providers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../support/seeded_overrides.dart';
+
 Pos p(int row, int col) => (row: row, col: col);
 
 /// A deterministic easy case: same call the controller makes internally.
@@ -15,12 +17,22 @@ final CaseData fixedCase = generateCase(difficulty: Difficulty.easy, seed: 3);
 Future<ProviderContainer> makeContainer() async {
   SharedPreferences.setMockInitialValues({});
   final prefs = await SharedPreferences.getInstance();
-  return ProviderContainer(
-    overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
-  );
+  return ProviderContainer(overrides: seededOverrides(prefs));
 }
 
 void main() {
+  test('container pins the forced seed: unseeded startNewCase yields the '
+      'seed-3 case (issue 36)', () async {
+    final container = await makeContainer();
+    addTearDown(container.dispose);
+    final notifier = container.read(gameControllerProvider.notifier);
+
+    // No explicit seed: the container's forcedSeedProvider pin must supply 3,
+    // so the case equals fixedCase instead of a Random()-fallback case.
+    notifier.startNewCase(Difficulty.easy);
+    expect(container.read(gameControllerProvider)!.caseData, fixedCase);
+  });
+
   test('happy path: place all guests, accuse murderer, save cleared', () async {
     final container = await makeContainer();
     addTearDown(container.dispose);

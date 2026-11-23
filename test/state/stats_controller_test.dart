@@ -10,6 +10,8 @@ import 'package:murdoku/ui/widgets/accuse_sheet.dart';
 import 'package:murdoku/ui/widgets/dialogs.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../support/seeded_overrides.dart';
+
 Pos p(int row, int col) => (row: row, col: col);
 
 final CaseData accuseFixture = CaseData(
@@ -57,9 +59,7 @@ final CaseData accuseFixture = CaseData(
 Future<ProviderContainer> makeContainer() async {
   SharedPreferences.setMockInitialValues({});
   final prefs = await SharedPreferences.getInstance();
-  return ProviderContainer(
-    overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
-  );
+  return ProviderContainer(overrides: seededOverrides(prefs));
 }
 
 void main() {

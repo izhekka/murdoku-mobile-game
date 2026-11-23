@@ -12,6 +12,8 @@ import 'package:murdoku/ui/screens/how_to_play_screen.dart';
 import 'package:murdoku/ui/widgets/tutorial_overlay.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../support/seeded_overrides.dart';
+
 AppLocalizations l10nOf(WidgetTester tester) =>
     AppLocalizations.of(tester.element(find.byType(Scaffold).first))!;
 
@@ -31,9 +33,7 @@ Future<ProviderContainer> pumpTutorialWorstCase(
     ),
   });
   final prefs = await SharedPreferences.getInstance();
-  final container = ProviderContainer(
-    overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
-  );
+  final container = ProviderContainer(overrides: seededOverrides(prefs));
   addTearDown(container.dispose);
   tester.view.physicalSize = const Size(320, 569);
   tester.view.devicePixelRatio = 1.0;
@@ -54,9 +54,7 @@ Future<ProviderContainer> pumpApp(
 }) async {
   SharedPreferences.setMockInitialValues({});
   final prefs = withPrefs ?? await SharedPreferences.getInstance();
-  final container = ProviderContainer(
-    overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
-  );
+  final container = ProviderContainer(overrides: seededOverrides(prefs));
   addTearDown(container.dispose);
   await tester.pumpWidget(
     UncontrolledProviderScope(container: container, child: const MurdokuApp()),

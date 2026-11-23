@@ -5,12 +5,13 @@ import 'package:material_ui/material_ui.dart';
 import 'package:murdoku/app.dart';
 import 'package:murdoku/core/skins.dart';
 import 'package:murdoku/l10n/generated/app_localizations.dart';
-import 'package:murdoku/state/providers.dart';
 import 'package:murdoku/state/settings_controller.dart';
 import 'package:murdoku/storage/prefs_repository.dart';
 import 'package:murdoku/ui/screens/home_screen.dart';
 import 'package:murdoku/ui/screens/stats_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import 'support/seeded_overrides.dart';
 
 Future<SharedPreferences> mockPrefs() async {
   SharedPreferences.setMockInitialValues({});
@@ -22,7 +23,7 @@ void main() {
     final prefs = await mockPrefs();
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+        overrides: seededOverrides(prefs),
         child: const MurdokuApp(),
       ),
     );
@@ -38,7 +39,7 @@ void main() {
     final prefs = await mockPrefs();
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+        overrides: seededOverrides(prefs),
         child: const MurdokuApp(),
       ),
     );
@@ -66,7 +67,7 @@ void main() {
     final prefs = await mockPrefs();
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+        overrides: seededOverrides(prefs),
         child: const MurdokuApp(),
       ),
     );
@@ -89,7 +90,7 @@ void main() {
     final prefs = await mockPrefs();
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+        overrides: seededOverrides(prefs),
         child: const MurdokuApp(),
       ),
     );
@@ -115,7 +116,7 @@ void main() {
     final prefs = await mockPrefs();
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+        overrides: seededOverrides(prefs),
         child: const MurdokuApp(),
       ),
     );
@@ -131,7 +132,7 @@ void main() {
     final prefs = await mockPrefs();
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+        overrides: seededOverrides(prefs),
         child: const MurdokuApp(),
       ),
     );

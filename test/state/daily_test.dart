@@ -10,13 +10,13 @@ import 'package:murdoku/storage/prefs_repository.dart';
 import 'package:murdoku/ui/screens/home_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../support/seeded_overrides.dart';
+
 void main() {
   test('same UTC date yields the identical daily case', () async {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
-    final container = ProviderContainer(
-      overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
-    );
+    final container = ProviderContainer(overrides: seededOverrides(prefs));
     addTearDown(container.dispose);
     final notifier = container.read(gameControllerProvider.notifier);
 
@@ -33,7 +33,7 @@ void main() {
     final prefs = await SharedPreferences.getInstance();
     final container = ProviderContainer(
       overrides: [
-        sharedPreferencesProvider.overrideWithValue(prefs),
+        ...seededOverrides(prefs),
         // Clock says the day AFTER the daily was started.
         clockProvider.overrideWithValue(() => DateTime.utc(2026, 11, 20, 1, 5)),
       ],
@@ -89,7 +89,7 @@ void main() {
 
     final container = ProviderContainer(
       overrides: [
-        sharedPreferencesProvider.overrideWithValue(prefs),
+        ...seededOverrides(prefs),
         clockProvider.overrideWithValue(
           () => DateTime.utc(2026, 11, 20, 0, 30),
         ),
@@ -118,7 +118,7 @@ void main() {
 
     final container = ProviderContainer(
       overrides: [
-        sharedPreferencesProvider.overrideWithValue(prefs),
+        ...seededOverrides(prefs),
         clockProvider.overrideWithValue(() => DateTime.utc(2026, 11, 20, 8)),
       ],
     );
