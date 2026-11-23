@@ -50,6 +50,13 @@ xcrun simctl io <udid> screenshot /tmp/murdoku.png   # launch evidence
   wait for the home screen / next screen, don't "fix".
 - Podfile/Podfile.lock were generated and are committed; pod resolution runs
   automatically during the first build (requires `flutter pub get` first).
+- **Verified 2026-11-24 (issue #50):** the flow above works end-to-end —
+  install → launch `com.murdoku.game` (pid 19328) → screenshot, each step
+  exiting 0 with the home screen visible, on an iPhone 18 Pro simulator
+  (UDID `977BB118-A833-4386-B368-C2F09709F72C`, iOS 27.2 runtime, app booted
+  with no extra flags). Screenshot evidence is kept locally at
+  `docs/superpowers/plans/2026-11-24-ios-sim-launch-evidence/launch-evidence.png`
+  (gitignored — binary evidence is not committed).
 
 ### Physical device (one-time manual signing; team-agnostic)
 
