@@ -1438,6 +1438,153 @@ void main() {
     },
   );
 
+  testWidgets(
+    'pinned multi-clue case at textScale 2.0: bottom-row clue text scrolls '
+    'fully into view, never clipped, in both renderers (issue 40)',
+    (tester) async {
+      tester.platformDispatcher.textScaleFactorTestValue = 2.0;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      // The surfaces are taller than the default test window; resize it so
+      // the pinned host really gets [height] (like the fit-premise tests).
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetPhysicalSize);
+
+      // (tokens, pinned surface height): the post-header slot must fit ONE
+      // grown row while two still overflow it — then scroll-to-visible can
+      // fully show a bottom-row card AND the scrolling physics stays on
+      // (issue 39's mechanism AC3 relies on). Grown tile heights at these
+      // test metrics (measured: ~1467px classic, ~2182px sticker chip at the
+      // 360px pinned card width, scale 2.0; header ~60px) give 1700 classic
+      // and 2400 chip: ~170/158px headroom above one grown row either way.
+      // A failure here means the premise drifted — re-measure the grown tile
+      // heights against the current test-font metrics before suspecting a
+      // layout regression.
+      final surfaces = <(SkinTokens?, double)>[
+        (null, 1700),
+        (stickerTokens, 2400),
+      ];
+
+      for (final (tokens, height) in surfaces) {
+        tester.view.physicalSize = Size(800, height + 100);
+        await tester.pumpWidget(
+          pinnedWrap(multiClueFixture, tokens: tokens, height: height),
+        );
+        await tester.pump();
+
+        expect(
+          tester.takeException(),
+          isNull,
+          reason: 'the scale-2.0 multi-clue pinned layout lays out cleanly',
+        );
+        expect(
+          tester.widget<GridView>(find.byType(GridView)).physics,
+          isA<ClampingScrollPhysics>(),
+          reason:
+              'grown multi-clue rows exceed the post-header slot at '
+              'textScale 2.0; the grid scrolls (issue 39 mechanism)',
+        );
+
+        // Clue sentences grouped by SUSPECT IDENTITY (never by flat-list
+        // position), rendered exactly as the panel renders them: Classic
+        // joins each card's sentences with newlines, chip mode keeps one
+        // Text per sentence.
+        final context = tester.element(find.byType(SuspectPanel));
+        final l10n = AppLocalizations.of(context)!;
+        final names = NameForms.forLocale(l10n.localeName, multiClueFixture);
+        final sentencesById = <String, List<String>>{};
+        for (final clue in multiClueFixture.clues) {
+          (sentencesById[clue.suspectId] ??= []).add(
+            describeClue(clue, multiClueFixture, l10n, names),
+          );
+        }
+        String joinedById(String id) => sentencesById[id]!.join('\n');
+        final expectedTexts = tokens == null
+            // Classic: one joined Text per card.
+            ? [joinedById('s0'), joinedById('s3'), joinedById('s4')]
+            // Chip: one Text per clue sentence.
+            : [
+                for (final id in ['s0', 's3', 's4']) ...sentencesById[id]!,
+              ];
+
+        // The grown (multi-clue) card's and the bottom row's clue text lays
+        // out in full at scale 2.0: each paragraph box is at least its ideal
+        // height — anything shorter means the card clipped the text.
+        for (final text in expectedTexts) {
+          final paragraph = tester.renderObject<RenderParagraph>(
+            find.text(text),
+          );
+          expect(
+            paragraph.size.height,
+            greaterThanOrEqualTo(idealParagraphHeight(paragraph) - 0.5),
+            reason: 'clue text renders in full on the pinned grid at 2.0',
+          );
+        }
+
+        final gridRect = tester.getRect(find.byType(GridView));
+        final bottomRowNames = ['Drew', 'Ellis'];
+        String clueOf(String name) => joinedById(name == 'Drew' ? 's3' : 's4');
+        Finder cardOf(String name) =>
+            find.ancestor(of: find.text(name), matching: find.byType(InkWell));
+
+        // Precondition, before ANY scrolling: both bottom-row cards hang
+        // below the fold (their bottoms are past the viewport), so only
+        // scroll-to-visible can show them — the scroll path AC3 requires
+        // is actually exercised.
+        for (final name in bottomRowNames) {
+          expect(
+            tester.getRect(cardOf(name)).bottom,
+            greaterThan(gridRect.bottom),
+            reason: '$name hangs below the fold of the ${height}px pinned slot',
+          );
+        }
+
+        for (final name in bottomRowNames) {
+          final clue = clueOf(name);
+          final card = cardOf(name);
+          await Scrollable.ensureVisible(tester.element(card), alignment: 0.5);
+          await tester.pumpAndSettle();
+
+          final cardRect = tester.getRect(card);
+          expect(
+            cardRect.top,
+            greaterThanOrEqualTo(gridRect.top - 0.5),
+            reason: '$name card scrolled fully inside the grid viewport',
+          );
+          expect(
+            cardRect.bottom,
+            lessThanOrEqualTo(gridRect.bottom + 0.5),
+            reason: '$name card scrolled fully inside the grid viewport',
+          );
+
+          // Its clue text is inside the shown card: fully visible and never
+          // clipped by the card.
+          final paragraph = tester.renderObject<RenderParagraph>(
+            find.text(clue),
+          );
+          expect(
+            paragraph.size.height,
+            greaterThanOrEqualTo(idealParagraphHeight(paragraph) - 0.5),
+            reason: '$name clue renders in full after scroll-to-visible',
+          );
+          final textRect = tester.getRect(find.text(clue));
+          expect(
+            textRect.top,
+            greaterThanOrEqualTo(gridRect.top - 0.5),
+            reason: '$name clue text fully on screen',
+          );
+          expect(
+            textRect.bottom,
+            lessThanOrEqualTo(gridRect.bottom + 0.5),
+            reason: '$name clue text fully on screen',
+          );
+        }
+
+        expect(tester.takeException(), isNull);
+      }
+    },
+  );
+
   group('sentence coverage pins (issue 35)', () {
     Future<(AppLocalizations, NameForms)> l10nAndNames(
       WidgetTester tester,
