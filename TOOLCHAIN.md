@@ -1,18 +1,77 @@
-Flutter 3.50.0 • channel stable • https://github.com/flutter/flutter.git
-Framework • revision ab2912035e (10 days ago) • 2026-11-09 08:50:21 -0800
-Engine • hash bf601093ad255aaf5c6d0fc5c4f9acfa60943b2a (revision 371f77202a) (10 days ago) • 2026-11-09 15:57:36.000Z
-Tools • Dart 3.14.0 • DevTools 2.61.0
-The Flutter CLI developer tool uses Google Analytics to report usage and diagnostic
-data along with package dependencies, and crash reporting to send basic crash
-reports. This data is used to help improve the Dart platform, Flutter framework,
-and related tools.
+# Toolchain
 
-Telemetry is not sent on the very first run. To disable reporting of telemetry,
-run this terminal command:
+How to set up and use the local development toolchain for Murdoku. See
+[AGENTS.md](AGENTS.md) for build/test commands and guardrails, and
+[docs/git-workflow.md](docs/git-workflow.md) for branch/commit rules.
 
-    flutter --disable-analytics
+## Flutter
 
-If you opt out of telemetry, an opt-out event will be sent, and then no further
-information will be sent. This data is collected in accordance with the Google
-Privacy Policy (https://policies.google.com/privacy).
+- **Flutter stable channel, Dart bundled with it.** The repo was scaffolded
+  against Flutter 3.50.0 / Dart 3.14.0; any recent stable works. Check with
+  `flutter doctor -v`.
+- **Swift Package Manager is disabled machine-globally**
+  (`flutter config --no-enable-swift-package-manager`). The committed iOS
+  native integration is CocoaPods (`ios/Podfile` + `ios/Podfile.lock`).
+  Flutter prints a notice that SPM will eventually be required again; until
+  Flutter drops CocoaPods support, keep the current flow. Do not commit
+  `ios/Flutter/ephemeral/` artifacts (already gitignored).
+- The first run of any `flutter` command shows an analytics/telemetry notice
+  (tool-level, not part of the app — the app itself is fully offline). Opt out
+  with `flutter --disable-analytics` if desired.
 
+## iOS
+
+### Prerequisites (one-time per machine)
+
+- **Xcode** installed and selected: `xcode-select -p` must point at
+  `/Applications/Xcode.app/Contents/Developer`; otherwise
+  `sudo xcode-select -s /Applications/Xcode.app/Contents/Developer`.
+- **First-launch components**: `xcodebuild -checkFirstLaunchStatus` should
+  exit 0; if not, run `sudo xcodebuild -runFirstLaunch` once (this also makes
+  the `iphoneos`/`iphonesimulator` SDKs available).
+- **CocoaPods**: `brew install cocoapods` (verify with `pod --version`).
+- **iOS simulator runtime** (needed to *boot* a simulator, not to build):
+  `xcodebuild -downloadPlatform iOS` — one-time, per machine. Without a
+  runtime, `flutter build ios --simulator` still succeeds; `xcrun simctl boot`
+  does not (no devices listed by `xcrun simctl list devices available`).
+
+### Simulator workflow
+
+```bash
+flutter build ios --simulator     # → build/ios/iphonesimulator/Runner.app
+xcrun simctl list devices available
+xcrun simctl boot <udid>
+xcrun simctl install <udid> build/ios/iphonesimulator/Runner.app
+xcrun simctl launch <udid> com.murdoku.game
+xcrun simctl io <udid> screenshot /tmp/murdoku.png   # launch evidence
+```
+
+- Known non-bug: in debug, starting a case blocks the main thread ~60–90 s —
+  wait for the home screen / next screen, don't "fix".
+- Podfile/Podfile.lock were generated and are committed; pod resolution runs
+  automatically during the first build (requires `flutter pub get` first).
+
+### Physical device (one-time manual signing; team-agnostic)
+
+Any Apple ID works; the repo must never record a specific team:
+
+1. Open `ios/Runner.xcworkspace` in Xcode.
+2. Select the **Runner** target → **Signing & Capabilities** → under Team pick
+   your **personal Apple ID team** (Xcode prompts to sign in if needed).
+3. On the phone, trust the developer profile: Settings → General → VPN & Device
+   Management → trust the profile that appears.
+4. Build and run: `flutter run -d <device>` (find the device id with
+   `flutter devices`). A team-free compile check is
+   `flutter build ios --no-codesign`.
+5. **Free Apple ID teams expire every 7 days.** When the device shows a
+   provisioning error, re-select the team in Xcode and re-trust the profile.
+
+### Native config rules
+
+- Commit `ios/Podfile` and `ios/Podfile.lock`. To regenerate locally:
+  `flutter pub get && flutter build ios --simulator`.
+- **Never commit a `DEVELOPMENT_TEAM` entry** — `grep -r DEVELOPMENT_TEAM ios/`
+  must stay empty (signing is a local Xcode setting, not a repo one).
+- `ios/Flutter/Generated.xcconfig`, `ios/Pods/`, and
+  `ios/Flutter/ephemeral/` are machine-local and stay gitignored.
+- Bundle id `com.murdoku.game` stands until the Task 17 rename guardrail.
