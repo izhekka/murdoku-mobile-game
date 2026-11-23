@@ -364,4 +364,72 @@ void main() {
       reason: '5 cases only cover ${seen.length} of 16 pool slots',
     );
   });
+
+  test('recovery: budget-exhausting hard seed 117 yields a case (#45)', () {
+    final c = generateCaseWithRecovery(difficulty: Difficulty.hard, seed: 117);
+    expect(c.suspects, hasLength(Difficulty.hard.gridSize));
+    expect(
+      c.clues.length,
+      inInclusiveRange(Difficulty.hard.minClues, Difficulty.hard.maxClues),
+    );
+    expect(
+      c.seed,
+      greaterThan(117),
+      reason:
+          'recovery strides past the exhausted window; case.seed is '
+          'the successful attempt',
+    );
+  });
+
+  test(
+    'recovery: same requested seed reproduces the same recovered case (#45)',
+    () {
+      final a = generateCaseWithRecovery(
+        difficulty: Difficulty.hard,
+        seed: 117,
+      );
+      final b = generateCaseWithRecovery(
+        difficulty: Difficulty.hard,
+        seed: 117,
+      );
+      expect(b.toJson(), equals(a.toJson()));
+    },
+  );
+
+  test(
+    'recovery: exhausted windows rethrow the generator StateError (#45)',
+    () {
+      expect(
+        () => generateCaseWithRecovery(
+          difficulty: Difficulty.hard,
+          seed: 117,
+          recoveryWindows: 0,
+        ),
+        throwsStateError,
+      );
+      // Below-zero knob behaves as 0 instead of null-crashing the give-up
+      // throw (review round, issue 45).
+      expect(
+        () => generateCaseWithRecovery(
+          difficulty: Difficulty.hard,
+          seed: 117,
+          recoveryWindows: -1,
+        ),
+        throwsStateError,
+      );
+    },
+  );
+
+  test('recovery: corridor spanning two strides recovers on the third window (#45)', () {
+    // Hard corridor 42848100-42848180 (81 consecutive always-fail
+    // seeds): windows 0 and 1 both exhaust before window 2 lands on
+    // 42848181 — pins the multi-window path (stride arithmetic and loop
+    // bound), which the single-stride 117 tests cannot reach.
+    // Review-measured values.
+    final c = generateCaseWithRecovery(
+      difficulty: Difficulty.hard,
+      seed: 42848100,
+    );
+    expect(c.seed, 42848181);
+  });
 }

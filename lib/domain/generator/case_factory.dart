@@ -45,6 +45,10 @@ const _roomNames = [
 
 const _retryBudget = 40;
 
+/// Recovery windows for [generateCaseWithRecovery]: how many extra 40-seed
+/// strides the drawn-seed start path may consume past the exhausted one.
+const _recoveredWindows = 8;
+
 /// Public aliases for tests: the localized pools in localized_names.dart are
 /// index-aligned with these.
 const suspectNamePool = _suspectNames;
@@ -64,6 +68,42 @@ CaseData generateCase({required Difficulty difficulty, required int seed}) {
   throw StateError(
     'no unique case found for $difficulty within budget (seed $seed)',
   );
+}
+
+/// Recovery for the runtime-drawn seed path (issue 45): rare requested
+/// seeds exhaust even the widened budget inside [generateCase] (hard
+/// 115-124; ~2.7% of random hard draws threw pre-fix), so the interactive
+/// start path would hand the player a crash. This re-enters the search on
+/// the next untried 40-seed stride — the stride is exactly the budget
+/// [generateCase] already consumed, so window k's seeds were never
+/// attempted. Deterministic in [seed] (forced-seed tests stay
+/// reproducible), and [generateCase]'s own contract, golden and daily
+/// seeds stay untouched.
+///
+/// Give-up safety: the loop blankets the contiguous stretch
+/// [seed, seed + 40 * (recoveryWindows + 1)) — the shipped default covers
+/// [seed, seed+360) with 9 windows — and rethrows only when every seed in
+/// that stretch fails at every widen level. The widest always-fail
+/// corridor measured on hard is 81 seeds (42848100-42848180; none found
+/// on standard/easy), so the blanket carries ~4x headroom.
+/// [recoveryWindows] is a test seam (0 pins the give-up rethrow) and
+/// behaves as 0 below zero. On give-up the FIRST exhausted window's error
+/// is rethrown — its message carries the requested seed.
+CaseData generateCaseWithRecovery({
+  required Difficulty difficulty,
+  required int seed,
+  int recoveryWindows = _recoveredWindows,
+}) {
+  StateError? exhausted;
+  for (var window = 0; window <= max(0, recoveryWindows); window++) {
+    final attemptSeed = seed + window * _retryBudget;
+    try {
+      return generateCase(difficulty: difficulty, seed: attemptSeed);
+    } on StateError catch (e) {
+      exhausted ??= e; // keep the first error: the requested-seed message
+    }
+  }
+  throw exhausted!; // window 0 always ran, so a failure was captured
 }
 
 /// Everything the clue pipeline needs about one generated layout.

@@ -449,4 +449,47 @@ void main() {
       's1',
     );
   });
+
+  test(
+    'startNewCase recovers the budget-exhausting hard seed 117 (issue 45)',
+    () async {
+      final container = await makeContainer();
+      addTearDown(container.dispose);
+      final notifier = container.read(gameControllerProvider.notifier);
+
+      // Previously threw StateError right here (issue 45).
+      notifier.startNewCase(Difficulty.hard, seed: 117);
+      final state = container.read(gameControllerProvider)!;
+      expect(state.phase, GamePhase.playing);
+      expect(
+        state.caseData.clues.length,
+        inInclusiveRange(Difficulty.hard.minClues, Difficulty.hard.maxClues),
+      );
+    },
+  );
+
+  test(
+    'property: seeds across difficulties never crash the user path (issue 45)',
+    () async {
+      final container = await makeContainer();
+      addTearDown(container.dispose);
+      final notifier = container.read(gameControllerProvider.notifier);
+
+      // 116/117 are the documented hard failure cluster; the rest probe
+      // normal and unknown ranges. Every start must yield a playable case,
+      // never a StateError.
+      for (final difficulty in Difficulty.values) {
+        for (final seed in const [1, 3, 116, 117, 500, 99991]) {
+          notifier.startNewCase(difficulty, seed: seed);
+          final state = container.read(gameControllerProvider)!;
+          expect(
+            state.phase,
+            GamePhase.playing,
+            reason: '${difficulty.name} seed $seed',
+          );
+          notifier.quit();
+        }
+      }
+    },
+  );
 }

@@ -146,9 +146,12 @@ class GameNotifier extends Notifier<GameState?> {
 
   GameState? get _state => state;
 
+  /// Starts a fresh case on a runtime-drawn (or forced/test) seed. Routes
+  /// through [generateCaseWithRecovery] so a seed the generator's budget
+  /// cannot satisfy (issue 45) retries instead of crashing the start flow.
   void startNewCase(Difficulty difficulty, {int? seed}) {
     _start(
-      generateCase(
+      generateCaseWithRecovery(
         difficulty: difficulty,
         seed: seed ?? ref.read(forcedSeedProvider) ?? Random().nextInt(1 << 30),
       ),
