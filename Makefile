@@ -25,10 +25,11 @@ hooks: ## install the pre-commit quality gate: git config core.hooksPath .githoo
 	git config core.hooksPath .githooks
 	@echo "Pre-commit hook installed (core.hooksPath=.githooks)"
 
-quality: ## one-command local gate: format check + analyze + test --coverage + CRAP ratchet
+quality: ## one-command local gate: format check + analyze + test --coverage + lcov l10n filter + CRAP ratchet
 	dart format --output=none --set-exit-if-changed .
 	flutter analyze
 	flutter test --coverage
+	dart run tool/coverage_filter.dart --lcov coverage/lcov.info
 	dart run tool/crap_check.dart --lcov coverage/lcov.info
 
 init: ## usage: make init <zcode|claude> — project .agents/agents/ into a harness dir

@@ -142,7 +142,11 @@ the threshold — since issue 35 burned the baseline to zero, the committed
 baseline file is gone and the gate runs hard: any over-threshold member fails
 CI and `make quality`. Fix by splitting the method or covering it.
 `--update-baseline` can still write a local ratchet file for experimental
-work, but no baseline is committed.
+work, but no baseline is committed. Coverage collection itself excludes
+`lib/l10n` (issue 37): before the gate reads the report,
+`tool/coverage_filter.dart` drops every generated-localization lcov section
+(`flutter test --coverage` cannot filter paths, and hit counts there jitter
+between runs of identical code).
 
 ## Enforced lint → guideline mapping
 

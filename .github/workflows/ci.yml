@@ -12,4 +12,5 @@ jobs:
       - run: dart format --output=none --set-exit-if-changed .
       - run: flutter analyze
       - run: flutter test --coverage
+      - run: dart run tool/coverage_filter.dart --lcov coverage/lcov.info
       - run: dart run tool/crap_check.dart --lcov coverage/lcov.info
