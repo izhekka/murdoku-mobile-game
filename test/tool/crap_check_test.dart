@@ -142,6 +142,95 @@ class D {
       final metrics = computeMetrics('lib/t.dart', src);
       expect(metrics.map((m) => m.member).toList(), ['D.dup', 'D.dup#2']);
     });
+
+    group('blind-spot constructs', () {
+      test('logical-and/or patterns count as decision points', () {
+        final src = r'''
+bool orPat(int x) {
+  return switch (x) {
+    < 0 || > 9 => true,
+    _ => false,
+  };
+}
+
+bool andPat(int x) {
+  switch (x) {
+    case > 3 && < 10:
+      return true;
+    default:
+      return false;
+  }
+}
+''';
+        final byName = {
+          for (final m in computeMetrics('lib/t.dart', src))
+            m.member: m.complexity,
+        };
+        // 1 base + relational-pattern arm + one logical-or pattern; the `_`
+        // wildcard arm is not counted (accepted).
+        expect(byName['orPat'], 3);
+        // 1 base + switch-pattern case + one logical-and pattern; the
+        // statement-switch default clause is not counted (accepted).
+        expect(byName['andPat'], 3);
+      });
+
+      test('null-aware assignment ??= counts as a decision point', () {
+        final src = r'''
+int q1(int? x, int y) {
+  x ??= y;
+  return x;
+}
+
+int q2(int? a, int b, int c) {
+  a ??= b ?? c;
+  return a;
+}
+''';
+        final byName = {
+          for (final m in computeMetrics('lib/t.dart', src))
+            m.member: m.complexity,
+        };
+        expect(byName['q1'], 2); // 1 base + ??=
+        expect(byName['q2'], 3); // 1 base + ??= + ??
+      });
+
+      test('decision-bearing initializers become their own pseudo-members', () {
+        final src = r'''
+final topInit = true ? 1 : 2;
+final topTrivial = 1;
+
+class C {
+  static final g = true ? 1 : 2;
+  final h = true ? 1 : 2;
+  static final cb = () => true ? 1 : 2;
+}
+''';
+        final byName = {
+          for (final m in computeMetrics('lib/t.dart', src))
+            m.member: m.complexity,
+        };
+        // Top-level variables get their bare name; class fields Type.name.
+        expect(byName['topInit'], 2); // 1 base + ?:
+        expect(byName['C.g'], 2);
+        expect(byName['C.h'], 2);
+        expect(byName['C.cb'], 2); // closure decision rolls into the member
+        // A decision-free initializer is not a member of its own.
+        expect(byName.containsKey('topTrivial'), isFalse);
+      });
+
+      test('initializers of local variables stay inside the member', () {
+        final src = r'''
+int withLocal(bool a) {
+  final local = a ? 1 : 2;
+  return local;
+}
+''';
+        final metrics = computeMetrics('lib/t.dart', src);
+        expect(metrics, hasLength(1));
+        expect(metrics.single.member, 'withLocal');
+        expect(metrics.single.complexity, 2); // the ?: rolls into the method
+      });
+    });
   });
 
   group('LcovData', () {

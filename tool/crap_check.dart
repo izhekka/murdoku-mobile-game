@@ -7,8 +7,13 @@
 ///
 /// - Complexity = 1 + decision points: `if` (statements and collection
 ///   elements), `for` (statements and elements), `while`, `do`, statement
-///   `case` clauses, expression-switch arms with a pattern (`_` wildcard and
-///   `default` are not decisions), `catch` clauses, `&&`, `||`, `?:`, `??`.
+///   `case` clauses, expression-switch arms with a pattern, `catch` clauses,
+///   `&&`, `||`, `?:`, `??`, `??=`, `&&`/`||` between patterns, and the
+///   initializer of any top-level variable or field that carries decisions
+///   (that initializer is measured as its own pseudo-member named like the
+///   variable — bare name for top-level, `<Type>.<name>` for a field;
+///   decision-free initializers are not members of their own; nested
+///   closures roll into the initializer member as into any member).
 ///   Nested closures and local functions roll into their enclosing member.
 /// - Coverage per method comes from lcov `DA` records inside the member's
 ///   line span (`flutter test --coverage`); missing data means 0.
@@ -22,9 +27,11 @@
 /// and `integration_test/` are formatted and linted but yield no coverage
 /// data, so they are never measured.
 ///
-/// Known limitations of this hand-rolled gate (documented on purpose):
-/// decision points in top-level/field initializers and in `&&`/`||` inside
-/// patterns are not counted.
+/// Remaining accepted non-counts, marked accepted on purpose: a
+/// statement-switch `default:` clause and a `_` wildcard switch-expression
+/// arm are the implicit else branch of their switch — per standard McCabe
+/// counting, the other arm contributes the decision and the else
+/// contributes none, so counting them would double-count.
 library;
 
 import 'dart:convert';
@@ -411,6 +418,34 @@ class _MemberCollector extends RecursiveAstVisitor<void> {
     super.visitConstructorDeclaration(node);
   }
 
+  /// A top-level variable or field whose initializer carries decision
+  /// points becomes its own pseudo-member over exactly that initializer —
+  /// initializer decisions are not rolled into any other member, so the
+  /// ratchet has to see them where they live. Locals are skipped: their
+  /// initializer decisions already roll into the enclosing member via that
+  /// member's own traversal.
+  @override
+  void visitVariableDeclaration(VariableDeclaration node) {
+    final initializer = node.initializer;
+    final owner = node.parent?.parent;
+    if (initializer != null &&
+        (owner is TopLevelVariableDeclaration || owner is FieldDeclaration)) {
+      final visitor = _ComplexityVisitor();
+      initializer.accept(visitor);
+      if (visitor.complexity > 1) {
+        final prefix = _typeName;
+        members.add(
+          _Collected(
+            prefix == null ? node.name.lexeme : '$prefix.${node.name.lexeme}',
+            initializer,
+            lineInfo,
+          ),
+        );
+      }
+    }
+    super.visitVariableDeclaration(node);
+  }
+
   void _withType(String name, void Function() visit) {
     final previous = _typeName;
     _typeName = name;
@@ -498,6 +533,26 @@ class _ComplexityVisitor extends RecursiveAstVisitor<void> {
       _bump();
     }
     super.visitBinaryExpression(node);
+  }
+
+  /// `x ??= y` is the assignment form of `??` (a counted decision point):
+  /// not counting it would let `x = x ?? y` be restated with a lower score.
+  @override
+  void visitAssignmentExpression(AssignmentExpression node) {
+    if (node.operator.type == TokenType.QUESTION_QUESTION_EQ) _bump();
+    super.visitAssignmentExpression(node);
+  }
+
+  @override
+  void visitLogicalAndPattern(LogicalAndPattern node) {
+    _bump();
+    super.visitLogicalAndPattern(node);
+  }
+
+  @override
+  void visitLogicalOrPattern(LogicalOrPattern node) {
+    _bump();
+    super.visitLogicalOrPattern(node);
   }
 
   @override
