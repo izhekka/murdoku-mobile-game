@@ -392,6 +392,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tutorialDone => 'Got it';
 
   @override
+  String get tutorialClose => 'Close tutorial';
+
+  @override
   String get glossaryTitle => 'Clue glossary';
 
   @override

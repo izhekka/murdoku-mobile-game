@@ -334,6 +334,7 @@
   "tutorialXHint": "Use X marks to eliminate cells you know are impossible.",
   "tutorialNext": "Next",
   "tutorialDone": "Got it",
+  "tutorialClose": "Close tutorial",
   "glossaryTitle": "Clue glossary",
   "glossaryBeside": "Beside: directly adjacent (up, down, left, right).",
   "glossaryDirections": "North is up, south is down, west is left, east is right.",

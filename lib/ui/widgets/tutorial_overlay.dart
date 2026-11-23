@@ -83,7 +83,9 @@ class _TutorialOverlayState extends State<TutorialOverlay> {
                 children: [
                   IconButton(
                     icon: const Icon(Icons.close),
-                    tooltip: l10n.tutorialDone,
+                    // Issue 41: a label that says "close", distinct from the
+                    // primary Next/Done button's tooltip/semantics.
+                    tooltip: l10n.tutorialClose,
                     onPressed: widget.onDismiss,
                   ),
                   // Issue 31: at 320px with large system text the intrinsic

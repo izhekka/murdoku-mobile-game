@@ -752,6 +752,12 @@ abstract class AppLocalizations {
   /// **'Got it'**
   String get tutorialDone;
 
+  /// No description provided for @tutorialClose.
+  ///
+  /// In en, this message translates to:
+  /// **'Close tutorial'**
+  String get tutorialClose;
+
   /// No description provided for @glossaryTitle.
   ///
   /// In en, this message translates to:

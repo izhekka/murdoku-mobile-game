@@ -393,6 +393,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get tutorialDone => 'Понятно';
 
   @override
+  String get tutorialClose => 'Закрыть обучение';
+
+  @override
   String get glossaryTitle => 'Словарь улик';
 
   @override

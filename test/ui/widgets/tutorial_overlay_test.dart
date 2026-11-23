@@ -207,4 +207,57 @@ void main() {
       );
     }
   });
+
+  testWidgets('close control label differs from the primary button '
+      '(issue 41)', (tester) async {
+    await pumpApp(tester);
+    final l10n = l10nOf(tester);
+    expect(find.byType(TutorialOverlay), findsOneWidget);
+
+    final closeTooltip = tester
+        .widget<IconButton>(
+          find.descendant(
+            of: find.byType(TutorialOverlay),
+            matching: find.byType(IconButton),
+          ),
+        )
+        .tooltip;
+    expect(closeTooltip, isNotNull);
+    expect(closeTooltip, l10n.tutorialClose);
+    expect(l10n.tutorialClose, isNot(l10n.tutorialDone));
+
+    // The close label also differs from the rendered label of the primary
+    // button as pumped (page 0 shows the Next string), and the close copy
+    // is addressable through the framework's tooltip matcher (issue 41).
+    final primaryLabel = tester
+        .widget<Text>(
+          find.descendant(
+            of: find.descendant(
+              of: find.byType(TutorialOverlay),
+              matching: find.byType(FilledButton),
+            ),
+            matching: find.byType(Text),
+          ),
+        )
+        .data;
+    expect(closeTooltip, isNot(primaryLabel));
+    expect(find.byTooltip(l10n.tutorialClose), findsOneWidget);
+
+    // The Russian locale (Settings default) carries the new ru close copy.
+    expect(l10n.tutorialClose, 'Закрыть обучение');
+  });
+
+  testWidgets('close control label renders the en copy in English', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({
+      'murdoku.settings': jsonEncode(
+        Settings(language: LanguageSetting.english).toJson(),
+      ),
+    });
+    final prefs = await SharedPreferences.getInstance();
+    await pumpApp(tester, withPrefs: prefs);
+    final l10n = l10nOf(tester);
+    expect(l10n.tutorialClose, 'Close tutorial');
+  });
 }
