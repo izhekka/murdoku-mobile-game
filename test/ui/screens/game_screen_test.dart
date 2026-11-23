@@ -378,14 +378,30 @@ void main() {
     expect(tester.takeException(), isNull);
 
     // The suspect panel still shows every card (clue text truncated, not
-    // hidden behind an exception). Names resolve through the active locale.
+    // hidden behind an exception). At scale 2.0 the pinned grid's grown rows
+    // far exceed the slot (issue 39), so the grid scrolls and lazily builds
+    // only the rows inside the viewport's range: assert the first row in
+    // place, scroll, then assert the rest. Names resolve through the active
+    // locale.
     final l10n = l10nOf(tester);
     final names = NameForms.forLocale(l10n.localeName, fixedCase);
-    for (final s in fixedCase.suspects) {
+    for (final s in fixedCase.suspects.take(3)) {
       expect(
         find.text(names.nom(s.id)),
         findsWidgets,
         reason: 'suspect ${s.id} card present at textScale 2.0',
+      );
+    }
+    await tester.drag(
+      find.text(names.nom(fixedCase.suspects.first.id)),
+      const Offset(0, -2000),
+    );
+    await tester.pumpAndSettle();
+    for (final s in fixedCase.suspects.skip(3)) {
+      expect(
+        find.text(names.nom(s.id)),
+        findsWidgets,
+        reason: 'suspect ${s.id} card present after scrolling to row 2',
       );
     }
 

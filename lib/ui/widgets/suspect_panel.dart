@@ -11,6 +11,13 @@ import 'package:murdoku/ui/widgets/avatar.dart';
 /// Test handle for the panel's header row (issue 27).
 const Key suspectsPanelHeaderKey = Key('suspects_panel_header');
 
+/// The narrow grid's geometry shared by the row-height math and the
+/// layout-time pinned split (issue 39): 3 columns, 4px padding on the grid
+/// edges, 4px gutters between tiles.
+const int _gridColumns = 3;
+const double _gridHPad = 4.0;
+const double _gridSpacing = 4.0;
+
 /// The positive sentence when [negated] is false, the negated one otherwise.
 /// Both strings are built eagerly; the l10n templates are pure.
 String _either(bool negated, String positive, String negatedForm) =>
@@ -125,7 +132,9 @@ String _sameRowColSentence(
 /// The suspects panel: a 3x2 grid of compact cards on phones (tall enough to
 /// show each card's full clue text, uncapped), a vertical column on wide
 /// layouts. Wherever the host leaves the height loose, cards grow to fit
-/// their full clue text instead of clipping it. Guest names never
+/// their full clue text instead of clipping it. In a pinned slot the rows
+/// split the space under the header exactly, and the grid scrolls whenever
+/// the grown rows cannot all fit (issue 39). Guest names never
 /// ellipsize: they render at full size where they fit and scale down to
 /// their row where they don't (issue 15).
 class SuspectPanel extends StatelessWidget {
@@ -219,8 +228,9 @@ class SuspectPanel extends StatelessWidget {
   ];
 
   /// The narrow (below 600px) layout: header above the 3-column grid; the
-  /// grid fills the pinned slot, clamps to the space under the header when
-  /// the host bounds the height, or shrink-wraps its grown rows otherwise.
+  /// grid fills the pinned slot below the header, clamps to the space under
+  /// the header when the host bounds the height, or shrink-wraps its grown
+  /// rows otherwise (issue 39).
   Widget _narrowColumn(
     BuildContext context,
     BoxConstraints constraints,
@@ -230,12 +240,12 @@ class SuspectPanel extends StatelessWidget {
     double cardBorderWidth,
     SkinTokens? skin,
   ) {
-    const columns = 3;
-    const hPad = 4.0;
-    const spacing = 4.0;
     final cardWidth =
-        (constraints.maxWidth - 2 * hPad - (columns - 1) * spacing) / columns;
-    final rowHeight = _narrowRowHeight(
+        (constraints.maxWidth -
+            2 * _gridHPad -
+            (_gridColumns - 1) * _gridSpacing) /
+        _gridColumns;
+    final grownRowHeight = _narrowRowHeight(
       context,
       constraints,
       cardWidth,
@@ -244,23 +254,27 @@ class SuspectPanel extends StatelessWidget {
       cardBorderWidth,
       skin?.chip,
     );
-    // Grid children and their ideal shrink-wrapped height at the row
-    // height above: padding on both edges, every grown row, and the
-    // gutters between them (issue 30's overflow detection).
+    // Grid children, their real row count, and their ideal shrink-wrapped
+    // height at the grown row height above: padding on both edges, every
+    // grown row, and the gutters between them (issue 30's overflow
+    // detection, now shared by the pinned branch's overflow check via the
+    // layout-time slot compare — issue 39). The row count is the real grid
+    // children's: 5 suspects lay out 2 rows, 6 suspects 3 (issue 39).
     final children = [...cards, const _EmptySlot()];
-    final totalRows = (children.length / columns).ceil();
+    final rows = (children.length / _gridColumns).ceil();
     final gridContentHeight =
-        2 * hPad + totalRows * rowHeight + (totalRows - 1) * spacing;
-    GridView buildGrid({required bool scrollable}) => GridView.count(
-      crossAxisCount: columns,
-      shrinkWrap: true,
-      physics: _gridPhysics(scrollable: scrollable),
-      childAspectRatio: cardWidth / rowHeight,
-      padding: const EdgeInsets.all(hPad),
-      mainAxisSpacing: spacing,
-      crossAxisSpacing: spacing,
-      children: children,
-    );
+        2 * _gridHPad + rows * grownRowHeight + (rows - 1) * _gridSpacing;
+    GridView buildGrid({required bool scrollable, required double rowHeight}) =>
+        GridView.count(
+          crossAxisCount: _gridColumns,
+          shrinkWrap: true,
+          physics: _gridPhysics(scrollable: scrollable),
+          childAspectRatio: cardWidth / rowHeight,
+          padding: const EdgeInsets.all(_gridHPad),
+          mainAxisSpacing: _gridSpacing,
+          crossAxisSpacing: _gridSpacing,
+          children: children,
+        );
     final bounded = constraints.maxHeight.isFinite;
     final pinned = bounded && constraints.maxHeight == constraints.minHeight;
     return Column(
@@ -271,18 +285,21 @@ class SuspectPanel extends StatelessWidget {
         _gridChild(
           pinned: pinned,
           bounded: bounded,
+          rows: rows,
           gridContentHeight: gridContentHeight,
+          grownRowHeight: grownRowHeight,
           buildGrid: buildGrid,
         ),
       ],
     );
   }
 
-  /// The narrow branch's row height: default card proportions; when the
-  /// host pins a tight height (the game screen's fixed panel slot), size
-  /// the two rows to fill the slot exactly so nothing clips and no dead
-  /// space is left; where the height is loose, grow to the tallest card's
-  /// full content instead of pinning tiles that clip long clue text (UX-9).
+  /// The narrow branch's grown row height: default card proportions grown to
+  /// the tallest card's full content instead of pinning tiles that clip long
+  /// clue text (UX-9). The pinned host resolves the final tile height
+  /// against the post-header slot at layout time (issue 39): this grown
+  /// height is what the pinned grid scrolls to when the slot cannot show
+  /// every row.
   double _narrowRowHeight(
     BuildContext context,
     BoxConstraints constraints,
@@ -292,16 +309,9 @@ class SuspectPanel extends StatelessWidget {
     double cardBorderWidth,
     SkinChip? chip,
   ) {
-    var rowHeight = cardWidth / 1.05;
-    if (constraints.maxHeight.isFinite &&
-        constraints.maxHeight == constraints.minHeight) {
-      const hPad = 4.0;
-      const spacing = 4.0;
-      const rows = 2;
-      rowHeight =
-          (constraints.maxHeight - 2 * hPad - (rows - 1) * spacing) / rows;
-    } else if (constraints.maxWidth.isFinite) {
-      rowHeight = math.max(
+    final rowHeight = cardWidth / 1.05;
+    if (constraints.maxWidth.isFinite) {
+      return math.max(
         rowHeight,
         _contentRowHeight(
           context,
@@ -316,37 +326,67 @@ class SuspectPanel extends StatelessWidget {
     return rowHeight;
   }
 
-  /// Scroll physics for the suspect grid (issue 30): when the loose branch's
-  /// grown row heights exceed the slot under the header, the shrink-wrap
-  /// viewport clamps to the slot and NeverScrollableScrollPhysics would leave
-  /// the bottom-row cards unbuilt and unreachable — switch to scrolling
-  /// physics exactly on overflow. When the content fits (or the height is
-  /// pinned), small cases keep the no-scroll grid; more suspects than the
-  /// 3x2 grid shows keep the pre-existing scrollable physics.
+  /// Scroll physics for the suspect grid (issues 30/39): when the grown row
+  /// heights exceed the grid's slot, the shrink-wrap viewport clamps and
+  /// NeverScrollableScrollPhysics would leave the bottom-row cards unbuilt
+  /// and unreachable — the callers detect that overflow (bounded-loose host:
+  /// the Flexible's slot compare; pinned host: the post-header slot compare,
+  /// issue 39) and switch to scrolling physics exactly on overflow. When
+  /// the content fits, small cases keep the no-scroll grid; more suspects
+  /// than the 3x2 grid shows keep the pre-existing scrollable physics.
   ScrollPhysics _gridPhysics({required bool scrollable}) =>
       scrollable || caseData.suspects.length > 6
       ? const ClampingScrollPhysics()
       : const NeverScrollableScrollPhysics();
 
-  /// The grid's placement under the header (issue 27/30): filling the rest
-  /// of a pinned slot, clamped-and-scrolling on overflow inside a bounded
-  /// slot, or shrink-wrapped when the height is unbounded.
+  /// The grid's placement under the header (issue 27/30/39): filling the
+  /// rest of a pinned slot exactly, clamped-and-scrolling on overflow inside
+  /// a bounded slot, or shrink-wrapped when the height is unbounded. The
+  /// pinned branch (issue 39) splits the post-header slot into the real
+  /// [rows] when the grown rows fit it and switches to scrolling physics
+  /// exactly like the bounded branch when they don't.
   Widget _gridChild({
     required bool pinned,
     required bool bounded,
+    required int rows,
     required double gridContentHeight,
-    required GridView Function({required bool scrollable}) buildGrid,
+    required double grownRowHeight,
+    required GridView Function({
+      required bool scrollable,
+      required double rowHeight,
+    })
+    buildGrid,
   }) {
-    if (pinned) return Expanded(child: buildGrid(scrollable: false));
-    if (bounded) {
-      return Flexible(
+    if (pinned) {
+      return Expanded(
         child: LayoutBuilder(
-          builder: (context, slot) =>
-              buildGrid(scrollable: gridContentHeight > slot.maxHeight + 0.5),
+          builder: (context, slot) {
+            // Issue 39: the rows split the slot below the header — the real
+            // children count, not a hard-coded 2 — and on overflow the grid
+            // keeps the grown rows and scrolls, the loose branch's behavior.
+            final fillRowHeight =
+                (slot.maxHeight - 2 * _gridHPad - (rows - 1) * _gridSpacing) /
+                rows;
+            final fits = gridContentHeight <= slot.maxHeight + 0.5;
+            return buildGrid(
+              scrollable: !fits,
+              rowHeight: fits ? fillRowHeight : grownRowHeight,
+            );
+          },
         ),
       );
     }
-    return buildGrid(scrollable: false);
+    if (bounded) {
+      return Flexible(
+        child: LayoutBuilder(
+          builder: (context, slot) => buildGrid(
+            scrollable: gridContentHeight > slot.maxHeight + 0.5,
+            rowHeight: grownRowHeight,
+          ),
+        ),
+      );
+    }
+    return buildGrid(scrollable: false, rowHeight: grownRowHeight);
   }
 
   /// Minimum row height that fits every card's full content (name row plus

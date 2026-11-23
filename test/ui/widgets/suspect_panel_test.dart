@@ -122,6 +122,35 @@ final CaseData overflowFixture = buildFixture([
   BesideObject(suspectId: 's4', objectId: 'o1', negated: false),
 ]);
 
+/// Standard-difficulty stand-in: the fixture board gains a sixth guest, so
+/// the panel lays out 7 grid children (6 cards + the empty slot = 3 rows).
+/// The panel only reads suspects and clue sentences, so rooms/solution stay
+/// as-is (issue 39).
+final CaseData standardFixture = fixture.copyWith(
+  suspects: [
+    ...fixture.suspects,
+    const Suspect(id: 's5', name: 'Finley'),
+  ],
+  clues: [
+    ...fixture.clues,
+    InRoom(suspectId: 's5', roomId: 'r0', negated: false),
+  ],
+);
+
+/// Hard-difficulty stand-in: a seventh guest, so 8 grid children and the
+/// pre-existing more-suspects-than-the-grid-shows scrollable clause apply
+/// (issue 39 non-regression).
+final CaseData hardFixture = standardFixture.copyWith(
+  suspects: [
+    ...standardFixture.suspects,
+    const Suspect(id: 's6', name: 'Grey'),
+  ],
+  clues: [
+    ...standardFixture.clues,
+    InRoom(suspectId: 's6', roomId: 'r1', negated: false),
+  ],
+);
+
 /// Same board and clues as [fixture], but s0 carries a long multi-word
 /// display name (stored/custom cases may carry arbitrary names) and s1 is
 /// placed (its check icon narrows the name row): both stress the name row
@@ -283,6 +312,40 @@ Widget skinSidePanelWrap(
     child: Align(
       child: SizedBox(
         width: 300,
+        child: SuspectPanel(
+          caseData: c,
+          placed: const {},
+          selectedSuspectId: null,
+          onSuspectTap: onSuspectTap ?? (_) {},
+        ),
+      ),
+    ),
+  ),
+);
+
+/// The panel pinned to a phone-sized slot, exactly as the narrow game screen
+/// hosts it (`Expanded(child: panel)`, lib/ui/screens/game_screen.dart):
+/// tight width and height render the pinned branch. [width]/[height] model
+/// the space left under the board and toolbar on a narrow phone; [tokens]
+/// scopes a cartoon skin (issue 39).
+Widget pinnedWrap(
+  CaseData c, {
+  double width = 360,
+  double height = 300,
+  SkinTokens? tokens,
+  void Function(String)? onSuspectTap,
+}) => MaterialApp(
+  locale: const Locale('en'),
+  localizationsDelegates: AppLocalizations.localizationsDelegates,
+  supportedLocales: AppLocalizations.supportedLocales,
+  builder: tokens == null
+      ? null
+      : (context, child) => SkinScope(tokens: tokens, child: child!),
+  home: Scaffold(
+    body: Center(
+      child: SizedBox(
+        width: width,
+        height: height,
         child: SuspectPanel(
           caseData: c,
           placed: const {},
@@ -477,13 +540,20 @@ void main() {
       closeTo(400 - headerRect.height, 0.5),
       reason: 'the grid fills the pinned slot below the header',
     );
-    // Two rows split the 400px slot minus 8px padding and one 4px gutter;
-    // each card's InkWell fills its tile minus the 4px card padding.
+    // Two rows split the post-header slot (400 - header) minus 8px padding
+    // and one 4px gutter (issue 39: real rows over the post-header slot,
+    // not the full pinned height); each card's InkWell fills its tile minus
+    // the 4px card padding.
+    expect(
+      tester.widget<GridView>(find.byType(GridView)).physics,
+      isA<NeverScrollableScrollPhysics>(),
+      reason: 'the 2 grown rows fit the post-header slot; no scrolling',
+    );
     final cardRect = tester.getRect(find.byType(InkWell).first);
     expect(
       cardRect.height,
-      closeTo((400 - 2 * 4 - 4) / 2 - 2 * 4, 0.5),
-      reason: 'cards stretch to fill the slot height',
+      closeTo((400 - headerRect.height - 2 * 4 - 4) / 2 - 2 * 4, 0.5),
+      reason: 'cards stretch to fill the post-header slot height',
     );
   });
 
@@ -878,7 +948,29 @@ void main() {
     );
 
     final clueTexts = describeMultiClueSentences(tester);
-    for (final text in clueTexts) {
+    // Rows 1's chips (s0's four sentences, Blair's and Casey's cards) are
+    // built at the initial offset: they lay out in full on the grown rows.
+    for (final text in clueTexts.sublist(0, 6)) {
+      final paragraph = tester.renderObject<RenderParagraph>(find.text(text));
+      expect(
+        paragraph.size.height,
+        greaterThanOrEqualTo(idealParagraphHeight(paragraph) - 0.5),
+        reason: 'clue "$text" lays out in full on the pinned narrow grid',
+      );
+    }
+
+    // Issue 39: the grown rows exceed the post-header slot, so the pinned
+    // grid scrolls (the old behavior compressed the rows instead); scroll
+    // row 2 (Drew and Ellis) into the viewport's build range and assert
+    // there too.
+    expect(
+      tester.widget<GridView>(find.byType(GridView)).physics,
+      isA<ClampingScrollPhysics>(),
+      reason: 'grown chip rows exceeding the slot make the grid scrollable',
+    );
+    await tester.drag(find.text('Ash'), const Offset(0, -2000));
+    await tester.pumpAndSettle();
+    for (final text in clueTexts.sublist(6)) {
       final paragraph = tester.renderObject<RenderParagraph>(find.text(text));
       expect(
         paragraph.size.height,
@@ -1098,6 +1190,253 @@ void main() {
     }
     expect(find.byType(Scrollbar), findsNothing);
   });
+
+  testWidgets(
+    'pinned standard case: 3 grown rows overflow the post-header slot; the '
+    'grid scrolls and every suspect stays reachable (issue 39)',
+    (tester) async {
+      final tappedIds = <String>[];
+      await tester.pumpWidget(
+        pinnedWrap(standardFixture, onSuspectTap: tappedIds.add),
+      );
+      await tester.pump();
+
+      final gridRect = tester.getRect(find.byType(GridView));
+      final finleyCard = find.ancestor(
+        of: find.text('Finley'),
+        matching: find.byType(InkWell),
+      );
+      final finleyHeight = tester.getRect(finleyCard).height;
+
+      expect(
+        tester.widget<GridView>(find.byType(GridView)).physics,
+        isA<ClampingScrollPhysics>(),
+        reason: 'grown rows exceeding the post-header slot scroll (issue 39)',
+      );
+      // Precondition: the sixth card hangs below the fold of the 300px slot.
+      expect(tester.getRect(finleyCard).bottom, greaterThan(gridRect.bottom));
+
+      // Scroll every card into view with the grid's own scroll machinery and
+      // tap it: the AC's reachability is all six cards, not just the deepest
+      // one, and mid-grid hit-test regressions must not pass unnoticed. The
+      // trailing empty-slot row wins at max scroll, so centering (not
+      // overshoot) is what shows each card fully.
+      for (final s in standardFixture.suspects) {
+        final card = find.ancestor(
+          of: find.text(s.name),
+          matching: find.byType(InkWell),
+        );
+        await Scrollable.ensureVisible(tester.element(card), alignment: 0.5);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text(s.name));
+      }
+      expect(
+        tappedIds.toSet(),
+        standardFixture.suspects.map((s) => s.id).toSet(),
+        reason: 'all six cards are scrollable into view and tappable',
+      );
+
+      // The last card (Finley, centered by the loop) is fully on screen with
+      // its grown height preserved — the deepest card's scroll geometry.
+      final onScreen = tester.getRect(finleyCard);
+      expect(
+        onScreen.height,
+        closeTo(finleyHeight, 0.5),
+        reason: 'scrolled rows keep their grown height',
+      );
+      expect(
+        onScreen.top,
+        greaterThanOrEqualTo(gridRect.top - 0.5),
+        reason: 'the sixth card is scrolled fully into view',
+      );
+      expect(
+        onScreen.bottom,
+        lessThanOrEqualTo(gridRect.bottom + 0.5),
+        reason: 'the full bottom-row card is on screen after scrolling',
+      );
+    },
+  );
+
+  testWidgets(
+    'pinned standard case (chip skin): overflow scrolls and the sixth card '
+    'is reachable (issue 39)',
+    (tester) async {
+      String? tapped;
+      await tester.pumpWidget(
+        pinnedWrap(
+          standardFixture,
+          tokens: stickerTokens,
+          onSuspectTap: (id) => tapped = id,
+        ),
+      );
+      await tester.pump();
+
+      final gridRect = tester.getRect(find.byType(GridView));
+      final finleyCard = find.ancestor(
+        of: find.text('Finley'),
+        matching: find.byType(InkWell),
+      );
+      final finleyHeight = tester.getRect(finleyCard).height;
+
+      expect(
+        tester.widget<GridView>(find.byType(GridView)).physics,
+        isA<ClampingScrollPhysics>(),
+        reason: 'chip grown rows exceeding the post-header slot scroll',
+      );
+      expect(tester.getRect(finleyCard).bottom, greaterThan(gridRect.bottom));
+
+      await Scrollable.ensureVisible(
+        tester.element(finleyCard),
+        alignment: 0.5,
+      );
+      await tester.pumpAndSettle();
+
+      final onScreen = tester.getRect(finleyCard);
+      expect(
+        onScreen.height,
+        closeTo(finleyHeight, 0.5),
+        reason: 'scrolled rows keep their grown height',
+      );
+      expect(onScreen.top, greaterThanOrEqualTo(gridRect.top - 0.5));
+      expect(
+        onScreen.bottom,
+        lessThanOrEqualTo(gridRect.bottom + 0.5),
+        reason: 'the full bottom-row card is on screen after scrolling',
+      );
+      await tester.tap(find.text('Finley'));
+      expect(
+        tapped,
+        's5',
+        reason: 'the sixth card is tappable in the chip skin',
+      );
+    },
+  );
+
+  testWidgets(
+    'pinned standard case that fits: grid stays non-scrollable and the real '
+    '3 rows split the post-header slot (issue 39)',
+    (tester) async {
+      // A tall narrow surface: grown rows of a generated-style case are far
+      // taller than the 300px phone slot, so the fitting premise needs a
+      // 700px slot for 3 grown rows to fit (same premise as the UX-2 test's
+      // 1400px surface).
+      tester.view.physicalSize = const Size(800, 900);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await tester.pumpWidget(pinnedWrap(standardFixture, height: 700));
+      await tester.pump();
+
+      expect(
+        tester.widget<GridView>(find.byType(GridView)).physics,
+        isA<NeverScrollableScrollPhysics>(),
+        reason: 'the grown rows fit the post-header slot; no scrolling',
+      );
+      for (final s in standardFixture.suspects) {
+        expect(find.text(s.name), findsOneWidget);
+      }
+      // The grid fills the post-header slot exactly, and each tile comes
+      // from the real 3-row split of that slot (7 children = 6 cards +
+      // empty slot): slot minus 2*4 padding minus 2 gutters of 4, minus the
+      // 2*4 card padding on the tile.
+      final panelRect = tester.getRect(find.byType(SuspectPanel));
+      final headerRect = tester.getRect(find.byKey(suspectsPanelHeaderKey));
+      final slot = panelRect.bottom - headerRect.bottom;
+      final gridRect = tester.getRect(find.byType(GridView));
+      expect(
+        gridRect.height,
+        closeTo(slot, 0.5),
+        reason: 'the grid fills the post-header slot (no dead space)',
+      );
+      final cardRect = tester.getRect(find.byType(InkWell).first);
+      expect(
+        cardRect.height,
+        closeTo((slot - 2 * 4 - 2 * 4) / 3 - 2 * 4, 0.5),
+        reason: '3 real rows split the post-header slot',
+      );
+    },
+  );
+
+  testWidgets(
+    'pinned hard case keeps the scrollable-more-than-six clause grown-row '
+    'heights; the last suspect is reachable (issue 39, non-regression)',
+    (tester) async {
+      String? tapped;
+      await tester.pumpWidget(
+        pinnedWrap(hardFixture, onSuspectTap: (id) => tapped = id),
+      );
+      await tester.pump();
+
+      expect(
+        tester.widget<GridView>(find.byType(GridView)).physics,
+        isA<ClampingScrollPhysics>(),
+        reason: '7 suspects keep the pre-existing scrollable physics',
+      );
+      // The >6 clause makes this scrollable under the old code too, so pin
+      // the issue-39 mechanism directly: row 1 keeps its GROWN height —
+      // taller than the pre-fix pinned math's hard-coded 2-row split of the
+      // full panel height, which compressed every tile to
+      // (height − 12)/2 − 8 (136 here, vs 192 grown at these metrics).
+      final panelRect = tester.getRect(find.byType(SuspectPanel));
+      final ashCard = find.ancestor(
+        of: find.text('Ash'),
+        matching: find.byType(InkWell),
+      );
+      final compressedSplit = (panelRect.height - 2 * 4 - 4) / 2 - 2 * 4;
+      expect(
+        tester.getRect(ashCard).height,
+        greaterThan(compressedSplit + 0.5),
+        reason: 'the hard case keeps grown rows, not compressed 2-row tiles',
+      );
+      // The seventh card sits in row 3, outside the initial viewport's build
+      // range; scroll to the end (the last content row IS Grey there, unlike
+      // the 6-suspect case's lone empty-slot row) and tap it.
+      await tester.drag(find.text('Ash'), const Offset(0, -2000));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Grey'));
+      expect(tapped, 's6', reason: 'the seventh card is tappable');
+    },
+  );
+
+  testWidgets(
+    'pinned panel survives a tiny slot: rows grow and the grid scrolls '
+    '(issue 39)',
+    (tester) async {
+      await tester.pumpWidget(pinnedWrap(standardFixture, height: 120));
+      await tester.pump();
+
+      expect(
+        tester.takeException(),
+        isNull,
+        reason: 'the fill split only applies when it fits; no negative rows',
+      );
+      expect(
+        tester.widget<GridView>(find.byType(GridView)).physics,
+        isA<ClampingScrollPhysics>(),
+        reason: 'the grown rows cannot fit a 120px slot; the grid scrolls',
+      );
+    },
+  );
+
+  testWidgets(
+    'pinned standard case at textScale 2.0: chip rows overflow the slot and '
+    'the grid scrolls without exceptions (issue 39)',
+    (tester) async {
+      tester.platformDispatcher.textScaleFactorTestValue = 2.0;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      await tester.pumpWidget(
+        pinnedWrap(standardFixture, tokens: stickerTokens),
+      );
+      await tester.pump();
+
+      expect(tester.takeException(), isNull);
+      expect(
+        tester.widget<GridView>(find.byType(GridView)).physics,
+        isA<ClampingScrollPhysics>(),
+        reason: 'scale-2.0 chip rows exceed the slot; the grid scrolls',
+      );
+    },
+  );
 
   group('sentence coverage pins (issue 35)', () {
     Future<(AppLocalizations, NameForms)> l10nAndNames(
