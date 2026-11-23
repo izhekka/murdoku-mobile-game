@@ -19,18 +19,21 @@ CLAUDE_DST := .claude/agents
 # ZCode-only frontmatter key: UI chip color per agent (name=color)
 ZCODE_COLORS := task-executor=green issue-triage=orange code-reviewer=cyan ux-verifier=purple
 
+# Test steps of the quality gate, serialized per checkout by the lock in
+# tool/flutter_test_lock.dart (issue 43): overlapping quality runs wait here
+# instead of racing build/unit_test_assets and coverage/lcov.info.
+QUALITY_TEST_PIPELINE := flutter test --coverage && dart run tool/coverage_filter.dart --lcov coverage/lcov.info && dart run tool/crap_check.dart --lcov coverage/lcov.info
+
 .PHONY: init zcode claude hooks quality
 
 hooks: ## install the pre-commit quality gate: git config core.hooksPath .githooks
 	git config core.hooksPath .githooks
 	@echo "Pre-commit hook installed (core.hooksPath=.githooks)"
 
-quality: ## one-command local gate: format check + analyze + test --coverage + lcov l10n filter + CRAP ratchet
+quality: ## one-command local gate: format check + analyze + test --coverage (checkout-locked) + lcov l10n filter + CRAP ratchet
 	dart format --output=none --set-exit-if-changed .
 	flutter analyze
-	flutter test --coverage
-	dart run tool/coverage_filter.dart --lcov coverage/lcov.info
-	dart run tool/crap_check.dart --lcov coverage/lcov.info
+	dart run tool/flutter_test_lock.dart -- sh -c '$(QUALITY_TEST_PIPELINE)'
 
 init: ## usage: make init <zcode|claude> — project .agents/agents/ into a harness dir
 	@if [ -z "$(filter-out init,$(MAKECMDGOALS))" ]; then \

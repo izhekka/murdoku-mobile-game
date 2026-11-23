@@ -185,6 +185,63 @@ section as the source of truth for the failure mode.
   exception appears anywhere in the log. Never chase the teardown error past
   a body failure — diagnose from the first error in the log.
 
+## 12. Concurrent suite runs on one checkout (issue 43)
+
+Two overlapping `flutter test` invocations on the same working copy race the
+shared build directory: one of three parallel full-suite runs during issue 32
+died with `PathNotFoundException: Cannot copy file to
+…/build/unit_test_assets/NativeAssetsManifest.json` while the other two
+passed. Suite runs serialize per checkout instead:
+
+- **Mechanism.** `tool/flutter_test_lock.dart` takes an exclusive advisory
+  lock on `<checkout>/.dart_tool/flutter_test.lock` (created on demand) and
+  holds it for the lifetime of the guarded command, then forwards the
+  command's exit code with inherited stdio. The lock is kernel-managed — it
+  is released when the holder process dies, so there is no stale-lock
+  takeover path. The lock file itself is never deleted: unlinking it would
+  break exclusion for processes still waiting on the old inode. The default
+  lock path is anchored on the enclosing checkout (found by walking up to
+  the nearest `pubspec.yaml`), so runs started from a subdirectory of the
+  checkout also hold the same lock; a run started outside any package tree
+  has no checkout root and must pass `--lock-path`.
+- **How to invoke.** `make quality` wraps its whole coverage pipeline
+  (`flutter test --coverage` → `tool/coverage_filter.dart` →
+  `tool/crap_check.dart`) in the lock, because an overlapping run must not
+  interleave coverage writes with a waiting run's filter/crap reads either.
+  Directly: `dart run tool/flutter_test_lock.dart -- flutter test <args>`
+  (flags: `--timeout=<seconds>`, default 900; `--lock-path=<path>`; exit
+  codes 2 = usage error, 75 = timed out waiting for the lock, 1 = the guarded
+  command failed, 127 = command not found).
+- **Constraint.** A bare `flutter test` bypasses the lock entirely. When
+  runs can overlap on one checkout, start them through `make quality` or the
+  lock tool. CI runs its steps sequentially and needs no lock; parallel runs
+  on *different* checkouts use different lock files and do not block each
+  other.
+- **Caveats.** The kernel releases the lock on holder death, but nothing
+  protects against *recreating* the lock file mid-run: never `flutter clean`
+  or wipe `.dart_tool` while a locked run is active (a recreated lock is a
+  new inode and a waiter would race the holder). The lock is per-process
+  POSIX record lock — a second acquire in the same process succeeds
+  immediately. One residual window: if the wrapper itself is killed while
+  its guarded child keeps running, the orphaned child holds no lock and the
+  next acquisition races it — kill the whole process group (a terminal
+  Ctrl-C already does), not just the wrapper.
+- **Reservation.** The guarantee assumes a local checkout on a filesystem
+  with advisory locking (macOS/Linux). On mounts without it, the lock
+  silently degrades to a no-op and the build-dir race returns.
+- **Re-proof.** Two overlapping runs must both exit 0 without a
+  `PathNotFoundException`; the second acquires the lock only after the first
+  released it:
+
+  ```sh
+  (dart run tool/flutter_test_lock.dart -- flutter test --coverage \
+     > /tmp/lock_demo_a.log 2>&1; echo "A exit $?") &
+  (dart run tool/flutter_test_lock.dart -- flutter test --coverage \
+     > /tmp/lock_demo_b.log 2>&1; echo "B exit $?") &
+  wait
+  grep -c PathNotFoundException /tmp/lock_demo_a.log /tmp/lock_demo_b.log
+  ```
+
 ## Enforced lint → guideline mapping
 
 | Lint rule | Guideline section |
