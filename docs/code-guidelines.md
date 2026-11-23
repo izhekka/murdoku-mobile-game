@@ -148,6 +148,43 @@ work, but no baseline is committed. Coverage collection itself excludes
 (`flutter test --coverage` cannot filter paths, and hit counts there jitter
 between runs of identical code).
 
+## 11. Widget-test flake diagnostics (pump budgets vs real timers)
+
+How to diagnose a flake of the discard-then-start class
+(`test/ui/screens/home_screen_test.dart`, made deterministic in issue 32).
+The historical flake was never reproduced — 8 pre-fix and 13 post-fix
+full-suite runs were green — so the diagnosis below is analytic; treat this
+section as the source of truth for the failure mode.
+
+- **Fake-time pump budgets vs real timers.** `tester.pump(...)` advances the
+  fake clock, and a real `Timer` scheduled by a pumped widget — e.g.
+  GameScreen's 1-second tick timer — fires the moment accumulated fake time
+  reaches its due time. A flow whose fake time can drift across that due time
+  (unbounded `pumpAndSettle` chains, or per-step settle budgets that
+  accumulate without a ceiling) is nondeterministic: the timer can fire
+  between pumps, throwing "A Timer is still pending …" in teardown or
+  desynchronizing the flow. The repo's fix pattern (issue 32) is fixed,
+  bounded pump budgets, one per frame-dispatch step, whose post-mount flow
+  total stays ≥ 600 ms below the first fire of GameScreen's 1-second tick
+  timer — exact regardless of scheduler state. Prefer that pattern over
+  `pumpAndSettle` wherever timers or post-frame callbacks schedule frames.
+- **Masked teardown error.** When the test body throws (an assertion fails)
+  *before* teardown, flutter_test skips tree cleanup in `_runTestBody`, and
+  `postTest` then reports:
+
+  > A Timer is still pending even after the widget tree was disposed
+  > (binding.dart:2657)
+
+  That pending-timer error *masks the real error*: the reported failure is
+  the undisposed timer, not the body assertion that aborted the flow before
+  cleanup could run.
+- **On a recurrence, capture the FULL failure log.** Only a full log
+  distinguishes a body-assertion failure from the masking path: scan the
+  entire output for an exception before teardown, and treat a bare
+  "Timer is still pending" as the primary failure only when no earlier body
+  exception appears anywhere in the log. Never chase the teardown error past
+  a body failure — diagnose from the first error in the log.
+
 ## Enforced lint → guideline mapping
 
 | Lint rule | Guideline section |
