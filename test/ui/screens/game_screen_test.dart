@@ -16,6 +16,7 @@ import 'package:murdoku/state/game_controller.dart';
 import 'package:murdoku/storage/prefs_repository.dart';
 import 'package:murdoku/ui/screens/home_screen.dart';
 import 'package:murdoku/ui/widgets/accuse_sheet.dart';
+import 'package:murdoku/ui/widgets/avatar.dart';
 import 'package:murdoku/ui/widgets/dialogs.dart';
 import 'package:murdoku/ui/widgets/suspect_panel.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -1125,26 +1126,49 @@ void main() {
       await pumpGame(tester);
       final l10n = l10nOf(tester);
       final names = NameForms.forLocale(l10n.localeName, currentCase());
+      // Selection styling on the default (sticker) skin: the selected card
+      // is outlined in the suspect's own color (suspect_panel.dart's
+      // _cartoonDecoration); every unselected card stays in the skin's
+      // border color (issue 44).
+      int highlighted(int suspectIndex) => tester
+          .widgetList<Container>(
+            find.descendant(
+              of: find.byType(SuspectPanel),
+              matching: find.byWidgetPredicate(
+                (w) =>
+                    w is Container &&
+                    w.decoration is BoxDecoration &&
+                    (w.decoration as BoxDecoration).border?.top.color ==
+                        suspectColor(suspectIndex),
+              ),
+            ),
+          )
+          .length;
       final name = names.nom('s0');
 
       await tester.tap(find.text(name).last);
       await tester.pumpAndSettle();
       expect(container.read(gameControllerProvider)!.selectedSuspectId, 's0');
+      expect(highlighted(0), 1);
 
-      // Switching suspects through card taps works. NOTE: tapping the
-      // selected card again does NOT deselect — the screen sends
-      // selectSuspect(null), but GameState.copyWith keeps the old value for
-      // a null argument (classic nullable copyWith trap), so re-tapping a
-      // selected card is a silent no-op. Pinned as-is (issue 35 is a pure
-      // refactor); the deselect defect is reported separately.
+      // Re-tapping the selected card deselects it (issue 44): provider state
+      // null and no card highlighted.
+      await tester.tap(find.text(name).last);
+      await tester.pumpAndSettle();
+      expect(container.read(gameControllerProvider)!.selectedSuspectId, isNull);
+      expect(highlighted(0), 0);
+
+      // Selecting another suspect still works after a deselect.
       final other = names.nom('s1');
       await tester.tap(find.text(other).last);
       await tester.pumpAndSettle();
       expect(container.read(gameControllerProvider)!.selectedSuspectId, 's1');
+      expect(highlighted(1), 1);
 
       await tester.tap(find.text(other).last);
       await tester.pumpAndSettle();
-      expect(container.read(gameControllerProvider)!.selectedSuspectId, 's1');
+      expect(container.read(gameControllerProvider)!.selectedSuspectId, isNull);
+      expect(highlighted(1), 0);
     });
 
     testWidgets('appbar back opens the quit-confirm dialog', (tester) async {

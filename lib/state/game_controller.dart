@@ -105,6 +105,25 @@ class GameState {
     dailyDate: dailyDate,
     eliminatedSuspects: eliminatedSuspects,
   );
+
+  /// Explicit deselect path: copyWith treats a null `selectedSuspectId`
+  /// argument as "keep the old value" (issue 44), so reaching a null
+  /// selection goes through [clearSelection].
+  GameState clearSelection() => GameState(
+    caseData: caseData,
+    phase: phase,
+    placed: placed,
+    xMarks: xMarks,
+    lockedSuspects: lockedSuspects,
+    selectedSuspectId: null,
+    tool: tool,
+    elapsed: elapsed,
+    hintsUsed: hintsUsed,
+    wrongAccusations: wrongAccusations,
+    isDaily: isDaily,
+    dailyDate: dailyDate,
+    eliminatedSuspects: eliminatedSuspects,
+  );
 }
 
 /// Drives one active case. Null state means no active game (home screen).
@@ -209,7 +228,7 @@ class GameNotifier extends Notifier<GameState?> {
   void selectSuspect(String? id) {
     final s = _state;
     if (s == null || s.phase != GamePhase.playing) return;
-    state = s.copyWith(selectedSuspectId: id);
+    state = id == null ? s.clearSelection() : s.copyWith(selectedSuspectId: id);
   }
 
   void setTool(Tool tool) {

@@ -349,4 +349,104 @@ void main() {
     await Future<void>.delayed(Duration.zero);
     expect(repo.loadActiveGame(), isNull);
   });
+
+  test('selectSuspect(null) clears the selection (issue 44)', () async {
+    final container = await makeContainer();
+    addTearDown(container.dispose);
+    final notifier = container.read(gameControllerProvider.notifier);
+    notifier.startNewCase(Difficulty.easy, seed: 3);
+
+    notifier.selectSuspect('s0');
+    expect(container.read(gameControllerProvider)!.selectedSuspectId, 's0');
+
+    notifier.selectSuspect(null);
+    expect(
+      container.read(gameControllerProvider)!.selectedSuspectId,
+      isNull,
+      reason: 're-tapping the selected card must deselect (issue 44)',
+    );
+
+    // Deselecting with nothing selected stays null (no toggle-off crash).
+    notifier.selectSuspect(null);
+    expect(container.read(gameControllerProvider)!.selectedSuspectId, isNull);
+  });
+
+  test(
+    'selectSuspect is ignored when the phase is not playing (issue 44)',
+    () async {
+      final container = await makeContainer();
+      addTearDown(container.dispose);
+      final notifier = container.read(gameControllerProvider.notifier);
+      notifier.startNewCase(Difficulty.easy, seed: 3);
+      notifier.revealSolution();
+      // The reveal compose drops the selection; the guard must keep the state
+      // untouched (same instance) for both routing branches afterwards.
+      final before = container.read(gameControllerProvider)!;
+
+      notifier.selectSuspect('s1');
+      notifier.selectSuspect(null);
+
+      expect(
+        container.read(gameControllerProvider),
+        same(before),
+        reason: 'selection changes are ignored after the game ends',
+      );
+    },
+  );
+
+  test('clearSelection clears only the selection (issue 44)', () async {
+    final container = await makeContainer();
+    addTearDown(container.dispose);
+    final notifier = container.read(gameControllerProvider.notifier);
+    notifier.startNewCase(Difficulty.easy, seed: 3);
+
+    notifier.selectSuspect('s0');
+    notifier.tapCell(fixedCase.solution['s0']!);
+    notifier.selectSuspect('s1');
+    notifier.setTool(Tool.markX);
+    final before = container.read(gameControllerProvider)!;
+    expect(before.selectedSuspectId, 's1');
+    expect(before.placed, containsPair('s0', fixedCase.solution['s0']));
+
+    final cleared = before.clearSelection();
+    expect(cleared.selectedSuspectId, isNull);
+    expect(cleared.caseData, before.caseData);
+    expect(cleared.phase, before.phase);
+    expect(cleared.placed, before.placed);
+    expect(cleared.xMarks, before.xMarks);
+    expect(cleared.lockedSuspects, before.lockedSuspects);
+    expect(cleared.tool, before.tool);
+    expect(cleared.elapsed, before.elapsed);
+    expect(cleared.hintsUsed, before.hintsUsed);
+    expect(cleared.wrongAccusations, before.wrongAccusations);
+    expect(cleared.isDaily, before.isDaily);
+    expect(cleared.dailyDate, before.dailyDate);
+    expect(cleared.eliminatedSuspects, before.eliminatedSuspects);
+
+    // copyWith keeps every field for omitted and null args — only
+    // clearSelection reaches a null selection (issue 44).
+    expect(before.copyWith().selectedSuspectId, 's1');
+    expect(before.copyWith().tool, before.tool);
+    expect(before.copyWith().elapsed, before.elapsed);
+    expect(before.copyWith().phase, before.phase);
+    // Passing the null through a typed variable: the explicit-null call is
+    // what the pin is about — copyWith treats it as "keep the old value".
+    final String? noId = null;
+    expect(
+      before.copyWith(selectedSuspectId: noId).selectedSuspectId,
+      's1',
+      reason:
+          'copyWith(null) keeps the old value; deselection is '
+          'clearSelection()',
+    );
+    expect(before.copyWith(tool: Tool.place).tool, Tool.place);
+    expect(
+      before.copyWith(elapsed: const Duration(seconds: 9)).elapsed,
+      const Duration(seconds: 9),
+    );
+    expect(
+      before.copyWith(elapsed: const Duration(seconds: 9)).selectedSuspectId,
+      's1',
+    );
+  });
 }
