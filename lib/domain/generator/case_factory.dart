@@ -58,6 +58,14 @@ const roomNamePool = _roomNames;
 /// Tries seeds [seed]..seed+39; if none yields a unique puzzle inside the
 /// difficulty's clue window, widens the window's max by +1 and retries the
 /// whole budget (up to 4 widenings), then throws [StateError].
+///
+/// The loop returns the FIRST successful attempt seed at or after the
+/// requested one, and attempts fail often (measured 2026-11-24: easy
+/// 1–4 → 5, standard 28–43 → 44, hard 26–44 → 45), so every requested
+/// seed inside one failure basin returns the same case. Deliberate
+/// behavior, pinned by test/domain/generator/seed_convergence_test.dart
+/// (issue 46): re-mapping attempt seeds would drift the frozen golden
+/// digests in golden_digest_test.dart.
 CaseData generateCase({required Difficulty difficulty, required int seed}) {
   for (var widen = 0; widen <= 3; widen++) {
     for (var i = 0; i < _retryBudget; i++) {

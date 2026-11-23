@@ -242,6 +242,34 @@ passed. Suite runs serialize per checkout instead:
   grep -c PathNotFoundException /tmp/lock_demo_a.log /tmp/lock_demo_b.log
   ```
 
+## 13. Generator seed convergence (issue 46)
+
+`generateCase` walks attempt seeds `seed..seed+39` (per widening window) and
+returns the **first successful** one; attempts fail frequently (uniqueness
+retries), so several *requested* seeds regularly land on the same stored
+attempt seed and therefore return the **identical case** — nearby seeds
+converge. Measured 2026-11-24: easy 1–4 → 5, 15–19 → 20; standard 1–4 → 5,
+28–43 → 44; hard 1–5 → 6, 26–44 → 45 (the full table is pinned in
+`test/domain/generator/seed_convergence_test.dart`).
+
+- **This is deliberate, not a bug.** Issue 46 chose the "document + pin"
+  branch: pin the measured convergence by test so it cannot change
+  silently. Pin the headline and the table: requested seeds 1..60 map to
+  the stored attempt seeds in the test; seeds 1..5 return one identical
+  case per difficulty.
+- **Why not fix the variety instead** (wider attempt stride, hash the seed
+  per attempt): the pinned golden digests in
+  `test/domain/generator/golden_digest_test.dart` include retry-path seeds
+  (easy/1 → attempt 5, easy/11 → 12, hard/1 → 6, standard/1 → 5), and
+  issue 46 freezes them; any attempt-seed re-mapping drifts those digests.
+  The convergence is a variety trade-off, not a correctness problem — for
+  the runtime path a fresh random 30-bit seed is drawn per case, so
+  collisions between consecutively drawn seeds are vanishingly unlikely.
+- **Consciously updating the pin.** Re-measure first with a temporary
+  test/probe that prints requested → stored seeds (never hand-write the
+  table), then update the convergence table — and, if the drift touches
+  them, the golden digests — in the same change, stating the cause.
+
 ## Enforced lint → guideline mapping
 
 | Lint rule | Guideline section |
