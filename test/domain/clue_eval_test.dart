@@ -283,6 +283,21 @@ void main() {
       throwsArgumentError,
     );
     expect(
+      () => eval(SameCol(suspectId: 's0', targetId: 's0', negated: false)),
+      throwsArgumentError,
+    );
+    expect(
+      () => eval(
+        DirectionClue(
+          suspectId: 's0',
+          targetId: 's0',
+          direction: Direction.north,
+          negated: false,
+        ),
+      ),
+      throwsArgumentError,
+    );
+    expect(
       () => eval(Beside(suspectId: 's1', targetId: 's1', negated: false)),
       throwsArgumentError,
     );

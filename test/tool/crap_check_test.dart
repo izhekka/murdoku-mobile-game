@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
@@ -345,6 +346,37 @@ void h(bool a) {
         'crap',
       ]);
       expect(text1.endsWith('\n'), isTrue);
+    });
+  });
+
+  group('loadBaseline', () {
+    test('parses an existing baseline file', () {
+      final dir = Directory.systemTemp.createTempSync('crap_baseline_test');
+      addTearDown(() => dir.deleteSync(recursive: true));
+      final path = '${dir.path}/baseline.json';
+      File(path).writeAsStringSync(
+        encodeBaseline([entry('lib/a.dart', 'A.m', 12.0)], 5),
+      );
+      final baseline = loadBaseline(path, 5);
+      expect(baseline.threshold, 5);
+      expect(baseline.entries, {'lib/a.dart::A.m': 12.0});
+    });
+
+    test('missing baseline file means an empty ratchet (hard gate)', () {
+      final baseline = loadBaseline('/nonexistent/dir/crap_baseline.json', 7);
+      expect(baseline.threshold, 7);
+      expect(baseline.entries, isEmpty);
+    });
+
+    test('an empty baseline turns every violation into a new one', () {
+      final baseline = const Baseline(threshold: 5, entries: {});
+      final result = evaluateGate(
+        current: [entry('lib/a.dart', 'A.m', 12.0)],
+        baseline: baseline,
+        threshold: 5,
+      );
+      expect(result.passes, isFalse);
+      expect(result.newViolations, hasLength(1));
     });
   });
 }

@@ -61,65 +61,13 @@ class _GameScreenState extends ConsumerState<GameScreen>
     final state = ref.watch(gameControllerProvider);
 
     // Auto-open the accuse sheet exactly once per solved transition.
-    ref.listen<GameState?>(gameControllerProvider, (prev, next) {
-      if (next == null || next.phase != GamePhase.playing) return;
-      final wasSolved = prev != null && boardSolved(prev.caseData, prev.placed);
-      final solved = boardSolved(next.caseData, next.placed);
-      if (solved && !wasSolved && !_accuseOpen) {
-        _accuseOpen = true;
-        showAccuseSheet().whenComplete(() => _accuseOpen = false);
-      }
-    });
+    ref.listen<GameState?>(gameControllerProvider, _autoOpenAccuse);
 
-    if (state == null) {
-      return Scaffold(
-        appBar: AppBar(title: Text(l10n.gameTitle)),
-        body: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(l10n.noActiveCase),
-              const SizedBox(height: 12),
-              FilledButton(
-                onPressed: () => context.go('/'),
-                child: Text(l10n.backToHome),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
+    if (state == null) return _noActiveCaseScaffold(l10n);
 
-    final difficultyLabel = switch (state.caseData.difficulty) {
-      Difficulty.easy => l10n.difficultyEasy,
-      Difficulty.standard => l10n.difficultyStandard,
-      Difficulty.hard => l10n.difficultyHard,
-    };
-
-    final board = Padding(
-      padding: const EdgeInsets.all(8),
-      child: BoardView(
-        caseData: state.caseData,
-        placed: state.placed,
-        xMarks: state.xMarks,
-        selectedSuspectId: state.selectedSuspectId,
-        onCellTap: (p) => ref.read(gameControllerProvider.notifier).tapCell(p),
-        onCellDrag: (p) {
-          final notifier = ref.read(gameControllerProvider.notifier);
-          if (state.tool != Tool.place) notifier.tapCell(p);
-        },
-      ),
-    );
-
-    final panel = SuspectPanel(
-      caseData: state.caseData,
-      placed: state.placed,
-      selectedSuspectId: state.selectedSuspectId,
-      onSuspectTap: (id) {
-        final notifier = ref.read(gameControllerProvider.notifier);
-        notifier.selectSuspect(state.selectedSuspectId == id ? null : id);
-      },
-    );
+    final difficultyLabel = _difficultyLabel(l10n, state.caseData.difficulty);
+    final board = _board(state);
+    final panel = _panel(state);
 
     return Scaffold(
       appBar: AppBar(
@@ -198,6 +146,82 @@ class _GameScreenState extends ConsumerState<GameScreen>
     );
   }
 
+  /// Auto-open the accuse sheet exactly once per solved transition.
+  void _autoOpenAccuse(GameState? prev, GameState? next) {
+    if (_accuseOpen) return;
+    if (next == null || next.phase != GamePhase.playing) return;
+    if (_transitionedToSolved(prev, next)) {
+      _accuseOpen = true;
+      showAccuseSheet().whenComplete(() => _accuseOpen = false);
+    }
+  }
+
+  /// True when [prev] was unsolved and [next] just became fully placed.
+  bool _transitionedToSolved(GameState? prev, GameState next) {
+    final wasSolved = prev != null && boardSolved(prev.caseData, prev.placed);
+    return boardSolved(next.caseData, next.placed) && !wasSolved;
+  }
+
+  /// The placeholder shown with no case in play.
+  Widget _noActiveCaseScaffold(AppLocalizations l10n) {
+    return Scaffold(
+      appBar: AppBar(title: Text(l10n.gameTitle)),
+      body: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(l10n.noActiveCase),
+            const SizedBox(height: 12),
+            FilledButton(
+              onPressed: () => context.go('/'),
+              child: Text(l10n.backToHome),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// The localized difficulty label for the timer title.
+  String _difficultyLabel(AppLocalizations l10n, Difficulty difficulty) =>
+      switch (difficulty) {
+        Difficulty.easy => l10n.difficultyEasy,
+        Difficulty.standard => l10n.difficultyStandard,
+        Difficulty.hard => l10n.difficultyHard,
+      };
+
+  /// The mansion map, wired to the controller.
+  Widget _board(GameState state) {
+    return Padding(
+      padding: const EdgeInsets.all(8),
+      child: BoardView(
+        caseData: state.caseData,
+        placed: state.placed,
+        xMarks: state.xMarks,
+        selectedSuspectId: state.selectedSuspectId,
+        onCellTap: (p) => ref.read(gameControllerProvider.notifier).tapCell(p),
+        onCellDrag: (p) {
+          final notifier = ref.read(gameControllerProvider.notifier);
+          if (state.tool != Tool.place) notifier.tapCell(p);
+        },
+      ),
+    );
+  }
+
+  /// The suspects panel; tapping a card selects it, tapping the selected
+  /// card asks the controller to deselect.
+  Widget _panel(GameState state) {
+    return SuspectPanel(
+      caseData: state.caseData,
+      placed: state.placed,
+      selectedSuspectId: state.selectedSuspectId,
+      onSuspectTap: (id) {
+        final notifier = ref.read(gameControllerProvider.notifier);
+        notifier.selectSuspect(state.selectedSuspectId == id ? null : id);
+      },
+    );
+  }
+
   Widget _toolbar(AppLocalizations l10n, GameState state) {
     final notifier = ref.read(gameControllerProvider.notifier);
     final hintsLeft = 2 - state.hintsUsed;
@@ -206,95 +230,22 @@ class _GameScreenState extends ConsumerState<GameScreen>
     final tokens = SkinScope.maybeOf(context);
     final actions = tokens != null && tokens.isCartoon ? tokens.actions : null;
 
-    /// Two-line mini button: icon over a visible label (UX-5). Minimum 48dp
-    /// wide / 52dp tall target; the label shrinks instead of overflowing.
-    /// Cartoon skins render it as a per-action colored pill with the skin's
-    /// shadow; the active tool gets an ink outline.
-    Widget miniButton({
-      required IconData icon,
-      required String label,
-      required String tooltip,
-      required VoidCallback onPressed,
-      required String keyName,
-      bool active = false,
-      Color? pillColor,
-    }) => Semantics(
-      label: label,
-      button: true,
-      child: Tooltip(
-        message: tooltip,
-        child: InkWell(
-          onTap: onPressed,
-          borderRadius: BorderRadius.circular(12),
-          child: Container(
-            key: Key(keyName),
-            constraints: const BoxConstraints(minWidth: 48, minHeight: 52),
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-            decoration: pillColor == null
-                ? BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    color: active
-                        ? Theme.of(context).colorScheme.primaryContainer
-                        : Colors.transparent,
-                  )
-                : BoxDecoration(
-                    borderRadius: BorderRadius.circular(tokens!.buttonRadius),
-                    color: pillColor,
-                    boxShadow: [tokens.buttonShadow],
-                    border: active
-                        ? Border.all(color: tokens.ink, width: 2.5)
-                        : null,
-                  ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  icon,
-                  size: 22,
-                  color: pillColor != null ? Colors.white : null,
-                ),
-                const SizedBox(height: 2),
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Text(
-                    label,
-                    maxLines: 1,
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: pillColor != null ? Colors.white : null,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-
     Widget toolButton(
       Tool tool,
       IconData icon,
       String label, {
       required String tooltip,
       required Color? pillColor,
-    }) => miniButton(
+    }) => _MiniButton(
       icon: icon,
       label: label,
       tooltip: tooltip,
-      keyName: switch (tool) {
-        Tool.place => 'tool_place',
-        Tool.markX => 'tool_mark',
-        Tool.erase => 'tool_erase',
-      },
+      keyName: _toolKeyName(tool),
       active: state.tool == tool,
       pillColor: pillColor,
+      tokens: tokens,
       onPressed: () => notifier.setTool(tool),
     );
-
-    Color? actionColor(Color Function(SkinActions) pick) =>
-        actions == null ? null : pick(actions);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -307,7 +258,7 @@ class _GameScreenState extends ConsumerState<GameScreen>
               Icons.person,
               l10n.toolPlace,
               tooltip: l10n.toolPlace,
-              pillColor: actionColor((a) => a.place),
+              pillColor: _actionColor(actions, (a) => a.place),
             ),
           ),
           Expanded(
@@ -316,7 +267,7 @@ class _GameScreenState extends ConsumerState<GameScreen>
               Icons.close,
               l10n.toolMark,
               tooltip: l10n.toolMarkTooltip,
-              pillColor: actionColor((a) => a.mark),
+              pillColor: _actionColor(actions, (a) => a.mark),
             ),
           ),
           Expanded(
@@ -325,56 +276,61 @@ class _GameScreenState extends ConsumerState<GameScreen>
               Icons.auto_fix_normal,
               l10n.toolErase,
               tooltip: l10n.toolErase,
-              pillColor: actionColor((a) => a.erase),
+              pillColor: _actionColor(actions, (a) => a.erase),
             ),
           ),
           Expanded(
-            child: miniButton(
+            child: _MiniButton(
               icon: Icons.undo,
               label: l10n.toolUndo,
               tooltip: l10n.toolUndo,
               keyName: 'tool_undo',
-              pillColor: actionColor((a) => a.undo),
+              pillColor: _actionColor(actions, (a) => a.undo),
+              tokens: tokens,
               onPressed: notifier.undo,
             ),
           ),
           Expanded(
-            child: miniButton(
+            child: _MiniButton(
               icon: Icons.fact_check,
               label: l10n.toolCheck,
               tooltip: l10n.toolCheckTooltip,
               keyName: 'tool_check',
-              pillColor: actionColor((a) => a.check),
+              pillColor: _actionColor(actions, (a) => a.check),
+              tokens: tokens,
               onPressed: () => _runCheck(l10n),
             ),
           ),
           Expanded(
-            child: miniButton(
+            child: _MiniButton(
               icon: Icons.lightbulb,
               label: l10n.toolHint,
               tooltip: l10n.toolHintTooltip,
               keyName: 'tool_hint',
-              pillColor: actionColor((a) => a.hint),
+              pillColor: _actionColor(actions, (a) => a.hint),
+              tokens: tokens,
               onPressed: () => _showHintSheet(l10n, hintsLeft),
             ),
           ),
           Expanded(
-            child: miniButton(
+            child: _MiniButton(
               icon: Icons.gavel,
               label: l10n.toolAccuse,
               tooltip: l10n.accuse,
               keyName: 'tool_accuse',
-              pillColor: actionColor((a) => a.accuse),
+              pillColor: _actionColor(actions, (a) => a.accuse),
+              tokens: tokens,
               onPressed: showAccuseSheet,
             ),
           ),
           Expanded(
-            child: miniButton(
+            child: _MiniButton(
               icon: Icons.pause,
               label: l10n.pauseMenuTitle,
               tooltip: l10n.pauseMenuTitle,
               keyName: 'tool_menu',
-              pillColor: actionColor((a) => a.menu),
+              pillColor: _actionColor(actions, (a) => a.menu),
+              tokens: tokens,
               onPressed: () => _showPauseMenu(l10n),
             ),
           ),
@@ -397,40 +353,53 @@ class _GameScreenState extends ConsumerState<GameScreen>
         eliminatedSuspects: state.eliminatedSuspects,
       ),
     );
+    await _finishAccuse(state, accused);
+  }
+
+  /// Resolves the accusation: alibi snackbar on a miss, victory flow on a
+  /// hit.
+  Future<void> _finishAccuse(GameState state, String? accused) async {
     if (accused == null) return;
     if (!mounted) return;
     final notifier = ref.read(gameControllerProvider.notifier);
-    final correct = notifier.accuse(accused);
-    if (correct) {
-      final won = ref.read(gameControllerProvider)!;
-      unawaited(
-        ref
-            .read(statsControllerProvider.notifier)
-            .recordWin(
-              difficulty: won.caseData.difficulty,
-              time: won.elapsed,
-              mistakes: won.wrongAccusations,
-              isDaily: won.isDaily,
-              dailyDate: won.dailyDate ?? '',
-            ),
-      );
-      await showDialog<void>(
-        context: context,
-        barrierDismissible: false,
-        builder: (dialogContext) => VictoryDialog(
-          elapsed: won.elapsed,
-          difficulty: won.caseData.difficulty,
-          wrongAccusations: won.wrongAccusations,
-        ),
-      );
-      if (mounted) context.go('/');
-    } else {
-      final l10n = AppLocalizations.of(context)!;
-      final names = NameForms.forLocale(l10n.localeName, state.caseData);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(l10n.alibi(names.nom(accused)))));
+    if (!notifier.accuse(accused)) {
+      _showAlibi(state, accused);
+      return;
     }
+    await _recordVictory(ref.read(gameControllerProvider)!);
+  }
+
+  /// The wrong-suspect snackbar with the accused's localized name.
+  void _showAlibi(GameState state, String accused) {
+    final l10n = AppLocalizations.of(context)!;
+    final names = NameForms.forLocale(l10n.localeName, state.caseData);
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(l10n.alibi(names.nom(accused)))));
+  }
+
+  /// Records the win, shows the victory dialog, then returns home.
+  Future<void> _recordVictory(GameState won) async {
+    unawaited(
+      ref
+          .read(statsControllerProvider.notifier)
+          .recordWin(
+            difficulty: won.caseData.difficulty,
+            time: won.elapsed,
+            mistakes: won.wrongAccusations,
+            isDaily: won.isDaily,
+            dailyDate: won.dailyDate ?? '',
+          ),
+    );
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => VictoryDialog(
+        elapsed: won.elapsed,
+        difficulty: won.caseData.difficulty,
+        wrongAccusations: won.wrongAccusations,
+      ),
+    );
+    if (mounted) context.go('/');
   }
 
   void _runCheck(AppLocalizations l10n) {
@@ -497,3 +466,105 @@ class _GameScreenState extends ConsumerState<GameScreen>
     ref.read(gameControllerProvider.notifier).revealSolution();
   }
 }
+
+/// Two-line mini toolbar button (issue 35 extraction of the former local
+/// `miniButton`): icon over a visible label (UX-5), minimum 48dp wide /
+/// 52dp tall target, the label shrinks instead of overflowing. Cartoon
+/// skins render it as a per-action colored pill with the skin's shadow; the
+/// active tool gets an ink outline.
+class _MiniButton extends StatelessWidget {
+  const _MiniButton({
+    required this.icon,
+    required this.label,
+    required this.tooltip,
+    required this.keyName,
+    required this.pillColor,
+    required this.onPressed,
+    required this.tokens,
+    this.active = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final String tooltip;
+  final String keyName;
+  final bool active;
+  final Color? pillColor;
+  final VoidCallback onPressed;
+
+  /// Null on classic: the button keeps its scheme-colored rendering.
+  final SkinTokens? tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: label,
+      button: true,
+      child: Tooltip(
+        message: tooltip,
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            key: Key(keyName),
+            constraints: const BoxConstraints(minWidth: 48, minHeight: 52),
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+            decoration: _decoration(context),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, size: 22, color: _foreground()),
+                const SizedBox(height: 2),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    style: TextStyle(fontSize: 10, color: _foreground()),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Transparent active-highlight on classic; the skin pill on cartoon.
+  BoxDecoration _decoration(BuildContext context) =>
+      pillColor == null ? _classicDecoration(context) : _pillDecoration();
+
+  /// The classic rendering: active tool highlighted with the scheme's
+  /// primary container, inactive ones transparent.
+  BoxDecoration _classicDecoration(BuildContext context) => BoxDecoration(
+    borderRadius: BorderRadius.circular(12),
+    color: active
+        ? Theme.of(context).colorScheme.primaryContainer
+        : Colors.transparent,
+  );
+
+  /// The cartoon per-action colored pill with the skin's shadow; the active
+  /// tool gets an ink outline.
+  BoxDecoration _pillDecoration() => BoxDecoration(
+    borderRadius: BorderRadius.circular(tokens!.buttonRadius),
+    color: pillColor,
+    boxShadow: [tokens!.buttonShadow],
+    border: active ? Border.all(color: tokens!.ink, width: 2.5) : null,
+  );
+
+  /// White ink on the colored pill; theme ink on classic.
+  Color? _foreground() => pillColor != null ? Colors.white : null;
+}
+
+/// The test key of a tool button, matching the tool's name.
+String _toolKeyName(Tool tool) => switch (tool) {
+  Tool.place => 'tool_place',
+  Tool.markX => 'tool_mark',
+  Tool.erase => 'tool_erase',
+};
+
+/// The skin's color for one toolbar action; null keeps the classic scheme.
+Color? _actionColor(SkinActions? actions, Color Function(SkinActions) pick) =>
+    actions == null ? null : pick(actions);

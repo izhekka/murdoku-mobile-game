@@ -158,4 +158,61 @@ void main() {
     expect(copy.seed, 7);
     expect(copy.copyWith(seed: c.seed), equals(c));
   });
+
+  test('unknown clue type throws FormatException (issue 35)', () {
+    final json = fixture().toJson();
+    (json['clues'] as List<Object?>).add({
+      'type': 'unknown',
+      'suspectId': 's0',
+      'negated': false,
+    });
+    expect(
+      () => CaseData.fromJson(json),
+      throwsA(
+        isA<FormatException>().having(
+          (e) => e.message,
+          'message',
+          contains('unknown clue type'),
+        ),
+      ),
+    );
+  });
+
+  test('BoardSnapshot equality compares every field (issue 35)', () {
+    BoardSnapshot snap({
+      Map<String, Pos>? placed,
+      Set<Pos>? xMarks,
+      Duration elapsed = const Duration(seconds: 10),
+      int hintsUsed = 1,
+      int wrongAccusations = 2,
+      Set<String> eliminated = const {'s1'},
+    }) => BoardSnapshot(
+      placed: placed ?? {'s0': p(0, 0)},
+      xMarks: xMarks ?? {p(3, 3)},
+      elapsed: elapsed,
+      hintsUsed: hintsUsed,
+      wrongAccusations: wrongAccusations,
+      eliminatedSuspects: eliminated,
+    );
+
+    final base = snap();
+    expect(base, snap());
+    expect(base.hashCode, snap().hashCode);
+    expect(base, isNot(equals(Object())));
+
+    // Placed map: same content, different order is equal; extra entry is not.
+    expect(base, snap(placed: {'s0': p(0, 0)}));
+    expect(base, isNot(snap(placed: {'s0': p(0, 0), 's1': p(1, 1)})));
+    expect(base, isNot(snap(placed: {'s1': p(0, 0)})));
+
+    // X marks set: same content equal; different content or size is not.
+    expect(base, isNot(snap(xMarks: {p(4, 4)})));
+    expect(base, isNot(snap(xMarks: {p(3, 3), p(4, 4)})));
+
+    expect(base, isNot(snap(elapsed: const Duration(seconds: 11))));
+    expect(base, isNot(snap(hintsUsed: 2)));
+    expect(base, isNot(snap(wrongAccusations: 3)));
+    expect(base, isNot(snap(eliminated: {'s2'})));
+    expect(base, isNot(snap(eliminated: {})));
+  });
 }

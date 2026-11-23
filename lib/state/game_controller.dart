@@ -222,16 +222,21 @@ class GameNotifier extends Notifier<GameState?> {
   void tapCell(Pos p) {
     final s = _state;
     if (s == null || s.phase != GamePhase.playing) return;
-    switch (s.tool) {
-      case Tool.place:
-        _tapPlace(s, p);
-      case Tool.markX:
-        _toggleX(s, p);
-      case Tool.erase:
-        if (_xMarks.remove(p)) {
-          _history.add(_ToggleXMove(p));
-          _afterMove(s);
-        }
+    _tapWithTool(s, p);
+  }
+
+  /// Dispatches one board tap per active tool (issue 35 decomposition).
+  void _tapWithTool(GameState s, Pos p) => switch (s.tool) {
+    Tool.place => _tapPlace(s, p),
+    Tool.markX => _toggleX(s, p),
+    Tool.erase => _eraseAt(s, p),
+  };
+
+  /// Erase tool: removing an X is one reversible move.
+  void _eraseAt(GameState s, Pos p) {
+    if (_xMarks.remove(p)) {
+      _history.add(_ToggleXMove(p));
+      _afterMove(s);
     }
   }
 
@@ -239,30 +244,42 @@ class GameNotifier extends Notifier<GameState?> {
     final selected = s.selectedSuspectId;
     if (selected == null) return;
     if (_locked.contains(selected)) return;
+    if (_tapOccupied(s, selected, p)) return;
+    if (_canPlaceFresh(selected, p)) {
+      final clearedMark = _xMarks.remove(p);
+      _placed[selected] = p;
+      _history.add(_PlaceMove(selected, p, clearedMark));
+      _afterMove(s);
+    }
+  }
 
-    String? suspectAt;
+  /// Handles a tap onto an occupied cell: toggling the selected suspect off
+  /// its own cell, no-op on another guest's cell. Returns true when the tap
+  /// landed on an occupied cell (fully handled either way).
+  bool _tapOccupied(GameState s, String selected, Pos p) {
+    final suspectAt = _suspectAt(p);
+    if (suspectAt == null) return false;
+    if (suspectAt == selected) {
+      // Toggle: remove the selected suspect from its own cell.
+      _placed.remove(selected);
+      _history.add(_RemoveMove(selected, p));
+      _afterMove(s);
+    }
+    // Tapping a cell occupied by ANOTHER suspect is a no-op.
+    return true;
+  }
+
+  /// A fresh placement needs the suspect currently unplaced and the cell
+  /// legal (remove before re-placing otherwise).
+  bool _canPlaceFresh(String selected, Pos p) =>
+      !_placed.containsKey(selected) && canPlace(_case, _placed, selected, p);
+
+  /// The suspect sitting at [p], or null when the cell is guest-free.
+  String? _suspectAt(Pos p) {
     for (final entry in _placed.entries) {
-      if (entry.value == p) {
-        suspectAt = entry.key;
-        break;
-      }
+      if (entry.value == p) return entry.key;
     }
-    if (suspectAt != null) {
-      if (suspectAt == selected) {
-        // Toggle: remove the selected suspect from its own cell.
-        _placed.remove(selected);
-        _history.add(_RemoveMove(selected, p));
-        _afterMove(s);
-      }
-      // Tapping a cell occupied by ANOTHER suspect is a no-op.
-      return;
-    }
-    if (_placed.containsKey(selected)) return; // remove before re-placing
-    if (!canPlace(_case, _placed, selected, p)) return;
-    final clearedMark = _xMarks.remove(p);
-    _placed[selected] = p;
-    _history.add(_PlaceMove(selected, p, clearedMark));
-    _afterMove(s);
+    return null;
   }
 
   void _toggleX(GameState s, Pos p) {
@@ -293,16 +310,7 @@ class GameNotifier extends Notifier<GameState?> {
     final s = _state;
     if (s == null || s.phase != GamePhase.playing) return;
     if (_hintsUsed >= 2) return;
-    // Only guests whose solution cell is free (never evict a wrongly placed
-    // guest — that would double-occupy a cell and corrupt the board).
-    String? unplaced;
-    for (final id in _case.suspects.map((x) => x.id)) {
-      final pos = _case.solution[id]!;
-      if (!_placed.containsKey(id) && !_placed.values.contains(pos)) {
-        unplaced = id;
-        break;
-      }
-    }
+    final unplaced = _firstHintableId();
     if (unplaced == null) return; // board full or every target cell blocked
     final pos = _case.solution[unplaced]!;
     _xMarks.remove(pos);
@@ -312,20 +320,35 @@ class GameNotifier extends Notifier<GameState?> {
     _afterMove(s);
   }
 
+  /// Only guests whose solution cell is free (never evict a wrongly placed
+  /// guest — that would double-occupy a cell and corrupt the board).
+  String? _firstHintableId() {
+    for (final id in _case.suspects.map((x) => x.id)) {
+      final pos = _case.solution[id]!;
+      if (!_placed.containsKey(id) && !_placed.values.contains(pos)) {
+        return id;
+      }
+    }
+    return null;
+  }
+
   void hintEliminate() {
     final s = _state;
     if (s == null || s.phase != GamePhase.playing) return;
     if (_hintsUsed >= 2) return; // shared budget with Hint A
-    final innocents = _case.suspects
-        .map((x) => x.id)
-        .where((id) => id != _case.murdererId && !_eliminated.contains(id))
-        .toList();
+    final innocents = _innocentIds();
     if (innocents.isEmpty) return;
     innocents.shuffle();
     _eliminated.add(innocents.first);
     _hintsUsed++;
     _afterMove(s);
   }
+
+  /// Guests that are neither the murderer nor already eliminated.
+  List<String> _innocentIds() => _case.suspects
+      .map((x) => x.id)
+      .where((id) => id != _case.murdererId && !_eliminated.contains(id))
+      .toList();
 
   /// Returns true when [suspectId] is the murderer (game won).
   bool accuse(String suspectId) {

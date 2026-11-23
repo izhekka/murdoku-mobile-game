@@ -9,7 +9,7 @@ import 'package:murdoku/core/theme.dart';
 import 'package:murdoku/l10n/generated/app_localizations.dart';
 import 'package:murdoku/state/settings_controller.dart';
 import 'package:murdoku/storage/prefs_repository.dart'
-    show LanguageSetting, SkinSetting;
+    show LanguageSetting, Settings, SkinSetting;
 
 /// Single source of truth for the app's localization delegates: both
 /// MurdokuApp and test/support/localized_test_app.dart pass exactly this
@@ -33,21 +33,12 @@ class MurdokuApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final settings = ref.watch(settingsControllerProvider);
-    // Cartoon skins are light-only designs: the ThemeMode choice applies to
-    // the classic skin alone (issue 23).
-    final themeMode = settings.skin == SkinSetting.classic
-        ? settings.themeMode
-        : ThemeMode.light;
     return MaterialApp.router(
       title: 'Murdoku',
       theme: AppTheme.forSkin(settings.skin, Brightness.light),
       darkTheme: AppTheme.forSkin(settings.skin, Brightness.dark),
-      themeMode: themeMode,
-      locale: switch (settings.language) {
-        LanguageSetting.system => null,
-        LanguageSetting.russian => const Locale('ru'),
-        LanguageSetting.english => const Locale('en'),
-      },
+      themeMode: _themeModeFor(settings),
+      locale: _localeFor(settings.language),
       localizationsDelegates: murdokuLocalizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       routerConfig: buildRouter(),
@@ -70,6 +61,18 @@ class MurdokuApp extends ConsumerWidget {
     );
   }
 }
+
+/// Cartoon skins are light-only designs: the ThemeMode choice applies to
+/// the classic skin alone (issue 23).
+ThemeMode _themeModeFor(Settings settings) =>
+    settings.skin == SkinSetting.classic ? settings.themeMode : ThemeMode.light;
+
+/// The app locale for a language preference; null follows the platform.
+Locale? _localeFor(LanguageSetting language) => switch (language) {
+  LanguageSetting.system => null,
+  LanguageSetting.russian => const Locale('ru'),
+  LanguageSetting.english => const Locale('en'),
+};
 
 /// The cartoon page: skin backdrop (gradient / polka dots / clouds) with
 /// the app content in a rounded token card. Classic has no frame and no
@@ -161,34 +164,42 @@ class SkinBackdropPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    _paintDots(canvas, size);
+    _paintBlobs(canvas, size);
+  }
+
+  /// White polka dots for sticker/comic; no-op without the token.
+  void _paintDots(Canvas canvas, Size size) {
     final dot = tokens.pageDotColor;
-    if (dot != null) {
-      const spacing = 56.0;
-      const radius = 7.0;
-      final paint = Paint()..color = dot;
-      var offsetRow = false;
-      for (double y = spacing / 2; y < size.height + radius; y += spacing) {
-        for (
-          double x = offsetRow ? spacing / 2 : 0;
-          x < size.width + radius;
-          x += spacing
-        ) {
-          canvas.drawCircle(Offset(x, y), radius, paint);
-        }
-        offsetRow = !offsetRow;
+    if (dot == null) return;
+    const spacing = 56.0;
+    const radius = 7.0;
+    final paint = Paint()..color = dot;
+    var offsetRow = false;
+    for (double y = spacing / 2; y < size.height + radius; y += spacing) {
+      for (
+        double x = offsetRow ? spacing / 2 : 0;
+        x < size.width + radius;
+        x += spacing
+      ) {
+        canvas.drawCircle(Offset(x, y), radius, paint);
       }
+      offsetRow = !offsetRow;
     }
+  }
+
+  /// Soft white cloud blobs for candy; no-op without the token.
+  void _paintBlobs(Canvas canvas, Size size) {
     final blob = tokens.pageBlobColor;
-    if (blob != null) {
-      final paint = Paint()..color = blob;
-      // A few soft white cloud blobs along the top, per the candy mockup.
-      canvas.drawOval(const Rect.fromLTWH(-40, 30, 260, 90), paint);
-      canvas.drawOval(Rect.fromLTWH(size.width - 220, 8, 240, 80), paint);
-      canvas.drawOval(
-        Rect.fromLTWH(size.width * 0.4, size.height - 120, 280, 100),
-        paint,
-      );
-    }
+    if (blob == null) return;
+    final paint = Paint()..color = blob;
+    // A few soft white cloud blobs along the top, per the candy mockup.
+    canvas.drawOval(const Rect.fromLTWH(-40, 30, 260, 90), paint);
+    canvas.drawOval(Rect.fromLTWH(size.width - 220, 8, 240, 80), paint);
+    canvas.drawOval(
+      Rect.fromLTWH(size.width * 0.4, size.height - 120, 280, 100),
+      paint,
+    );
   }
 
   @override

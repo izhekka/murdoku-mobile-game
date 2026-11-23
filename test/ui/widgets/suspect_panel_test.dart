@@ -1098,4 +1098,107 @@ void main() {
     }
     expect(find.byType(Scrollbar), findsNothing);
   });
+
+  group('sentence coverage pins (issue 35)', () {
+    Future<(AppLocalizations, NameForms)> l10nAndNames(
+      WidgetTester tester,
+    ) async {
+      await tester.pumpWidget(const Harness());
+      await tester.pump();
+      final context = tester.element(find.byType(SuspectPanel));
+      final l10n = AppLocalizations.of(context)!;
+      return (l10n, NameForms.forLocale(l10n.localeName, fixture));
+    }
+
+    testWidgets('negated same-col clue renders the not-in-corridor sentence', (
+      tester,
+    ) async {
+      final (l10n, names) = await l10nAndNames(tester);
+      expect(
+        describeClue(
+          const SameCol(suspectId: 's2', targetId: 's4', negated: true),
+          fixture,
+          l10n,
+          names,
+        ),
+        'Casey was not in the same corridor as Ellis.',
+      );
+    });
+
+    testWidgets('negated beside-object clue renders the not-in-room sentence', (
+      tester,
+    ) async {
+      final (l10n, names) = await l10nAndNames(tester);
+      expect(
+        describeClue(
+          const BesideObject(suspectId: 's4', objectId: 'o1', negated: true),
+          fixture,
+          l10n,
+          names,
+        ),
+        'Ellis was not in the same room as the Clock.',
+      );
+    });
+  });
+
+  group('layout and label coverage pins (issue 35)', () {
+    testWidgets(
+      'unbounded height: the narrow grid shrink-wraps and shows every card',
+      (tester) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            locale: const Locale('en'),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: Scaffold(
+              body: SingleChildScrollView(
+                child: SizedBox(
+                  width: 320,
+                  child: SuspectPanel(
+                    caseData: fixture,
+                    placed: const {},
+                    selectedSuspectId: null,
+                    onSuspectTap: (_) {},
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+
+        // Neither pinned nor bounded: the grid branch runs unscrollable and
+        // every card is built (no viewport recycling below the fold).
+        expect(
+          tester.widget<GridView>(find.byType(GridView)).physics,
+          isA<NeverScrollableScrollPhysics>(),
+        );
+        for (final s in fixture.suspects) {
+          expect(find.text(s.name), findsOneWidget);
+        }
+      },
+    );
+
+    testWidgets('a suspect with no clues labels its card with just the name', (
+      tester,
+    ) async {
+      final cluelessCase = buildFixture([
+        SameRow(suspectId: 's1', targetId: 'V', negated: false),
+        SameCol(suspectId: 's2', targetId: 's4', negated: false),
+        InRoom(suspectId: 's3', roomId: 'r3', negated: false),
+        BesideObject(suspectId: 's4', objectId: 'o1', negated: false),
+      ]);
+      final semantics = tester.ensureSemantics();
+      await tester.pumpWidget(generatedWrap(cluelessCase));
+      await tester.pump();
+
+      final node = tester.getSemantics(find.text('Ash'));
+      // The card's own a11y label is the bare name (the merged node also
+      // carries the card text's label after it). With no clues there is no
+      // clue sentence after the name.
+      expect(node.label, startsWith('Ash.'));
+      expect(node.label, isNot(contains('was in the')));
+      semantics.dispose();
+    });
+  });
 }

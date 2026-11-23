@@ -11,6 +11,27 @@ import 'package:murdoku/ui/widgets/avatar.dart';
 /// Test handle for the panel's header row (issue 27).
 const Key suspectsPanelHeaderKey = Key('suspects_panel_header');
 
+/// The positive sentence when [negated] is false, the negated one otherwise.
+/// Both strings are built eagerly; the l10n templates are pure.
+String _either(bool negated, String positive, String negatedForm) =>
+    negated ? negatedForm : positive;
+
+/// The nominative form of a suspect or the victim.
+String _nameOf(String id, NameForms names) =>
+    id == victimId ? names.victimNom() : names.nom(id);
+
+/// The genitive form of a suspect or the victim (direction/beside targets).
+String _targetOf(String id, NameForms names) =>
+    id == victimId ? names.victimGen() : names.gen(id);
+
+/// The localized compass name for a direction clue.
+String _dirName(Direction d, AppLocalizations l10n) => switch (d) {
+  Direction.north => l10n.dirNorth,
+  Direction.south => l10n.dirSouth,
+  Direction.east => l10n.dirEast,
+  Direction.west => l10n.dirWest,
+};
+
 /// Pure clue -> sentence rendering per the spec's wording table (positive and
 /// negated forms). [names] resolves locale- and grammar-appropriate forms:
 /// nominative for subjects, genitive for direction/beside targets, full
@@ -21,57 +42,85 @@ String describeClue(
   AppLocalizations l10n,
   NameForms names,
 ) {
-  String nameOf(String id) =>
-      id == victimId ? names.victimNom() : names.nom(id);
-
-  String targetOf(String id) =>
-      id == victimId ? names.victimGen() : names.gen(id);
-
-  String objectNameOf(String objectId) =>
-      names.objectPrep(c.objects.firstWhere((o) => o.id == objectId).kind);
-
-  String dirName(Direction d) => switch (d) {
-    Direction.north => l10n.dirNorth,
-    Direction.south => l10n.dirSouth,
-    Direction.east => l10n.dirEast,
-    Direction.west => l10n.dirWest,
-  };
-
-  final name = nameOf(clue.suspectId);
-  switch (clue) {
-    case InRoom(:final roomId):
-      final room = names.roomPrep(roomId);
-      return clue.negated
-          ? l10n.clueInRoomNot(name, room)
-          : l10n.clueInRoom(name, room);
-    case SameRow(:final targetId):
-      final target = nameOf(targetId);
-      return clue.negated
-          ? l10n.clueSameRowNot(name, target)
-          : l10n.clueSameRow(name, target);
-    case SameCol(:final targetId):
-      final target = nameOf(targetId);
-      return clue.negated
-          ? l10n.clueSameColNot(name, target)
-          : l10n.clueSameCol(name, target);
-    case DirectionClue(:final targetId, :final direction):
-      final target = targetOf(targetId);
-      final dir = dirName(direction);
-      return clue.negated
-          ? l10n.clueDirectionNot(name, dir, target)
-          : l10n.clueDirection(name, dir, target);
-    case Beside(:final targetId):
-      final target = targetOf(targetId);
-      return clue.negated
-          ? l10n.clueBesideNot(name, target)
-          : l10n.clueBeside(name, target);
-    case BesideObject(:final objectId):
-      final objectName = objectNameOf(objectId);
-      return clue.negated
-          ? l10n.clueBesideObjectNot(name, objectName)
-          : l10n.clueBesideObject(name, objectName);
+  final name = _nameOf(clue.suspectId, names);
+  if (clue is InRoom) {
+    final room = names.roomPrep(clue.roomId);
+    return _either(
+      clue.negated,
+      l10n.clueInRoom(name, room),
+      l10n.clueInRoomNot(name, room),
+    );
   }
+  if (clue is BesideObject) {
+    final objectName = names.objectPrep(
+      c.objects.firstWhere((o) => o.id == clue.objectId).kind,
+    );
+    return _either(
+      clue.negated,
+      l10n.clueBesideObject(name, objectName),
+      l10n.clueBesideObjectNot(name, objectName),
+    );
+  }
+  return _targetClueSentence(clue, name, l10n, names);
 }
+
+/// Sentences for the four target-bearing clue kinds; same-row/col targets
+/// take the nominative form, direction/beside targets the genitive.
+String _targetClueSentence(
+  Clue clue,
+  String name,
+  AppLocalizations l10n,
+  NameForms names,
+) {
+  if (clue is Beside) {
+    final target = _targetOf(clue.targetId, names);
+    return _either(
+      clue.negated,
+      l10n.clueBeside(name, target),
+      l10n.clueBesideNot(name, target),
+    );
+  }
+  if (clue is DirectionClue) {
+    return _directionSentence(clue, name, l10n, names);
+  }
+  return _sameRowColSentence(clue, name, l10n, names);
+}
+
+/// Direction sentences; targets take the genitive form.
+String _directionSentence(
+  DirectionClue clue,
+  String name,
+  AppLocalizations l10n,
+  NameForms names,
+) {
+  final dir = _dirName(clue.direction, l10n);
+  final target = _targetOf(clue.targetId, names);
+  return _either(
+    clue.negated,
+    l10n.clueDirection(name, dir, target),
+    l10n.clueDirectionNot(name, dir, target),
+  );
+}
+
+/// Same-row and same-col sentences; targets take the nominative form.
+String _sameRowColSentence(
+  Clue clue,
+  String name,
+  AppLocalizations l10n,
+  NameForms names,
+) => switch (clue) {
+  SameRow(:final targetId) => _either(
+    clue.negated,
+    l10n.clueSameRow(name, _nameOf(targetId, names)),
+    l10n.clueSameRowNot(name, _nameOf(targetId, names)),
+  ),
+  SameCol(:final targetId) => _either(
+    clue.negated,
+    l10n.clueSameCol(name, _nameOf(targetId, names)),
+    l10n.clueSameColNot(name, _nameOf(targetId, names)),
+  ),
+  _ => throw ArgumentError('no sentence template for: $clue'),
+};
 
 /// The suspects panel: a 3x2 grid of compact cards on phones (tall enough to
 /// show each card's full clue text, uncapped), a vertical column on wide
@@ -104,31 +153,8 @@ class SuspectPanel extends StatelessWidget {
     final cardBorderWidth = skin != null && skin.isCartoon
         ? skin.card.borderWidth
         : 2.0;
-    final cluesBySuspect = <String, List<Clue>>{};
-    for (final clue in caseData.clues) {
-      cluesBySuspect.putIfAbsent(clue.suspectId, () => []).add(clue);
-    }
-    final clueTextsBySuspect = <String, List<String>>{
-      for (final entry in cluesBySuspect.entries)
-        entry.key: [
-          for (final clue in entry.value)
-            describeClue(clue, caseData, l10n, names),
-        ],
-    };
-
-    final cards = [
-      for (var i = 0; i < caseData.suspects.length; i++)
-        _SuspectCard(
-          suspect: caseData.suspects[i],
-          displayName: names.nom(caseData.suspects[i].id),
-          color: suspectColor(i),
-          clueTexts:
-              clueTextsBySuspect[caseData.suspects[i].id] ?? const <String>[],
-          selected: caseData.suspects[i].id == selectedSuspectId,
-          isPlaced: placed.containsKey(caseData.suspects[i].id),
-          onTap: () => onSuspectTap(caseData.suspects[i].id),
-        ),
-    ];
+    final clueTexts = _clueTextsBySuspect(l10n, names);
+    final cards = _cards(names, clueTexts);
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -144,87 +170,150 @@ class SuspectPanel extends StatelessWidget {
             ],
           );
         }
-        const columns = 3;
-        const hPad = 4.0;
-        const spacing = 4.0;
-        const rows = 2;
-        final cardWidth =
-            (constraints.maxWidth - 2 * hPad - (columns - 1) * spacing) /
-            columns;
-        // Default card proportions ~1.05; when the host pins a tight height
-        // (the game screen's fixed panel slot), size the two rows to fill the
-        // slot exactly so nothing clips and no dead space is left.
-        var rowHeight = cardWidth / 1.05;
-        if (constraints.maxHeight.isFinite &&
-            constraints.maxHeight == constraints.minHeight) {
-          rowHeight =
-              (constraints.maxHeight - 2 * hPad - (rows - 1) * spacing) / rows;
-        } else if (constraints.maxWidth.isFinite) {
-          // Loose height (the wide layout's 300px side slot): grow the rows to
-          // the tallest card's full content instead of pinning ~1.05-proportion
-          // tiles that clip long clue text (UX-9).
-          rowHeight = math.max(
-            rowHeight,
-            _contentRowHeight(
-              context,
-              cardWidth,
-              clueTextsBySuspect,
-              names.nom,
-              cardBorderWidth,
-              skin?.chip,
-            ),
-          );
-        }
-        // Grid children and their ideal shrink-wrapped height at the row
-        // height above: padding on both edges, every grown row, and the
-        // gutters between them (issue 30's overflow detection).
-        final children = [...cards, const _EmptySlot()];
-        final totalRows = (children.length / columns).ceil();
-        final gridContentHeight =
-            2 * hPad + totalRows * rowHeight + (totalRows - 1) * spacing;
-        GridView buildGrid({required bool scrollable}) => GridView.count(
-          crossAxisCount: columns,
-          shrinkWrap: true,
-          physics: _gridPhysics(scrollable: scrollable),
-          childAspectRatio: cardWidth / rowHeight,
-          padding: const EdgeInsets.all(hPad),
-          mainAxisSpacing: spacing,
-          crossAxisSpacing: spacing,
-          children: children,
-        );
-        // The localized header row (issue 27) sits above the grid in every
-        // skin. When the host pins the slot height (the narrow game screen),
-        // the grid expands to fill the rest; where the height is loose, the
-        // grid is capped at the space under the header (the same clamp the
-        // bare grid had) and shrink-wraps to its grown rows otherwise (UX-9).
-        // When the grown rows exceed that cap, the clamped viewport leaves
-        // the bottom row unbuilt and NeverScrollableScrollPhysics would lock
-        // it away (issue 30) — so the slot is measured under the header and
-        // the grid switches to scrolling physics exactly when it overflows.
-        final bounded = constraints.maxHeight.isFinite;
-        final pinned =
-            bounded && constraints.maxHeight == constraints.minHeight;
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          mainAxisSize: pinned ? MainAxisSize.max : MainAxisSize.min,
-          children: [
-            const _SuspectsHeader(),
-            if (pinned)
-              Expanded(child: buildGrid(scrollable: false))
-            else if (bounded)
-              Flexible(
-                child: LayoutBuilder(
-                  builder: (context, slot) => buildGrid(
-                    scrollable: gridContentHeight > slot.maxHeight + 0.5,
-                  ),
-                ),
-              )
-            else
-              buildGrid(scrollable: false),
-          ],
+        return _narrowColumn(
+          context,
+          constraints,
+          cards,
+          clueTexts,
+          names,
+          cardBorderWidth,
+          skin,
         );
       },
     );
+  }
+
+  /// Clue sentences grouped per suspect, in clue order.
+  Map<String, List<String>> _clueTextsBySuspect(
+    AppLocalizations l10n,
+    NameForms names,
+  ) {
+    final cluesBySuspect = <String, List<Clue>>{};
+    for (final clue in caseData.clues) {
+      cluesBySuspect.putIfAbsent(clue.suspectId, () => []).add(clue);
+    }
+    return {
+      for (final entry in cluesBySuspect.entries)
+        entry.key: [
+          for (final clue in entry.value)
+            describeClue(clue, caseData, l10n, names),
+        ],
+    };
+  }
+
+  /// One card per suspect, in board order.
+  List<_SuspectCard> _cards(
+    NameForms names,
+    Map<String, List<String>> clueTexts,
+  ) => [
+    for (var i = 0; i < caseData.suspects.length; i++)
+      _SuspectCard(
+        suspect: caseData.suspects[i],
+        displayName: names.nom(caseData.suspects[i].id),
+        color: suspectColor(i),
+        clueTexts: clueTexts[caseData.suspects[i].id] ?? const <String>[],
+        selected: caseData.suspects[i].id == selectedSuspectId,
+        isPlaced: placed.containsKey(caseData.suspects[i].id),
+        onTap: () => onSuspectTap(caseData.suspects[i].id),
+      ),
+  ];
+
+  /// The narrow (below 600px) layout: header above the 3-column grid; the
+  /// grid fills the pinned slot, clamps to the space under the header when
+  /// the host bounds the height, or shrink-wraps its grown rows otherwise.
+  Widget _narrowColumn(
+    BuildContext context,
+    BoxConstraints constraints,
+    List<_SuspectCard> cards,
+    Map<String, List<String>> clueTexts,
+    NameForms names,
+    double cardBorderWidth,
+    SkinTokens? skin,
+  ) {
+    const columns = 3;
+    const hPad = 4.0;
+    const spacing = 4.0;
+    final cardWidth =
+        (constraints.maxWidth - 2 * hPad - (columns - 1) * spacing) / columns;
+    final rowHeight = _narrowRowHeight(
+      context,
+      constraints,
+      cardWidth,
+      clueTexts,
+      names,
+      cardBorderWidth,
+      skin?.chip,
+    );
+    // Grid children and their ideal shrink-wrapped height at the row
+    // height above: padding on both edges, every grown row, and the
+    // gutters between them (issue 30's overflow detection).
+    final children = [...cards, const _EmptySlot()];
+    final totalRows = (children.length / columns).ceil();
+    final gridContentHeight =
+        2 * hPad + totalRows * rowHeight + (totalRows - 1) * spacing;
+    GridView buildGrid({required bool scrollable}) => GridView.count(
+      crossAxisCount: columns,
+      shrinkWrap: true,
+      physics: _gridPhysics(scrollable: scrollable),
+      childAspectRatio: cardWidth / rowHeight,
+      padding: const EdgeInsets.all(hPad),
+      mainAxisSpacing: spacing,
+      crossAxisSpacing: spacing,
+      children: children,
+    );
+    final bounded = constraints.maxHeight.isFinite;
+    final pinned = bounded && constraints.maxHeight == constraints.minHeight;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: pinned ? MainAxisSize.max : MainAxisSize.min,
+      children: [
+        const _SuspectsHeader(),
+        _gridChild(
+          pinned: pinned,
+          bounded: bounded,
+          gridContentHeight: gridContentHeight,
+          buildGrid: buildGrid,
+        ),
+      ],
+    );
+  }
+
+  /// The narrow branch's row height: default card proportions; when the
+  /// host pins a tight height (the game screen's fixed panel slot), size
+  /// the two rows to fill the slot exactly so nothing clips and no dead
+  /// space is left; where the height is loose, grow to the tallest card's
+  /// full content instead of pinning tiles that clip long clue text (UX-9).
+  double _narrowRowHeight(
+    BuildContext context,
+    BoxConstraints constraints,
+    double cardWidth,
+    Map<String, List<String>> clueTexts,
+    NameForms names,
+    double cardBorderWidth,
+    SkinChip? chip,
+  ) {
+    var rowHeight = cardWidth / 1.05;
+    if (constraints.maxHeight.isFinite &&
+        constraints.maxHeight == constraints.minHeight) {
+      const hPad = 4.0;
+      const spacing = 4.0;
+      const rows = 2;
+      rowHeight =
+          (constraints.maxHeight - 2 * hPad - (rows - 1) * spacing) / rows;
+    } else if (constraints.maxWidth.isFinite) {
+      rowHeight = math.max(
+        rowHeight,
+        _contentRowHeight(
+          context,
+          cardWidth,
+          clueTexts,
+          names,
+          cardBorderWidth,
+          chip,
+        ),
+      );
+    }
+    return rowHeight;
   }
 
   /// Scroll physics for the suspect grid (issue 30): when the loose branch's
@@ -239,6 +328,27 @@ class SuspectPanel extends StatelessWidget {
       ? const ClampingScrollPhysics()
       : const NeverScrollableScrollPhysics();
 
+  /// The grid's placement under the header (issue 27/30): filling the rest
+  /// of a pinned slot, clamped-and-scrolling on overflow inside a bounded
+  /// slot, or shrink-wrapped when the height is unbounded.
+  Widget _gridChild({
+    required bool pinned,
+    required bool bounded,
+    required double gridContentHeight,
+    required GridView Function({required bool scrollable}) buildGrid,
+  }) {
+    if (pinned) return Expanded(child: buildGrid(scrollable: false));
+    if (bounded) {
+      return Flexible(
+        child: LayoutBuilder(
+          builder: (context, slot) =>
+              buildGrid(scrollable: gridContentHeight > slot.maxHeight + 0.5),
+        ),
+      );
+    }
+    return buildGrid(scrollable: false);
+  }
+
   /// Minimum row height that fits every card's full content (name row plus
   /// all clue lines at the card's text width), measured with the same style
   /// and text scale the cards render with. Used when the host leaves the
@@ -250,7 +360,7 @@ class SuspectPanel extends StatelessWidget {
     BuildContext context,
     double cardWidth,
     Map<String, List<String>> clueTextsBySuspect,
-    String Function(String) nameOf,
+    NameForms names,
     double borderWidth,
     SkinChip? chip,
   ) {
@@ -272,65 +382,26 @@ class SuspectPanel extends StatelessWidget {
     // floors the height in the common case.
     final nameWidth = math.max(textWidth - 24 - 6, 1.0);
 
-    double measure(String text, TextStyle? style, double width) {
-      final painter = TextPainter(
-        text: TextSpan(text: text, style: base.merge(style)),
-        textDirection: direction,
-        textScaler: scaler,
-      )..layout(maxWidth: width);
-      final height = painter.height;
-      painter.dispose();
-      return height;
-    }
-
-    // Scale-down-to-fit name row (issue 15): the name lays out at its
-    // natural width on one line, then shrinks to the row width — the row
-    // height is the scaled one-line height, floored by the 24dp avatar.
-    double fittedNameHeight(String text, TextStyle? style, double width) {
-      final painter = TextPainter(
-        text: TextSpan(text: text, style: base.merge(style)),
-        textDirection: direction,
-        textScaler: scaler,
-      )..layout();
-      final naturalWidth = painter.width;
-      final naturalHeight = painter.height;
-      painter.dispose();
-      final scale = math.min(1.0, width / math.max(naturalWidth, 1.0));
-      return naturalHeight * scale;
-    }
-
     var maxHeight = 0.0;
     for (final suspect in caseData.suspects) {
-      final nameHeight = fittedNameHeight(
-        nameOf(suspect.id),
+      final nameHeight = _fittedNameHeight(
+        names.nom(suspect.id),
         theme.textTheme.titleSmall,
+        base,
+        scaler,
+        direction,
         nameWidth,
       );
-      final texts = clueTextsBySuspect[suspect.id] ?? const <String>[];
-      double clueHeight;
-      if (texts.isEmpty) {
-        clueHeight = 0.0;
-      } else if (chip == null) {
-        // Classic: the card renders the clues joined into one paragraph at
-        // the card's text width.
-        clueHeight = measure(
-          texts.join('\n'),
-          theme.textTheme.bodySmall,
-          textWidth,
-        );
-      } else {
-        // Chip mode (issue 26): every clue is its own chip — the text wraps
-        // at the chip's inner width, each chip adds its vertical padding,
-        // and consecutive chips are separated by the token gap. Exactly the
-        // structure the card's chip column renders.
-        clueHeight = 0.0;
-        for (var i = 0; i < texts.length; i++) {
-          if (i > 0) clueHeight += chip.gap;
-          clueHeight +=
-              measure(texts[i], theme.textTheme.bodySmall, chipInnerWidth) +
-              chip.padding.vertical;
-        }
-      }
+      final clueHeight = _clueBlockHeight(
+        clueTextsBySuspect[suspect.id] ?? const <String>[],
+        chip,
+        theme,
+        base,
+        scaler,
+        direction,
+        chipInnerWidth,
+        textWidth,
+      );
       // 2 * (4 outer padding + 8 container padding + border) + name row
       // (the 24dp avatar floors its height) + 4 gap + clue text block.
       final cardHeight =
@@ -338,6 +409,47 @@ class SuspectPanel extends StatelessWidget {
       maxHeight = math.max(maxHeight, cardHeight);
     }
     return maxHeight;
+  }
+
+  /// The clue text block's height at the card's text width: joined
+  /// paragraph for classic, per-chip padding/gap arithmetic in chip mode
+  /// (issue 26) — exactly the structure the card renders.
+  double _clueBlockHeight(
+    List<String> texts,
+    SkinChip? chip,
+    ThemeData theme,
+    TextStyle base,
+    TextScaler scaler,
+    TextDirection direction,
+    double chipInnerWidth,
+    double textWidth,
+  ) {
+    if (texts.isEmpty) return 0.0;
+    if (chip == null) {
+      return _measureText(
+        texts.join('\n'),
+        theme.textTheme.bodySmall,
+        base,
+        scaler,
+        direction,
+        textWidth,
+      );
+    }
+    var clueHeight = 0.0;
+    for (var i = 0; i < texts.length; i++) {
+      if (i > 0) clueHeight += chip.gap;
+      clueHeight +=
+          _measureText(
+            texts[i],
+            theme.textTheme.bodySmall,
+            base,
+            scaler,
+            direction,
+            chipInnerWidth,
+          ) +
+          chip.padding.vertical;
+    }
+    return clueHeight;
   }
 }
 
@@ -439,147 +551,13 @@ class _SuspectCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           child: Container(
             padding: const EdgeInsets.all(8),
-            decoration: cartoon
-                ? BoxDecoration(
-                    borderRadius: BorderRadius.circular(tokens.card.radius),
-                    color: tokens.card.background,
-                    border: Border.all(
-                      // Selection rides the suspect's own color: comic's
-                      // card border is already the ink color, so an ink
-                      // outline could not show selection.
-                      color: selected ? color : tokens.card.borderColor,
-                      width: selected
-                          ? math.max(tokens.card.borderWidth, 3)
-                          : tokens.card.borderWidth,
-                    ),
-                    boxShadow: [tokens.card.shadow],
-                  )
-                : BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    color: selected
-                        ? scheme.secondaryContainer
-                        : scheme.surfaceContainerHighest,
-                    border: Border.all(
-                      color: selected ? scheme.primary : Colors.transparent,
-                      width: 2,
-                    ),
-                  ),
+            decoration: _cardDecoration(scheme, tokens, cartoon),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    // Placed marker (issue 18): the check icon rides the
-                    // avatar's corner as a badge instead of taking an inline
-                    // row slot — an inline 18px icon squeezed the placed name
-                    // to ~18.7px at the 300px side panel, scaling the widest
-                    // pool names ('Морган'/'Харпер') to ~0.37. Badged, the
-                    // layout width stays exactly the avatar's 24dp (the badge
-                    // paints past the stack bounds via Clip.none), so placed
-                    // and unplaced rows share the same ~36.7px name slot in
-                    // every layout; unplaced cards are untouched.
-                    SizedBox(
-                      width: 24,
-                      height: 24,
-                      child: Stack(
-                        clipBehavior: Clip.none,
-                        children: [
-                          Avatar(color: color, selected: selected, size: 24),
-                          if (isPlaced)
-                            Positioned(
-                              right: -4,
-                              bottom: -4,
-                              child: Icon(
-                                Icons.check_circle,
-                                size: 12,
-                                color: scheme.primary,
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    // Name renders in full on the wide side panel (issue
-                    // 15): no ellipsis cap — the name lays out at its
-                    // natural width and scales down to fit the row, so
-                    // single-word names (which cannot wrap) are never
-                    // truncated. Where the name already fits (narrow
-                    // phones), scaleDown renders it at 1.0. With the placed
-                    // check badged onto the avatar (issue 18) this row keeps
-                    // the same slot whether the card is placed or not.
-                    Expanded(
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          displayName,
-                          style: Theme.of(context).textTheme.titleSmall,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+                _nameRow(context, scheme),
                 const SizedBox(height: 4),
-                if (chip != null)
-                  // Each clue sentence in its own rounded token chip (issue
-                  // 26), selected and unselected alike. The scroll view is
-                  // the same escape hatch the selected card already had:
-                  // when the host pins a slot shorter than the content
-                  // (narrow layout), the chips scroll instead of throwing a
-                  // RenderFlex overflow; the row-height math below grows the
-                  // rows wherever the host leaves the height loose, so this
-                  // scrolls only when there is genuinely no room (UX-9).
-                  Expanded(
-                    child: SingleChildScrollView(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          for (final (i, text) in clueTexts.indexed)
-                            Container(
-                              margin: EdgeInsets.only(
-                                top: i == 0 ? 0 : chip.gap,
-                              ),
-                              padding: chip.padding,
-                              decoration: BoxDecoration(
-                                color: chip.background,
-                                borderRadius: BorderRadius.circular(
-                                  chip.radius,
-                                ),
-                              ),
-                              child: Text(
-                                text,
-                                style: Theme.of(context).textTheme.bodySmall,
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                  )
-                else if (selected)
-                  Expanded(
-                    child: SingleChildScrollView(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          for (final text in clueTexts)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 2),
-                              child: Text(
-                                text,
-                                style: Theme.of(context).textTheme.bodySmall,
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                  )
-                else
-                  Expanded(
-                    child: Text(
-                      clueTexts.join('\n'),
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                  ),
+                _clueArea(context, chip),
               ],
             ),
           ),
@@ -587,4 +565,185 @@ class _SuspectCard extends StatelessWidget {
       ),
     );
   }
+
+  /// The card surface: cartoon token card or the classic scheme container.
+  BoxDecoration _cardDecoration(
+    ColorScheme scheme,
+    SkinTokens? tokens,
+    bool cartoon,
+  ) => cartoon ? _cartoonDecoration(tokens!) : _classicDecoration(scheme);
+
+  /// The cartoon token card; selection rides the suspect's own color:
+  /// comic's card border is already the ink color, so an ink outline could
+  /// not show selection.
+  BoxDecoration _cartoonDecoration(SkinTokens tokens) => BoxDecoration(
+    borderRadius: BorderRadius.circular(tokens.card.radius),
+    color: tokens.card.background,
+    border: Border.all(
+      color: selected ? color : tokens.card.borderColor,
+      width: selected
+          ? math.max(tokens.card.borderWidth, 3)
+          : tokens.card.borderWidth,
+    ),
+    boxShadow: [tokens.card.shadow],
+  );
+
+  /// The classic scheme container with the selection outline.
+  BoxDecoration _classicDecoration(ColorScheme scheme) => BoxDecoration(
+    borderRadius: BorderRadius.circular(12),
+    color: selected
+        ? scheme.secondaryContainer
+        : scheme.surfaceContainerHighest,
+    border: Border.all(
+      color: selected ? scheme.primary : Colors.transparent,
+      width: 2,
+    ),
+  );
+
+  /// The avatar + name row (issues 15/18): the placed check icon is a badge
+  /// on the avatar's corner so placed and unplaced rows share the same
+  /// ~36.7px name slot; the name scales down instead of truncating.
+  Widget _nameRow(BuildContext context, ColorScheme scheme) {
+    return Row(
+      children: [
+        SizedBox(
+          width: 24,
+          height: 24,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Avatar(color: color, selected: selected, size: 24),
+              if (isPlaced)
+                Positioned(
+                  right: -4,
+                  bottom: -4,
+                  child: Icon(
+                    Icons.check_circle,
+                    size: 12,
+                    color: scheme.primary,
+                  ),
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 6),
+        // Name renders in full on the wide side panel (issue 15): no
+        // ellipsis cap — the name lays out at its natural width and scales
+        // down to fit the row, so single-word names (which cannot wrap) are
+        // never truncated. Where the name already fits (narrow phones),
+        // scaleDown renders it at 1.0. With the placed check badged onto
+        // the avatar (issue 18) this row keeps the same slot whether the
+        // card is placed or not.
+        Expanded(
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              displayName,
+              style: Theme.of(context).textTheme.titleSmall,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// The clue area: chip column in chip mode (issue 26), scrollable plain
+  /// column on the expanded (selected) card, joined paragraph otherwise.
+  Widget _clueArea(BuildContext context, SkinChip? chip) {
+    if (chip != null) {
+      // Each clue sentence in its own rounded token chip (issue 26),
+      // selected and unselected alike. The scroll view is the same escape
+      // hatch the selected card already had: when the host pins a slot
+      // shorter than the content (narrow layout), the chips scroll instead
+      // of throwing a RenderFlex overflow; the row-height math grows the
+      // rows wherever the host leaves the height loose, so this scrolls
+      // only when there is genuinely no room (UX-9).
+      return Expanded(
+        child: SingleChildScrollView(child: _chipColumn(context, chip)),
+      );
+    }
+    if (selected) {
+      return Expanded(
+        child: SingleChildScrollView(child: _plainColumn(context)),
+      );
+    }
+    return Expanded(
+      child: Text(
+        clueTexts.join('\n'),
+        style: Theme.of(context).textTheme.bodySmall,
+      ),
+    );
+  }
+
+  /// One rounded chip per clue sentence (issue 26).
+  Widget _chipColumn(BuildContext context, SkinChip chip) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      for (final (i, text) in clueTexts.indexed)
+        Container(
+          margin: EdgeInsets.only(top: i == 0 ? 0 : chip.gap),
+          padding: chip.padding,
+          decoration: BoxDecoration(
+            color: chip.background,
+            borderRadius: BorderRadius.circular(chip.radius),
+          ),
+          child: Text(text, style: Theme.of(context).textTheme.bodySmall),
+        ),
+    ],
+  );
+
+  /// The selected card's clue column (issue 26's escape hatch).
+  Widget _plainColumn(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      for (final text in clueTexts)
+        Padding(
+          padding: const EdgeInsets.only(top: 2),
+          child: Text(text, style: Theme.of(context).textTheme.bodySmall),
+        ),
+    ],
+  );
+}
+
+/// Measures [text]'s wrapped height at [width] with the card's merged style.
+double _measureText(
+  String text,
+  TextStyle? style,
+  TextStyle base,
+  TextScaler scaler,
+  TextDirection direction,
+  double width,
+) {
+  final painter = TextPainter(
+    text: TextSpan(text: text, style: base.merge(style)),
+    textDirection: direction,
+    textScaler: scaler,
+  )..layout(maxWidth: width);
+  final height = painter.height;
+  painter.dispose();
+  return height;
+}
+
+/// Scale-down-to-fit name row height (issue 15): the name lays out at its
+/// natural width on one line, then shrinks to the row width — the row
+/// height is the scaled one-line height, floored by the 24dp avatar.
+double _fittedNameHeight(
+  String text,
+  TextStyle? style,
+  TextStyle base,
+  TextScaler scaler,
+  TextDirection direction,
+  double width,
+) {
+  final painter = TextPainter(
+    text: TextSpan(text: text, style: base.merge(style)),
+    textDirection: direction,
+    textScaler: scaler,
+  )..layout();
+  final naturalWidth = painter.width;
+  final naturalHeight = painter.height;
+  painter.dispose();
+  final scale = math.min(1.0, width / math.max(naturalWidth, 1.0));
+  return naturalHeight * scale;
 }

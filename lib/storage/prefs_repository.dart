@@ -101,12 +101,15 @@ class Stats {
   int totalCases;
 
   @override
-  bool operator ==(Object other) =>
-      other is Stats &&
-      _statsMapEqual(other.solved, solved) &&
-      _durationMapEqual(other.bestTime, bestTime) &&
-      _durationMapEqual(other.totalTime, totalTime) &&
-      other.totalCases == totalCases;
+  bool operator ==(Object other) {
+    if (other is! Stats) return false;
+    return _allEqual([
+      mapEquals(other.solved, solved),
+      mapEquals(other.bestTime, bestTime),
+      mapEquals(other.totalTime, totalTime),
+      other.totalCases == totalCases,
+    ]);
+  }
 
   @override
   int get hashCode => Object.hash(
@@ -125,18 +128,10 @@ class Stats {
 
   factory Stats.fromJson(Map<String, Object?> json) {
     final stats = Stats();
-    final solved = json['solved'] as Map<String, Object?>? ?? {};
-    final best = json['bestTimeSeconds'] as Map<String, Object?>? ?? {};
-    final total = json['totalTimeSeconds'] as Map<String, Object?>? ?? {};
-    for (final d in Difficulty.values) {
-      stats.solved[d] = solved[d.name] as int? ?? 0;
-      if (best[d.name] != null) {
-        stats.bestTime[d] = Duration(seconds: best[d.name] as int);
-      }
-      if (total[d.name] != null) {
-        stats.totalTime[d] = Duration(seconds: total[d.name] as int);
-      }
-    }
+    final solved = _mapOrEmpty(json, 'solved');
+    final best = _mapOrEmpty(json, 'bestTimeSeconds');
+    final total = _mapOrEmpty(json, 'totalTimeSeconds');
+    _fillDifficultyStats(stats, solved, best, total);
     stats.totalCases = json['totalCases'] as int? ?? 0;
     return stats;
   }
@@ -157,12 +152,15 @@ class SavedGame {
   final BoardSnapshot board;
 
   @override
-  bool operator ==(Object other) =>
-      other is SavedGame &&
-      other.caseData == caseData &&
-      other.isDaily == isDaily &&
-      other.dailyDate == dailyDate &&
-      other.board == board;
+  bool operator ==(Object other) {
+    if (other is! SavedGame) return false;
+    return _allEqual([
+      other.caseData == caseData,
+      other.isDaily == isDaily,
+      other.dailyDate == dailyDate,
+      other.board == board,
+    ]);
+  }
 
   @override
   int get hashCode => Object.hash(caseData, isDaily, dailyDate, board);
@@ -179,23 +177,29 @@ class SavedGame {
   /// treat that as "no save".
   static SavedGame? tryFromJson(Map<String, Object?> json) {
     try {
-      if (json['v'] != 1) return null;
-      final caseJson = json['caseData'];
-      final boardJson = json['board'];
-      if (caseJson is! Map<String, Object?> ||
-          boardJson is! Map<String, Object?>) {
-        return null;
-      }
-      return SavedGame(
-        caseData: CaseData.fromJson(caseJson),
-        isDaily: json['isDaily'] as bool? ?? false,
-        dailyDate: json['dailyDate'] as String? ?? '',
-        board: BoardSnapshot.fromJson(boardJson),
-      );
+      return _tryParse(json);
     } on Object catch (e) {
       debugPrint('SavedGame parse failed: $e');
       return null;
     }
+  }
+
+  /// Payload validation and construction for a known-good envelope; any
+  /// throw is caught by [tryFromJson] and degrades to null.
+  static SavedGame? _tryParse(Map<String, Object?> json) {
+    if (json['v'] != 1) return null;
+    final caseJson = json['caseData'];
+    final boardJson = json['board'];
+    if (caseJson is! Map<String, Object?> ||
+        boardJson is! Map<String, Object?>) {
+      return null;
+    }
+    return SavedGame(
+      caseData: CaseData.fromJson(caseJson),
+      isDaily: _boolOr(json, 'isDaily', false),
+      dailyDate: _stringOr(json, 'dailyDate', ''),
+      board: BoardSnapshot.fromJson(boardJson),
+    );
   }
 }
 
@@ -281,21 +285,44 @@ class PrefsRepository {
       _prefs.setBool(_tutorialKey, seen);
 }
 
-bool _statsMapEqual<M extends Enum, V>(Map<M, V> a, Map<M, V> b) {
-  if (a.length != b.length) return false;
-  for (final key in a.keys) {
-    if (b[key] != a[key]) return false;
+/// True when every field-equality check in [checks] holds. The persisted
+/// models' `==` helpers build their per-field comparisons eagerly: each
+/// check is a pure predicate, so evaluating all of them is observably
+/// identical to the old short-circuit `&&` chain (issue 35).
+bool _allEqual(List<bool> checks) {
+  for (final check in checks) {
+    if (!check) return false;
   }
   return true;
 }
 
-bool _durationMapEqual(
-  Map<Difficulty, Duration> a,
-  Map<Difficulty, Duration> b,
+/// A stored map field, or the empty map when the key is absent.
+Map<String, Object?> _mapOrEmpty(Map<String, Object?> json, String key) =>
+    json[key] as Map<String, Object?>? ?? {};
+
+/// Fills the per-difficulty counters and durations from stored maps.
+void _fillDifficultyStats(
+  Stats stats,
+  Map<String, Object?> solved,
+  Map<String, Object?> best,
+  Map<String, Object?> total,
 ) {
-  if (a.length != b.length) return false;
-  for (final key in a.keys) {
-    if (b[key] != a[key]) return false;
+  for (final d in Difficulty.values) {
+    stats.solved[d] = solved[d.name] as int? ?? 0;
+    if (best[d.name] != null) {
+      stats.bestTime[d] = Duration(seconds: best[d.name] as int);
+    }
+    if (total[d.name] != null) {
+      stats.totalTime[d] = Duration(seconds: total[d.name] as int);
+    }
   }
-  return true;
 }
+
+/// A stored bool field, or [fallback] when the key is absent or not a bool.
+bool _boolOr(Map<String, Object?> json, String key, bool fallback) =>
+    (json[key] as bool?) ?? fallback;
+
+/// A stored string field, or [fallback] when the key is absent or not a
+/// string.
+String _stringOr(Map<String, Object?> json, String key, String fallback) =>
+    (json[key] as String?) ?? fallback;

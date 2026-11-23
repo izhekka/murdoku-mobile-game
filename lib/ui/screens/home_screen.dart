@@ -8,6 +8,7 @@ import 'package:murdoku/l10n/generated/app_localizations.dart';
 import 'package:murdoku/state/clock.dart';
 import 'package:murdoku/state/game_controller.dart';
 import 'package:murdoku/state/providers.dart';
+import 'package:murdoku/storage/prefs_repository.dart' show SavedGame;
 import 'package:murdoku/ui/widgets/skin_card.dart';
 import 'package:murdoku/ui/widgets/tutorial_overlay.dart';
 
@@ -63,63 +64,81 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       body: ListView(
         padding: const EdgeInsets.all(12),
         children: [
-          if (savedGame != null)
-            SkinCard(
-              child: ListTile(
-                leading: const Icon(Icons.play_arrow),
-                title: Text(l10n.continueCase),
-                subtitle: Text(
-                  '${_difficultyLabel(l10n, savedGame.caseData.difficulty)} · '
-                  '${formatDuration(savedGame.board.elapsed)}',
-                ),
-                onTap: () {
-                  ref.read(gameControllerProvider.notifier).resume(savedGame);
-                  context.go('/game');
-                },
-              ),
-            ),
-          SkinCard(
-            child: ListTile(
-              leading: const Icon(Icons.add),
-              title: Text(l10n.newCase),
-              onTap: () => _showNewCaseSheet(context, ref, l10n),
-            ),
-          ),
-          SkinCard(
-            child: ListTile(
-              leading: Icon(dailyDone ? Icons.check_circle : Icons.event),
-              iconColor: dailyDone
-                  ? Theme.of(context).colorScheme.primary
-                  : null,
-              title: Text(l10n.dailyCase),
-              subtitle: dailyDone ? Text(l10n.dailyCompleted) : null,
-              onTap: () {
-                ref.read(gameControllerProvider.notifier).startDaily(today);
-                context.go('/game');
-              },
-            ),
-          ),
+          if (savedGame != null) _continueCard(l10n, savedGame),
+          _newCaseCard(l10n),
+          _dailyCard(l10n, dailyDone, today),
           const SizedBox(height: 8),
-          SkinCard(
-            child: Column(
-              children: [
-                ListTile(
-                  leading: const Icon(Icons.menu_book),
-                  title: Text(l10n.howToPlayTitle),
-                  onTap: () => context.go('/how-to-play'),
-                ),
-                ListTile(
-                  leading: const Icon(Icons.bar_chart),
-                  title: Text(l10n.statsTitle),
-                  onTap: () => context.go('/stats'),
-                ),
-                ListTile(
-                  leading: const Icon(Icons.settings),
-                  title: Text(l10n.settingsTitle),
-                  onTap: () => context.go('/settings'),
-                ),
-              ],
-            ),
+          _menuCard(l10n),
+        ],
+      ),
+    );
+  }
+
+  /// Resume the interrupted case: difficulty and elapsed time in the
+  /// subtitle.
+  Widget _continueCard(AppLocalizations l10n, SavedGame savedGame) {
+    return SkinCard(
+      child: ListTile(
+        leading: const Icon(Icons.play_arrow),
+        title: Text(l10n.continueCase),
+        subtitle: Text(
+          '${_difficultyLabel(l10n, savedGame.caseData.difficulty)} · '
+          '${formatDuration(savedGame.board.elapsed)}',
+        ),
+        onTap: () {
+          ref.read(gameControllerProvider.notifier).resume(savedGame);
+          context.go('/game');
+        },
+      ),
+    );
+  }
+
+  /// Start a fresh case (difficulty chooser).
+  Widget _newCaseCard(AppLocalizations l10n) {
+    return SkinCard(
+      child: ListTile(
+        leading: const Icon(Icons.add),
+        title: Text(l10n.newCase),
+        onTap: () => _showNewCaseSheet(context, ref, l10n),
+      ),
+    );
+  }
+
+  /// The UTC-date daily; a check icon marks an already-completed day.
+  Widget _dailyCard(AppLocalizations l10n, bool dailyDone, String today) {
+    return SkinCard(
+      child: ListTile(
+        leading: Icon(dailyDone ? Icons.check_circle : Icons.event),
+        iconColor: dailyDone ? Theme.of(context).colorScheme.primary : null,
+        title: Text(l10n.dailyCase),
+        subtitle: dailyDone ? Text(l10n.dailyCompleted) : null,
+        onTap: () {
+          ref.read(gameControllerProvider.notifier).startDaily(today);
+          context.go('/game');
+        },
+      ),
+    );
+  }
+
+  /// How-to-play, stats and settings menu rows.
+  Widget _menuCard(AppLocalizations l10n) {
+    return SkinCard(
+      child: Column(
+        children: [
+          ListTile(
+            leading: const Icon(Icons.menu_book),
+            title: Text(l10n.howToPlayTitle),
+            onTap: () => context.go('/how-to-play'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.bar_chart),
+            title: Text(l10n.statsTitle),
+            onTap: () => context.go('/stats'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.settings),
+            title: Text(l10n.settingsTitle),
+            onTap: () => context.go('/settings'),
           ),
         ],
       ),

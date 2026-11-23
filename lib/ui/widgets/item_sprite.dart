@@ -2,22 +2,25 @@ import 'package:material_ui/material_ui.dart';
 
 import 'package:murdoku/domain/models.dart';
 
-IconData objectIcon(ObjectKind kind) => switch (kind) {
-  ObjectKind.piano => Icons.piano,
-  ObjectKind.plant => Icons.local_florist,
-  ObjectKind.armor => Icons.shield,
-  ObjectKind.chest => Icons.inventory_2,
-  ObjectKind.clock => Icons.schedule,
-  ObjectKind.globe => Icons.public,
-  ObjectKind.portrait => Icons.portrait,
-  ObjectKind.fireplace => Icons.local_fire_department,
-  ObjectKind.table => Icons.table_restaurant,
-  ObjectKind.chair => Icons.chair,
-  ObjectKind.flowers => Icons.local_florist,
-  ObjectKind.sofa => Icons.weekend,
-  ObjectKind.bookshelf => Icons.shelves,
-  ObjectKind.lamp => Icons.light,
+/// The fallback Material icon per item kind (table-driven, issue 35).
+final _objectIcons = <ObjectKind, IconData>{
+  ObjectKind.piano: Icons.piano,
+  ObjectKind.plant: Icons.local_florist,
+  ObjectKind.armor: Icons.shield,
+  ObjectKind.chest: Icons.inventory_2,
+  ObjectKind.clock: Icons.schedule,
+  ObjectKind.globe: Icons.public,
+  ObjectKind.portrait: Icons.portrait,
+  ObjectKind.fireplace: Icons.local_fire_department,
+  ObjectKind.table: Icons.table_restaurant,
+  ObjectKind.chair: Icons.chair,
+  ObjectKind.flowers: Icons.local_florist,
+  ObjectKind.sofa: Icons.weekend,
+  ObjectKind.bookshelf: Icons.shelves,
+  ObjectKind.lamp: Icons.light,
 };
+
+IconData objectIcon(ObjectKind kind) => _objectIcons[kind]!;
 
 /// Asset path for an item kind's generated sprite (tool/gen_items.dart).
 String itemAssetPath(ObjectKind kind) => 'assets/items/${kind.name}.png';

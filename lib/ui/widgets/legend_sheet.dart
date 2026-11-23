@@ -28,15 +28,8 @@ class LegendSheet extends StatelessWidget {
     final g = caseData.gridSize;
     final tokens = SkinScope.maybeOf(context);
     final cartoon = tokens != null && tokens.isCartoon;
-    final roomColors = cartoon
-        ? List.generate(g, (i) => tokens.roomTints[i % tokens.roomTints.length])
-        : AppTheme.roomColors(g);
+    final roomColors = _roomColors(cartoon, tokens, g);
     final scheme = Theme.of(context).colorScheme;
-    // One entry per distinct item kind, in first-appearance order.
-    final seenKinds = <ObjectKind>[];
-    for (final item in caseData.objects) {
-      if (!seenKinds.contains(item.kind)) seenKinds.add(item.kind);
-    }
 
     return SafeArea(
       child: Padding(
@@ -63,43 +56,14 @@ class LegendSheet extends StatelessWidget {
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
                     ),
-                    for (var i = 0; i < caseData.rooms.length; i++)
-                      ListTile(
-                        leading: Container(
-                          width: 24,
-                          height: 24,
-                          decoration: BoxDecoration(
-                            // Cartoon skins: solid tint + mortar border, the
-                            // board's room blocks (issue 23). Classic: the
-                            // alpha-0.55 scheme swatch.
-                            color: cartoon
-                                ? roomColors[i]
-                                : roomColors[i].withValues(alpha: 0.55),
-                            border: Border.all(
-                              width: 2,
-                              color: cartoon
-                                  ? tokens.mortarColor
-                                  : scheme.outline,
-                            ),
-                            borderRadius: BorderRadius.circular(
-                              cartoon ? 6 : 4,
-                            ),
-                          ),
-                          child: Center(
-                            child: Text(
-                              '${i + 1}',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                color: cartoon ? tokens.ink : scheme.onSurface,
-                              ),
-                            ),
-                          ),
-                        ),
-                        title: Text(
-                          '${i + 1} — ${names.roomNom(caseData.rooms[i].id)}',
-                        ),
-                      ),
+                    ..._roomTiles(
+                      l10n,
+                      names,
+                      cartoon,
+                      tokens,
+                      scheme,
+                      roomColors,
+                    ),
                     const SizedBox(height: 8),
                     Padding(
                       padding: const EdgeInsets.only(bottom: 4),
@@ -108,17 +72,7 @@ class LegendSheet extends StatelessWidget {
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
                     ),
-                    for (final kind in seenKinds)
-                      ListTile(
-                        leading: ItemSprite(kind: kind, size: 30),
-                        title: Text(names.objectNom(kind)),
-                        subtitle: Text(
-                          kindOccupiable(kind)
-                              ? l10n.legendOccupiable
-                              : l10n.stateBlocked,
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                      ),
+                    ..._itemTiles(context, l10n, names),
                   ],
                 ),
               ),
@@ -127,5 +81,89 @@ class LegendSheet extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  /// The room swatch colors: skin tints on cartoon skins, the scheme
+  /// palette for classic.
+  List<Color> _roomColors(bool cartoon, SkinTokens? tokens, int g) => cartoon
+      ? List.generate(g, (i) => tokens!.roomTints[i % tokens.roomTints.length])
+      : AppTheme.roomColors(g);
+
+  /// One numbered swatch tile per room, in board order.
+  List<ListTile> _roomTiles(
+    AppLocalizations l10n,
+    NameForms names,
+    bool cartoon,
+    SkinTokens? tokens,
+    ColorScheme scheme,
+    List<Color> roomColors,
+  ) => [
+    for (var i = 0; i < caseData.rooms.length; i++)
+      ListTile(
+        leading: _roomSwatch(i, cartoon, tokens, scheme, roomColors),
+        title: Text('${i + 1} — ${names.roomNom(caseData.rooms[i].id)}'),
+      ),
+  ];
+
+  /// The colored square with the room number: solid tint + mortar border on
+  /// cartoon skins (the board's room blocks, issue 23); the alpha-0.55
+  /// scheme swatch on classic.
+  Container _roomSwatch(
+    int i,
+    bool cartoon,
+    SkinTokens? tokens,
+    ColorScheme scheme,
+    List<Color> roomColors,
+  ) {
+    return Container(
+      width: 24,
+      height: 24,
+      decoration: BoxDecoration(
+        color: cartoon ? roomColors[i] : roomColors[i].withValues(alpha: 0.55),
+        border: Border.all(
+          width: 2,
+          color: cartoon ? tokens!.mortarColor : scheme.outline,
+        ),
+        borderRadius: BorderRadius.circular(cartoon ? 6 : 4),
+      ),
+      child: Center(
+        child: Text(
+          '${i + 1}',
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+            color: cartoon ? tokens!.ink : scheme.onSurface,
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// One tile per distinct item kind in the case, in first-appearance
+  /// order, with its name and occupiability hint.
+  List<ListTile> _itemTiles(
+    BuildContext context,
+    AppLocalizations l10n,
+    NameForms names,
+  ) => [
+    for (final kind in _seenKinds())
+      ListTile(
+        leading: ItemSprite(kind: kind, size: 30),
+        title: Text(names.objectNom(kind)),
+        subtitle: Text(
+          kindOccupiable(kind) ? l10n.legendOccupiable : l10n.stateBlocked,
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+      ),
+  ];
+
+  /// The distinct item kinds appearing in the case, in first-appearance
+  /// order.
+  List<ObjectKind> _seenKinds() {
+    final seenKinds = <ObjectKind>[];
+    for (final item in caseData.objects) {
+      if (!seenKinds.contains(item.kind)) seenKinds.add(item.kind);
+    }
+    return seenKinds;
   }
 }

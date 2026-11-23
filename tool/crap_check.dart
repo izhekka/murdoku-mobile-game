@@ -13,6 +13,10 @@
 /// - Coverage per method comes from lcov `DA` records inside the member's
 ///   line span (`flutter test --coverage`); missing data means 0.
 /// - CRAP = comp^2 * (1-cov)^3 + comp.
+/// - No committed baseline anymore (issue 35): the gate is hard at
+///   threshold 5. A baseline file is optional (see [loadBaseline]) —
+///   present, it keeps the old ratchet semantics; absent, every
+///   over-threshold member fails the run.
 ///
 /// Scope: `lib/**` only, skipping `lib/l10n/generated/**` — `test/`, `tool/`
 /// and `integration_test/` are formatted and linted but yield no coverage
@@ -188,6 +192,17 @@ class Entry {
 int _entryCompare(Entry a, Entry b) {
   final byFile = a.file.compareTo(b.file);
   return byFile != 0 ? byFile : a.member.compareTo(b.member);
+}
+
+/// Loads the ratchet baseline at [path]. A missing file means an empty
+/// baseline: the gate runs hard with no escape hatch — every over-threshold
+/// member is a new violation (issue 35).
+Baseline loadBaseline(String path, int threshold) {
+  final file = File(path);
+  if (!file.existsSync()) {
+    return Baseline(threshold: threshold, entries: const {});
+  }
+  return Baseline.parse(file.readAsStringSync());
 }
 
 /// Rounding used everywhere CRAP values are stored or compared, so the gate
@@ -496,9 +511,11 @@ class _ComplexityVisitor extends RecursiveAstVisitor<void> {
 /// [--baseline <path>] [--update-baseline]`.
 ///
 /// Defaults: `coverage/lcov.info`, threshold 5, `tool/crap_baseline.json`.
-/// `--update-baseline` writes the current over-threshold members as the new
-/// ratchet state; otherwise the gate runs and exits 0 on baseline state,
-/// 1 on new/worsened violations (or unusable input).
+/// The committed baseline was removed with issue 35 — the gate is hard.
+/// `--update-baseline` writes the current over-threshold members as a
+/// (local, uncommitted) ratchet state; otherwise the gate runs and exits 0
+/// when no member is over threshold beyond the baseline state, 1 on
+/// new/worsened violations (or unusable input).
 void main(List<String> args) {
   var lcovPath = 'coverage/lcov.info';
   var threshold = 5;
@@ -567,15 +584,12 @@ void main(List<String> args) {
     return;
   }
 
-  final baselineFile = File(baselinePath);
-  if (!baselineFile.existsSync()) {
-    stderr.writeln(
-      'crap_check: baseline $baselinePath missing — run once with --update-baseline to create it',
+  final baseline = loadBaseline(baselinePath, threshold);
+  if (baseline.entries.isEmpty) {
+    stdout.writeln(
+      'crap_check: no baseline at $baselinePath — the gate runs hard',
     );
-    exitCode = 1;
-    return;
   }
-  final baseline = Baseline.parse(baselineFile.readAsStringSync());
   final result = evaluateGate(
     current: entries,
     baseline: baseline,

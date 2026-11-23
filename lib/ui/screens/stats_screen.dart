@@ -6,6 +6,7 @@ import 'package:murdoku/domain/models.dart';
 import 'package:murdoku/l10n/generated/app_localizations.dart';
 import 'package:murdoku/state/providers.dart';
 import 'package:murdoku/state/stats_controller.dart';
+import 'package:murdoku/storage/prefs_repository.dart' show Stats;
 
 class StatsScreen extends ConsumerWidget {
   const StatsScreen({super.key});
@@ -16,12 +17,6 @@ class StatsScreen extends ConsumerWidget {
     final stats = ref.watch(statsControllerProvider);
     final repo = ref.watch(prefsRepositoryProvider);
     final daily = repo.loadDailyState();
-
-    String difficultyLabel(Difficulty d) => switch (d) {
-      Difficulty.easy => l10n.difficultyEasy,
-      Difficulty.standard => l10n.difficultyStandard,
-      Difficulty.hard => l10n.difficultyHard,
-    };
 
     return Scaffold(
       appBar: AppBar(title: Text(l10n.statsTitle)),
@@ -38,28 +33,8 @@ class StatsScreen extends ConsumerWidget {
           for (final difficulty in Difficulty.values)
             Card(
               child: ListTile(
-                title: Text(difficultyLabel(difficulty)),
-                subtitle: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(l10n.statsSolved(stats.solved[difficulty] ?? 0)),
-                    if (stats.bestTime[difficulty] != null)
-                      Text(
-                        l10n.statsBest(
-                          formatDuration(stats.bestTime[difficulty]!),
-                        ),
-                      ),
-                    if ((stats.solved[difficulty] ?? 0) > 0)
-                      Text(
-                        l10n.statsAverage(
-                          formatDuration(
-                            (stats.totalTime[difficulty] ?? Duration.zero) ~/
-                                (stats.solved[difficulty] ?? 1),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
+                title: Text(_difficultyLabel(l10n, difficulty)),
+                subtitle: _statSubtitle(l10n, stats, difficulty),
               ),
             ),
           Card(
@@ -78,4 +53,30 @@ class StatsScreen extends ConsumerWidget {
       ),
     );
   }
+
+  /// The localized difficulty label.
+  String _difficultyLabel(AppLocalizations l10n, Difficulty d) => switch (d) {
+    Difficulty.easy => l10n.difficultyEasy,
+    Difficulty.standard => l10n.difficultyStandard,
+    Difficulty.hard => l10n.difficultyHard,
+  };
+
+  /// Solved count, best time and (when solved) average time per difficulty.
+  Widget _statSubtitle(AppLocalizations l10n, Stats stats, Difficulty d) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(l10n.statsSolved(stats.solved[d] ?? 0)),
+        if (stats.bestTime[d] != null)
+          Text(l10n.statsBest(formatDuration(stats.bestTime[d]!))),
+        if ((stats.solved[d] ?? 0) > 0)
+          Text(l10n.statsAverage(formatDuration(_averageDuration(stats, d)))),
+      ],
+    );
+  }
+
+  /// Total play time over solved cases; guarded by the solved-count check
+  /// above, so the divisor is never 0 in practice.
+  Duration _averageDuration(Stats stats, Difficulty d) =>
+      (stats.totalTime[d] ?? Duration.zero) ~/ (stats.solved[d] ?? 1);
 }

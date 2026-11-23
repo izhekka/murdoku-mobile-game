@@ -16,57 +16,111 @@ bool evaluateClue(
   final suspectPos =
       placement[clue.suspectId] ??
       (throw ArgumentError('unknown suspect id: ${clue.suspectId}'));
+  final raw = _holds(
+    clue,
+    suspectPos,
+    placement: placement,
+    victimPos: victimPos,
+    rooms: rooms,
+    objects: objects,
+  );
+  return clue.negated ? !raw : raw;
+}
 
-  Pos posOf(String id) {
-    if (id == victimId) return victimPos;
-    return placement[id] ?? (throw ArgumentError('unknown target id: $id'));
+/// Dispatches the raw (pre-negation) predicate per clue family: the room-
+/// and object-anchored kinds resolve their anchor by id, the target-bearing
+/// kinds resolve the target's position (issue 35 decomposition).
+bool _holds(
+  Clue clue,
+  Pos suspectPos, {
+  required Map<String, Pos> placement,
+  required Pos victimPos,
+  required List<RoomDef> rooms,
+  required List<ObjectDef> objects,
+}) {
+  if (clue is InRoom) return _roomHolds(clue.roomId, suspectPos, rooms);
+  if (clue is BesideObject) {
+    // UX-8 / ADR 0004: the item clue means the guest shares the item's
+    // room, not Manhattan-adjacency through a wall.
+    final item = _objectById(clue.objectId, objects);
+    return roomOf(rooms, suspectPos) == roomOf(rooms, item.pos);
   }
+  if (clue is Beside) {
+    return _manhattan(
+          suspectPos,
+          _targetPos(clue.targetId, clue.suspectId, placement, victimPos),
+        ) ==
+        1;
+  }
+  return _targetHolds(
+    clue,
+    suspectPos,
+    placement: placement,
+    victimPos: victimPos,
+    rooms: rooms,
+  );
+}
 
-  RoomDef roomById(String roomId) => rooms.firstWhere(
+/// The raw predicate for the positional target-bearing clue kinds (row,
+/// column and direction; [Beside] is handled in [_holds]).
+bool _targetHolds(
+  Clue clue,
+  Pos suspectPos, {
+  required Map<String, Pos> placement,
+  required Pos victimPos,
+  required List<RoomDef> rooms,
+}) => switch (clue) {
+  SameRow(:final targetId) =>
+    suspectPos.row ==
+        _targetPos(targetId, clue.suspectId, placement, victimPos).row,
+  SameCol(:final targetId) =>
+    suspectPos.col ==
+        _targetPos(targetId, clue.suspectId, placement, victimPos).col,
+  DirectionClue(:final targetId, :final direction) => _directionHolds(
+    direction,
+    suspectPos,
+    _targetPos(targetId, clue.suspectId, placement, victimPos),
+  ),
+  _ => throw ArgumentError('no target-bearing predicate for: $clue'),
+};
+
+/// True when [suspectPos] lies strictly in [direction] of [targetPos].
+bool _directionHolds(Direction direction, Pos suspectPos, Pos targetPos) =>
+    switch (direction) {
+      Direction.north => suspectPos.row < targetPos.row,
+      Direction.south => suspectPos.row > targetPos.row,
+      Direction.west => suspectPos.col < targetPos.col,
+      Direction.east => suspectPos.col > targetPos.col,
+    };
+
+/// Resolves a clue's target position: the victim cell for `V`, otherwise the
+/// suspect's placement. Self-referencing and unknown ids throw.
+Pos _targetPos(
+  String targetId,
+  String suspectId,
+  Map<String, Pos> placement,
+  Pos victimPos,
+) {
+  if (targetId == suspectId) {
+    throw ArgumentError('clue references its own suspect: $targetId');
+  }
+  if (targetId == victimId) return victimPos;
+  return placement[targetId] ??
+      (throw ArgumentError('unknown target id: $targetId'));
+}
+
+/// True when [suspectPos] is inside the room with id [roomId].
+bool _roomHolds(String roomId, Pos suspectPos, List<RoomDef> rooms) {
+  final room = rooms.firstWhere(
     (r) => r.id == roomId,
     orElse: () => throw ArgumentError('unknown room id: $roomId'),
   );
-
-  ObjectDef objectById(String objectId) => objects.firstWhere(
-    (o) => o.id == objectId,
-    orElse: () => throw ArgumentError('unknown object id: $objectId'),
-  );
-
-  bool raw;
-  switch (clue) {
-    case InRoom(:final roomId):
-      raw = roomById(roomId).contains(suspectPos);
-    case SameRow(:final targetId):
-      if (targetId == clue.suspectId) {
-        throw ArgumentError('clue references its own suspect: $targetId');
-      }
-      raw = suspectPos.row == posOf(targetId).row;
-    case SameCol(:final targetId):
-      if (targetId == clue.suspectId) {
-        throw ArgumentError('clue references its own suspect: $targetId');
-      }
-      raw = suspectPos.col == posOf(targetId).col;
-    case DirectionClue(:final targetId, :final direction):
-      if (targetId == clue.suspectId) {
-        throw ArgumentError('clue references its own suspect: $targetId');
-      }
-      final t = posOf(targetId);
-      raw = switch (direction) {
-        Direction.north => suspectPos.row < t.row,
-        Direction.south => suspectPos.row > t.row,
-        Direction.west => suspectPos.col < t.col,
-        Direction.east => suspectPos.col > t.col,
-      };
-    case Beside(:final targetId):
-      if (targetId == clue.suspectId) {
-        throw ArgumentError('clue references its own suspect: $targetId');
-      }
-      raw = _manhattan(suspectPos, posOf(targetId)) == 1;
-    case BesideObject(:final objectId):
-      // UX-8 / ADR 0004: the item clue means the guest shares the item's
-      // room, not Manhattan-adjacency through a wall.
-      raw =
-          roomOf(rooms, suspectPos) == roomOf(rooms, objectById(objectId).pos);
-  }
-  return clue.negated ? !raw : raw;
+  return room.contains(suspectPos);
 }
+
+/// The furniture item with id [objectId]; unknown ids throw.
+ObjectDef _objectById(String objectId, List<ObjectDef> objects) =>
+    objects.firstWhere(
+      (o) => o.id == objectId,
+      orElse: () => throw ArgumentError('unknown object id: $objectId'),
+    );

@@ -20,50 +20,126 @@ int _search({
   required int cap,
   List<Map<String, Pos>>? capture,
 }) {
-  final g = gridSize;
   // roomId per cell, precomputed.
-  final roomId = List.generate(
-    g,
-    (row) => List.generate(g, (col) => roomOf(rooms, (row: row, col: col))!),
-  );
-
-  // Bitmask of suspect indices each clue needs before it can be evaluated.
+  final roomId = _roomIdGrid(gridSize, rooms);
   final indexOf = {
     for (var i = 0; i < suspectIds.length; i++) suspectIds[i]: i,
   };
-  String? targetOf(Clue clue) => switch (clue) {
-    SameRow(:final targetId) => targetId,
-    SameCol(:final targetId) => targetId,
-    DirectionClue(:final targetId) => targetId,
-    Beside(:final targetId) => targetId,
-    _ => null,
-  };
+  final clueMasks = clues.map((clue) => _clueMaskFor(clue, indexOf)).toList();
+  final state = _SearchState(
+    gridSize: gridSize,
+    rooms: rooms,
+    clues: clues,
+    suspectIds: suspectIds,
+    victimPos: victimPos,
+    objects: objects,
+    cap: cap,
+    clueMasks: clueMasks,
+    indexOf: indexOf,
+    roomId: roomId,
+  )..capture = capture;
+  state.dfs(0);
+  return state.count;
+}
 
-  int maskFor(Clue clue) {
-    var mask = 0;
-    void mark(String? id) {
-      if (id == null || id == victimId) return;
-      final i = indexOf[id];
-      if (i != null) mask |= 1 << i;
+/// Mutable state of one backtracking search run: config fields are
+/// read-only, the search fields mutate in place (issue 35 decomposition).
+class _SearchState {
+  _SearchState({
+    required this.gridSize,
+    required this.rooms,
+    required this.clues,
+    required this.suspectIds,
+    required this.victimPos,
+    required this.objects,
+    required this.cap,
+    required this.clueMasks,
+    required this.indexOf,
+    required this.roomId,
+  }) : checked = List<bool>.filled(clues.length, false),
+       evaluatedAt = List.generate(gridSize + 1, (_) => <int>[]),
+       placement = <String, Pos>{},
+       usedCols = List<bool>.filled(gridSize, false),
+       usedRooms = <String>{};
+
+  // Search configuration.
+  final int gridSize;
+  final List<RoomDef> rooms;
+  final List<Clue> clues;
+  final List<String> suspectIds;
+  final Pos victimPos;
+  final List<ObjectDef> objects;
+  final int cap;
+  final List<int> clueMasks;
+  final Map<String, int> indexOf;
+  final List<List<String>> roomId;
+
+  // Mutable search state.
+  final List<bool> checked;
+  final List<List<int>> evaluatedAt;
+  final Map<String, Pos> placement;
+  final List<bool> usedCols;
+  final Set<String> usedRooms;
+  int placedMask = 0;
+  int count = 0;
+
+  /// Receives the first solution found; null when the caller does not want
+  /// it.
+  List<Map<String, Pos>>? capture;
+
+  /// The search's row-expansion loop: cap check, leaf recording, then the
+  /// column sweep. Returns early once [cap] solutions exist.
+  void dfs(int row) {
+    if (count >= cap) return;
+    if (row == gridSize) {
+      _recordSolution();
+      return;
     }
-
-    mark(clue.suspectId);
-    mark(targetOf(clue));
-    return mask;
+    for (var col = 0; col < gridSize; col++) {
+      if (_tryColumn(row, col)) return;
+    }
   }
 
-  final clueMasks = clues.map(maskFor).toList();
-  final checked = List<bool>.filled(clues.length, false);
-  // Clue indices newly evaluated at each DFS depth, for undo on backtrack.
-  final evaluatedAt = List.generate(g + 1, (_) => <int>[]);
+  /// Places each unplaced suspect into the free column cell and recurses.
+  /// Returns true when the solution cap was reached and the caller (an
+  /// ancestor dfs frame) must stop.
+  bool _trySuspects(int row, int col, Pos cell, String rid) {
+    for (final suspect in suspectIds) {
+      if (placement.containsKey(suspect)) continue;
+      placement[suspect] = cell;
+      usedCols[col] = true;
+      usedRooms.add(rid);
+      placedMask |= 1 << indexOf[suspect]!;
+      if (checkNewClues(row)) {
+        dfs(row + 1);
+      }
+      uncheck(row);
+      placedMask &= ~(1 << indexOf[suspect]!);
+      placement.remove(suspect);
+      usedCols[col] = false;
+      usedRooms.remove(rid);
+      if (count >= cap) return true;
+    }
+    return false;
+  }
 
-  final placement = <String, Pos>{};
-  final usedCols = List<bool>.filled(g, false);
-  final usedRooms = <String>{};
-  var placedMask = 0;
-  var count = 0;
+  /// One column of the row sweep: skip unusable cells, then try every
+  /// unplaced suspect in it. Returns true when the cap was reached.
+  bool _tryColumn(int row, int col) {
+    if (usedCols[col]) return false;
+    final cell = (row: row, col: col);
+    if (cell == victimPos) return false;
+    final rid = roomId[row][col];
+    if (usedRooms.contains(rid)) return false;
+    if (_blockedByObject(cell)) return false;
+    return _trySuspects(row, col, cell, rid);
+  }
 
-  // Evaluates newly-checkable clues; false when any fails (branch is dead).
+  /// True when [cell] holds furniture a guest may not share.
+  bool _blockedByObject(Pos cell) =>
+      objects.any((o) => !o.occupiable && o.pos == cell);
+
+  /// Evaluates newly-checkable clues; false when any fails (branch is dead).
   bool checkNewClues(int depth) {
     for (var ci = 0; ci < clues.length; ci++) {
       if (checked[ci]) continue;
@@ -83,6 +159,7 @@ int _search({
     return true;
   }
 
+  /// Undoes [checkNewClues]'s evaluations at this depth, for backtrack.
   void uncheck(int depth) {
     for (final ci in evaluatedAt[depth]) {
       checked[ci] = false;
@@ -90,41 +167,42 @@ int _search({
     evaluatedAt[depth].clear();
   }
 
-  void dfs(int row) {
-    if (count >= cap) return;
-    if (row == g) {
-      count++;
-      if (capture != null && capture.isEmpty) capture.add(Map.of(placement));
-      return;
-    }
-    for (var col = 0; col < g; col++) {
-      if (usedCols[col]) continue;
-      final cell = (row: row, col: col);
-      if (cell == victimPos) continue;
-      final rid = roomId[row][col];
-      if (usedRooms.contains(rid)) continue;
-      if (objects.any((o) => !o.occupiable && o.pos == cell)) continue;
-      for (final suspect in suspectIds) {
-        if (placement.containsKey(suspect)) continue;
-        placement[suspect] = cell;
-        usedCols[col] = true;
-        usedRooms.add(rid);
-        placedMask |= 1 << indexOf[suspect]!;
-        if (checkNewClues(row)) {
-          dfs(row + 1);
-        }
-        uncheck(row);
-        placedMask &= ~(1 << indexOf[suspect]!);
-        placement.remove(suspect);
-        usedCols[col] = false;
-        usedRooms.remove(rid);
-        if (count >= cap) return;
-      }
-    }
+  /// Counts one complete placement and captures the first one requested.
+  void _recordSolution() {
+    count++;
+    final capture = this.capture;
+    if (capture != null && capture.isEmpty) capture.add(Map.of(placement));
+  }
+}
+
+/// roomId per cell of a G×G grid, precomputed once per search.
+List<List<String>> _roomIdGrid(int g, List<RoomDef> rooms) => List.generate(
+  g,
+  (row) => List.generate(g, (col) => roomOf(rooms, (row: row, col: col))!),
+);
+
+/// The id a target-bearing clue compares against; null for the room- and
+/// object-anchored kinds.
+String? _clueTargetOf(Clue clue) => switch (clue) {
+  SameRow(:final targetId) => targetId,
+  SameCol(:final targetId) => targetId,
+  DirectionClue(:final targetId) => targetId,
+  Beside(:final targetId) => targetId,
+  _ => null,
+};
+
+/// Bitmask of suspect indices each clue needs before it can be evaluated.
+int _clueMaskFor(Clue clue, Map<String, int> indexOf) {
+  var mask = 0;
+  void mark(String? id) {
+    if (id == null || id == victimId) return;
+    final i = indexOf[id];
+    if (i != null) mask |= 1 << i;
   }
 
-  dfs(0);
-  return count;
+  mark(clue.suspectId);
+  mark(_clueTargetOf(clue));
+  return mask;
 }
 
 /// Counts complete placements satisfying one guest per row/column/room

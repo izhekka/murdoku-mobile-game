@@ -30,19 +30,35 @@ class StatsController extends Notifier<Stats> {
     await repo.saveStats(stats);
     state = stats;
 
+    await _maybeBumpStreak(repo, isDaily, dailyDate);
+  }
+
+  /// Daily-streak bookkeeping; no-op off the daily path.
+  Future<void> _maybeBumpStreak(
+    PrefsRepository repo,
+    bool isDaily,
+    String dailyDate,
+  ) async {
     if (isDaily && dailyDate.isNotEmpty) {
       final daily = repo.loadDailyState();
-      final streak = daily.lastCompletedDate == dailyDate
-          ? daily
-                .streak // same-day re-win: idempotent
-          : daily.lastCompletedDate == utcYesterday(dailyDate)
-          ? daily.streak + 1
-          : 1;
       await repo.saveDailyState(
-        DailyState(lastCompletedDate: dailyDate, streak: streak),
+        DailyState(
+          lastCompletedDate: dailyDate,
+          streak: _newStreak(daily, dailyDate),
+        ),
       );
     }
   }
+
+  /// Same-day re-win: idempotent; yesterday: extend the streak; otherwise
+  /// start a new one.
+  int _newStreak(DailyState daily, String dailyDate) =>
+      daily.lastCompletedDate == dailyDate
+      ? daily
+            .streak // same-day re-win: idempotent
+      : daily.lastCompletedDate == utcYesterday(dailyDate)
+      ? daily.streak + 1
+      : 1;
 }
 
 final statsControllerProvider = NotifierProvider<StatsController, Stats>(

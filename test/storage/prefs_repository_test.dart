@@ -220,5 +220,103 @@ void main() {
     await repo.saveActiveGame(fixtureGame());
     expect(prefs.getString('murdoku.activeGame'), contains('"v":1'));
   });
+
+  test(
+    'malformed caseData degrades to null via the catch guard (issue 35)',
+    () {
+      final payload = <String, Object?>{
+        'v': 1,
+        'caseData': {'difficulty': 'nope'},
+        'board': fixtureGame().board.toJson(),
+      };
+      expect(SavedGame.tryFromJson(payload), isNull);
+    },
+  );
+
+  test('missing isDaily/dailyDate keys degrade to the defaults (issue 35)', () {
+    final payload = <String, Object?>{
+      'v': 1,
+      'caseData': fixtureCase().toJson(),
+      'board': fixtureGame().board.toJson(),
+    };
+    final game = SavedGame.tryFromJson(payload);
+    expect(game, isNotNull);
+    expect(game!.isDaily, isFalse);
+    expect(game.dailyDate, '');
+  });
+
+  test('SavedGame equality compares every field (issue 35)', () {
+    final game = fixtureGame();
+    final copy = fixtureGame();
+    expect(game, copy);
+    expect(game.hashCode, copy.hashCode);
+    expect(game, isNot(equals(Object())));
+
+    SavedGame withSeed(SavedGame g, int seed) => SavedGame(
+      caseData: g.caseData.copyWith(seed: seed),
+      isDaily: g.isDaily,
+      dailyDate: g.dailyDate,
+      board: g.board,
+    );
+    expect(game, isNot(withSeed(game, 43)));
+
+    SavedGame withDaily(SavedGame g, bool isDaily) => SavedGame(
+      caseData: g.caseData,
+      isDaily: isDaily,
+      dailyDate: g.dailyDate,
+      board: g.board,
+    );
+    expect(game, isNot(withDaily(game, !game.isDaily)));
+
+    SavedGame withDate(SavedGame g, String date) => SavedGame(
+      caseData: g.caseData,
+      isDaily: g.isDaily,
+      dailyDate: date,
+      board: g.board,
+    );
+    expect(game, isNot(withDate(game, '2026-12-01')));
+
+    SavedGame withHints(SavedGame g, int hints) => SavedGame(
+      caseData: g.caseData,
+      isDaily: g.isDaily,
+      dailyDate: g.dailyDate,
+      board: BoardSnapshot(
+        placed: g.board.placed,
+        xMarks: g.board.xMarks,
+        elapsed: g.board.elapsed,
+        hintsUsed: hints,
+        wrongAccusations: g.board.wrongAccusations,
+      ),
+    );
+    expect(game, isNot(withHints(game, game.board.hintsUsed + 1)));
+  });
+
+  test('Stats equality compares counters, maps and lengths (issue 35)', () {
+    final a = Stats();
+    final b = Stats();
+    expect(a, b);
+
+    a.solved[Difficulty.easy] = 3;
+    expect(a, isNot(b));
+    b.solved[Difficulty.easy] = 3;
+    expect(a, b);
+
+    a.bestTime[Difficulty.easy] = const Duration(seconds: 40);
+    expect(a, isNot(b));
+    b.bestTime[Difficulty.easy] = const Duration(seconds: 41);
+    expect(a, isNot(b));
+    b.bestTime[Difficulty.easy] = const Duration(seconds: 40);
+    expect(a, b);
+
+    // A duration map with a different key count is never equal (the length
+    // guard fires before any value comparison).
+    final c = Stats();
+    c.solved[Difficulty.easy] = 3;
+    expect(c.bestTime.length, isNot(a.bestTime.length));
+    expect(c, isNot(a));
+
+    a.totalCases = 7;
+    expect(a, isNot(b));
+  });
 }
 // RED (I-3): corrupt settings JSON must return defaults, never throw.

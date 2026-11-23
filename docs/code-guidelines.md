@@ -133,14 +133,16 @@ code. Trailing commas are required on multi-line argument lists
 (`require_trailing_commas`) — they keep diffs minimal and make `dart format`
 stable. Do not fight the formatter.
 
-## 10. Complexity vs coverage (CRAP ratchet)
+## 10. Complexity vs coverage (CRAP gate)
 
 `tool/crap_check.dart` computes per-method CRAP
 (`comp² × (1−cov)³ + comp`) from AST complexity and `flutter test --coverage`
-data; threshold 5. New or worsened over-threshold methods fail CI and
-`make quality`. Fix by splitting the method or covering it — not by touching
-the baseline; the baseline (`tool/crap_baseline.json`) only ever shrinks via
-`--update-baseline` after real refactors.
+data; threshold 5. Every measured member in `lib/**` must stay at or below
+the threshold — since issue 35 burned the baseline to zero, the committed
+baseline file is gone and the gate runs hard: any over-threshold member fails
+CI and `make quality`. Fix by splitting the method or covering it.
+`--update-baseline` can still write a local ratchet file for experimental
+work, but no baseline is committed.
 
 ## Enforced lint → guideline mapping
 

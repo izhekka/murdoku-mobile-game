@@ -123,39 +123,42 @@ class SkinTokens {
   final Color frameRingColor;
 
   @override
-  bool operator ==(Object other) =>
-      other is SkinTokens &&
-      other.skin == skin &&
-      other.isCartoon == isCartoon &&
-      other.pageColor == pageColor &&
-      other.pageGradient == pageGradient &&
-      other.pageDotColor == pageDotColor &&
-      other.pageBlobColor == pageBlobColor &&
-      other.appBackground == appBackground &&
-      other.ink == ink &&
-      other.inkSoft == inkSoft &&
-      other.card == card &&
-      other.roomTints == roomTints &&
-      other.badge == badge &&
-      other.mortarColor == mortarColor &&
-      other.solidRooms == solidRooms &&
-      other.roomRadius == roomRadius &&
-      other.roomLineWidth == roomLineWidth &&
-      other.victimFill == victimFill &&
-      other.victimStripeColor == victimStripeColor &&
-      other.actions == actions &&
-      other.dangerColor == dangerColor &&
-      other.buttonRadius == buttonRadius &&
-      other.buttonShadow == buttonShadow &&
-      other.sheetBackground == sheetBackground &&
-      other.sheetRadius == sheetRadius &&
-      other.menuIcons == menuIcons &&
-      other.panelHeaderUppercase == panelHeaderUppercase &&
-      other.chip == chip &&
-      other.frame == frame &&
-      other.frameMargin == frameMargin &&
-      other.frameRingWidth == frameRingWidth &&
-      other.frameRingColor == frameRingColor;
+  bool operator ==(Object other) {
+    if (other is! SkinTokens) return false;
+    return _allEqual([
+      other.skin == skin,
+      other.isCartoon == isCartoon,
+      other.pageColor == pageColor,
+      other.pageGradient == pageGradient,
+      other.pageDotColor == pageDotColor,
+      other.pageBlobColor == pageBlobColor,
+      other.appBackground == appBackground,
+      other.ink == ink,
+      other.inkSoft == inkSoft,
+      other.card == card,
+      other.roomTints == roomTints,
+      other.badge == badge,
+      other.mortarColor == mortarColor,
+      other.solidRooms == solidRooms,
+      other.roomRadius == roomRadius,
+      other.roomLineWidth == roomLineWidth,
+      other.victimFill == victimFill,
+      other.victimStripeColor == victimStripeColor,
+      other.actions == actions,
+      other.dangerColor == dangerColor,
+      other.buttonRadius == buttonRadius,
+      other.buttonShadow == buttonShadow,
+      other.sheetBackground == sheetBackground,
+      other.sheetRadius == sheetRadius,
+      other.menuIcons == menuIcons,
+      other.panelHeaderUppercase == panelHeaderUppercase,
+      other.chip == chip,
+      other.frame == frame,
+      other.frameMargin == frameMargin,
+      other.frameRingWidth == frameRingWidth,
+      other.frameRingColor == frameRingColor,
+    ]);
+  }
 
   @override
   int get hashCode => Object.hashAll([
@@ -210,13 +213,16 @@ class SkinCard {
   final BoxShadow shadow;
 
   @override
-  bool operator ==(Object other) =>
-      other is SkinCard &&
-      other.background == background &&
-      other.borderColor == borderColor &&
-      other.borderWidth == borderWidth &&
-      other.radius == radius &&
-      other.shadow == shadow;
+  bool operator ==(Object other) {
+    if (other is! SkinCard) return false;
+    return _allEqual([
+      other.background == background,
+      other.borderColor == borderColor,
+      other.borderWidth == borderWidth,
+      other.radius == radius,
+      other.shadow == shadow,
+    ]);
+  }
 
   @override
   int get hashCode =>
@@ -291,16 +297,19 @@ class SkinActions {
   final Color menu;
 
   @override
-  bool operator ==(Object other) =>
-      other is SkinActions &&
-      other.place == place &&
-      other.mark == mark &&
-      other.erase == erase &&
-      other.undo == undo &&
-      other.hint == hint &&
-      other.check == check &&
-      other.accuse == accuse &&
-      other.menu == menu;
+  bool operator ==(Object other) {
+    if (other is! SkinActions) return false;
+    return _allEqual([
+      other.place == place,
+      other.mark == mark,
+      other.erase == erase,
+      other.undo == undo,
+      other.hint == hint,
+      other.check == check,
+      other.accuse == accuse,
+      other.menu == menu,
+    ]);
+  }
 
   @override
   int get hashCode =>
@@ -338,6 +347,18 @@ const Color _victimStripe = Color(0xFFF47C7C);
 
 /// Soft candy shadow tone: rgba(31,108,158,.14) per the issue.
 const Color _candyShadow = Color(0x241F6C9E);
+
+/// True when every field-equality check in [checks] holds. The skin `==`
+/// helpers build their per-field comparisons eagerly: each check is a pure
+/// predicate, so evaluating all of them is observably identical to the old
+/// short-circuit `&&` chain (issue 35). List fields keep the identity
+/// comparison they always had (`pageGradient`, `roomTints`).
+bool _allEqual(List<bool> checks) {
+  for (final check in checks) {
+    if (!check) return false;
+  }
+  return true;
+}
 
 /// Карамель (style-a-candy.png): sky-gradient page with soft cloud blobs,
 /// white fluffy cards with soft shadows.

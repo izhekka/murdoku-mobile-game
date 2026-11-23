@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:murdoku/app.dart';
 import 'package:murdoku/core/skins.dart';
@@ -198,5 +199,61 @@ void main() {
       3,
       reason: 'new case, daily case and the nav card restyle to tokens',
     );
+  });
+
+  group('navigation coverage pins (issue 35)', () {
+    testWidgets('continue card resumes the saved case on /game', (
+      tester,
+    ) async {
+      await pumpHome(tester);
+      final l10n = l10nOf(tester);
+      final notifier = container.read(gameControllerProvider.notifier);
+      notifier.startNewCase(Difficulty.easy, seed: 3);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text(l10n.continueCase));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('board_view')), findsOneWidget);
+    });
+
+    testWidgets('daily card starts the daily case on /game', (tester) async {
+      await pumpHome(tester);
+      final l10n = l10nOf(tester);
+
+      await tester.tap(find.text(l10n.dailyCase));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('board_view')), findsOneWidget);
+      final state = container.read(gameControllerProvider)!;
+      expect(state.isDaily, isTrue);
+    });
+
+    testWidgets('how-to-play, stats and settings tiles navigate', (
+      tester,
+    ) async {
+      await pumpHome(tester);
+      final l10n = l10nOf(tester);
+
+      Future<void> backHome() async {
+        final context = tester.element(find.byType(Scaffold).first);
+        GoRouter.of(context).go('/');
+        await tester.pumpAndSettle();
+      }
+
+      await tester.tap(find.text(l10n.howToPlayTitle));
+      await tester.pumpAndSettle();
+      expect(find.byType(HomeScreen), findsNothing);
+      expect(find.text(l10n.howToPlayTitle), findsOneWidget);
+      await backHome();
+
+      await tester.tap(find.text(l10n.statsTitle));
+      await tester.pumpAndSettle();
+      expect(find.text(l10n.statsTitle), findsOneWidget);
+      expect(find.text(l10n.statsEmpty), findsOneWidget);
+      await backHome();
+
+      await tester.tap(find.text(l10n.settingsTitle));
+      await tester.pumpAndSettle();
+      expect(find.text(l10n.settingsTitle), findsOneWidget);
+    });
   });
 }

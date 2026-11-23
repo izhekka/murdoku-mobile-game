@@ -422,50 +422,48 @@ class BesideObject extends Clue {
   Map<String, Object?> toJson() => {...super.toJson(), 'objectId': objectId};
 }
 
+/// Clue builders keyed by the persisted `type` discriminant: one entry per
+/// [Clue] subtype, each reading its own fields from the clue JSON.
+final _clueBuilders = <String, Clue Function(Map<String, Object?> json)>{
+  'inRoom': (json) => InRoom(
+    suspectId: json['suspectId'] as String,
+    roomId: json['roomId'] as String,
+    negated: json['negated'] as bool,
+  ),
+  'sameRow': (json) => SameRow(
+    suspectId: json['suspectId'] as String,
+    targetId: json['targetId'] as String,
+    negated: json['negated'] as bool,
+  ),
+  'sameCol': (json) => SameCol(
+    suspectId: json['suspectId'] as String,
+    targetId: json['targetId'] as String,
+    negated: json['negated'] as bool,
+  ),
+  'direction': (json) => DirectionClue(
+    suspectId: json['suspectId'] as String,
+    targetId: json['targetId'] as String,
+    direction: DirectionX.fromName(json['direction'] as String),
+    negated: json['negated'] as bool,
+  ),
+  'beside': (json) => Beside(
+    suspectId: json['suspectId'] as String,
+    targetId: json['targetId'] as String,
+    negated: json['negated'] as bool,
+  ),
+  'besideObject': (json) => BesideObject(
+    suspectId: json['suspectId'] as String,
+    objectId: json['objectId'] as String,
+    negated: json['negated'] as bool,
+  ),
+};
+
 Clue _clueFromJson(Map<String, Object?> json) {
-  final suspectId = json['suspectId'] as String;
-  final negated = json['negated'] as bool;
-  switch (json['type'] as String) {
-    case 'inRoom':
-      return InRoom(
-        suspectId: suspectId,
-        roomId: json['roomId'] as String,
-        negated: negated,
-      );
-    case 'sameRow':
-      return SameRow(
-        suspectId: suspectId,
-        targetId: json['targetId'] as String,
-        negated: negated,
-      );
-    case 'sameCol':
-      return SameCol(
-        suspectId: suspectId,
-        targetId: json['targetId'] as String,
-        negated: negated,
-      );
-    case 'direction':
-      return DirectionClue(
-        suspectId: suspectId,
-        targetId: json['targetId'] as String,
-        direction: DirectionX.fromName(json['direction'] as String),
-        negated: negated,
-      );
-    case 'beside':
-      return Beside(
-        suspectId: suspectId,
-        targetId: json['targetId'] as String,
-        negated: negated,
-      );
-    case 'besideObject':
-      return BesideObject(
-        suspectId: suspectId,
-        objectId: json['objectId'] as String,
-        negated: negated,
-      );
-    default:
-      throw FormatException('unknown clue type: ${json['type']}');
+  final builder = _clueBuilders[json['type'] as String];
+  if (builder == null) {
+    throw FormatException('unknown clue type: ${json['type']}');
   }
+  return builder(json);
 }
 
 /// A fully generated murder case. [solution] is the complete truth: the
@@ -505,12 +503,61 @@ class CaseData {
     String? murdererId,
     List<Clue>? clues,
     Map<String, Pos>? solution,
+  }) => _withGuests(
+    seed ?? this.seed,
+    difficulty ?? this.difficulty,
+    rooms ?? this.rooms,
+    objects ?? this.objects,
+    suspects: suspects,
+    victimPos: victimPos,
+    murdererId: murdererId,
+    clues: clues,
+    solution: solution,
+  );
+
+  /// copyWith chain hop 1 of 2: resolves the guest list, then hands the rest
+  /// on. Splitting the nullable fallbacks across hops keeps every member's
+  /// decision count inside the CRAP budget without changing the public
+  /// signature or semantics (issue 35).
+  CaseData _withGuests(
+    int seed,
+    Difficulty difficulty,
+    List<RoomDef> rooms,
+    List<ObjectDef> objects, {
+    List<Suspect>? suspects,
+    Pos? victimPos,
+    String? murdererId,
+    List<Clue>? clues,
+    Map<String, Pos>? solution,
+  }) => _withClues(
+    seed,
+    difficulty,
+    rooms,
+    objects,
+    suspects ?? this.suspects,
+    victimPos: victimPos,
+    murdererId: murdererId,
+    clues: clues,
+    solution: solution,
+  );
+
+  /// copyWith chain hop 2 of 2: resolves the remaining nullable fields.
+  CaseData _withClues(
+    int seed,
+    Difficulty difficulty,
+    List<RoomDef> rooms,
+    List<ObjectDef> objects,
+    List<Suspect> suspects, {
+    Pos? victimPos,
+    String? murdererId,
+    List<Clue>? clues,
+    Map<String, Pos>? solution,
   }) => CaseData(
-    seed: seed ?? this.seed,
-    difficulty: difficulty ?? this.difficulty,
-    rooms: rooms ?? this.rooms,
-    objects: objects ?? this.objects,
-    suspects: suspects ?? this.suspects,
+    seed: seed,
+    difficulty: difficulty,
+    rooms: rooms,
+    objects: objects,
+    suspects: suspects,
     victimPos: victimPos ?? this.victimPos,
     murdererId: murdererId ?? this.murdererId,
     clues: clues ?? this.clues,
@@ -518,17 +565,20 @@ class CaseData {
   );
 
   @override
-  bool operator ==(Object other) =>
-      other is CaseData &&
-      other.seed == seed &&
-      other.difficulty == difficulty &&
-      _listsEqual(other.rooms, rooms) &&
-      _listsEqual(other.objects, objects) &&
-      _listsEqual(other.suspects, suspects) &&
-      other.victimPos == victimPos &&
-      other.murdererId == murdererId &&
-      _listsEqual(other.clues, clues) &&
-      _mapsEqual(other.solution, solution);
+  bool operator ==(Object other) {
+    if (other is! CaseData) return false;
+    return _allEqual([
+      other.seed == seed,
+      other.difficulty == difficulty,
+      _listsEqual(other.rooms, rooms),
+      _listsEqual(other.objects, objects),
+      _listsEqual(other.suspects, suspects),
+      other.victimPos == victimPos,
+      other.murdererId == murdererId,
+      _listsEqual(other.clues, clues),
+      _mapsEqual(other.solution, solution),
+    ]);
+  }
 
   @override
   int get hashCode => Object.hash(
@@ -599,14 +649,17 @@ class BoardSnapshot {
   final Set<String> eliminatedSuspects; // Hint B exclusions
 
   @override
-  bool operator ==(Object other) =>
-      other is BoardSnapshot &&
-      _mapsEqual(other.placed, placed) &&
-      _setsEqual(other.xMarks, xMarks) &&
-      other.elapsed == elapsed &&
-      other.hintsUsed == hintsUsed &&
-      other.wrongAccusations == wrongAccusations &&
-      _setsEqual(other.eliminatedSuspects, eliminatedSuspects);
+  bool operator ==(Object other) {
+    if (other is! BoardSnapshot) return false;
+    return _allEqual([
+      _mapsEqual(other.placed, placed),
+      _setsEqual(other.xMarks, xMarks),
+      other.elapsed == elapsed,
+      other.hintsUsed == hintsUsed,
+      other.wrongAccusations == wrongAccusations,
+      _setsEqual(other.eliminatedSuspects, eliminatedSuspects),
+    ]);
+  }
 
   @override
   int get hashCode => Object.hash(
@@ -641,6 +694,17 @@ class BoardSnapshot {
         .cast<String>()
         .toSet(),
   );
+}
+
+/// True when every field-equality check in [checks] holds. The `==` helpers
+/// build their per-field comparisons eagerly: each check is a pure predicate,
+/// so evaluating all of them is observably identical to the old short-circuit
+/// `&&` chain (issue 35).
+bool _allEqual(List<bool> checks) {
+  for (final check in checks) {
+    if (!check) return false;
+  }
+  return true;
 }
 
 bool _setsEqual<T>(Set<T> a, Set<T> b) =>

@@ -1045,4 +1045,164 @@ void main() {
     expect(pillColor(const Key('tool_accuse')), stickerTokens.actions.accuse);
     expect(pillColor(const Key('tool_menu')), stickerTokens.actions.menu);
   });
+
+  group('interaction coverage pins (issue 35)', () {
+    /// Pumps the app and lands on /game with NO active case (fresh prefs).
+    Future<void> pumpWithoutCase(WidgetTester tester) async {
+      SharedPreferences.setMockInitialValues({
+        'murdoku.settings': jsonEncode(
+          const Settings(language: LanguageSetting.english).toJson(),
+        ),
+        'murdoku.tutorialSeen': true,
+      });
+      final prefs = await SharedPreferences.getInstance();
+      container = ProviderContainer(
+        overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+      );
+      addTearDown(container.dispose);
+      tester.view.physicalSize = const Size(800, 600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MurdokuApp(),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final context = tester.element(find.byType(Scaffold).first);
+      GoRouter.of(context).go('/game');
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('no active case: placeholder screen and back navigation', (
+      tester,
+    ) async {
+      await pumpWithoutCase(tester);
+      final l10n = l10nOf(tester);
+
+      expect(find.text(l10n.noActiveCase), findsOneWidget);
+      await tester.tap(find.text(l10n.backToHome));
+      await tester.pumpAndSettle();
+      expect(find.text(l10n.appTitle), findsOneWidget);
+    });
+
+    testWidgets('mark-tool drag across cells draws X marks', (tester) async {
+      await pumpGame(tester);
+      await tester.tap(find.byKey(const Key('tool_mark')));
+      await tester.pumpAndSettle();
+
+      final boardRect = tester.getRect(find.byKey(const Key('board_view')));
+      final cell = boardRect.width / currentCase().gridSize;
+      final start = boardRect.center - Offset(cell, 0);
+      await tester.dragFrom(start, Offset(cell * 2, 0));
+      await tester.pumpAndSettle();
+
+      expect(
+        container.read(gameControllerProvider)!.xMarks,
+        isNotEmpty,
+        reason: 'dragging with the mark tool excludes the swept cells',
+      );
+    });
+
+    testWidgets('tapping a suspect card selects and deselects it', (
+      tester,
+    ) async {
+      await pumpGame(tester);
+      final l10n = l10nOf(tester);
+      final names = NameForms.forLocale(l10n.localeName, currentCase());
+      final name = names.nom('s0');
+
+      await tester.tap(find.text(name).last);
+      await tester.pumpAndSettle();
+      expect(container.read(gameControllerProvider)!.selectedSuspectId, 's0');
+
+      // Switching suspects through card taps works. NOTE: tapping the
+      // selected card again does NOT deselect — the screen sends
+      // selectSuspect(null), but GameState.copyWith keeps the old value for
+      // a null argument (classic nullable copyWith trap), so re-tapping a
+      // selected card is a silent no-op. Pinned as-is (issue 35 is a pure
+      // refactor); the deselect defect is reported separately.
+      final other = names.nom('s1');
+      await tester.tap(find.text(other).last);
+      await tester.pumpAndSettle();
+      expect(container.read(gameControllerProvider)!.selectedSuspectId, 's1');
+
+      await tester.tap(find.text(other).last);
+      await tester.pumpAndSettle();
+      expect(container.read(gameControllerProvider)!.selectedSuspectId, 's1');
+    });
+
+    testWidgets('appbar back opens the quit-confirm dialog', (tester) async {
+      await pumpGame(tester);
+      final l10n = l10nOf(tester);
+
+      await tester.tap(find.byTooltip(l10n.quitCase));
+      await tester.pumpAndSettle();
+      expect(find.text(l10n.quitConfirmTitle), findsOneWidget);
+    });
+
+    testWidgets('appbar legend action opens the legend sheet', (tester) async {
+      await pumpGame(tester);
+      final l10n = l10nOf(tester);
+
+      await tester.tap(find.byTooltip(l10n.legendTitle));
+      await tester.pumpAndSettle();
+      expect(find.text(l10n.legendRooms), findsOneWidget);
+    });
+
+    testWidgets('hint toolbar button opens the hint sheet', (tester) async {
+      await pumpGame(tester);
+      final l10n = l10nOf(tester);
+
+      await tester.tap(find.byKey(const Key('tool_hint')));
+      await tester.pumpAndSettle();
+      expect(find.text(l10n.hintPlace), findsOneWidget);
+      expect(find.text(l10n.hintEliminate), findsOneWidget);
+    });
+
+    testWidgets('dismissing the victory dialog navigates home', (tester) async {
+      await pumpGame(tester, tutorialSeen: true);
+      final l10n = l10nOf(tester);
+      final notifier = container.read(gameControllerProvider.notifier);
+
+      for (final entry in fixedCase.solution.entries) {
+        notifier.selectSuspect(entry.key);
+        await tester.pumpAndSettle();
+        await tapCell(tester, entry.value.row, entry.value.col);
+      }
+      await tester.pumpAndSettle();
+
+      final names = NameForms.forLocale(l10n.localeName, fixedCase);
+      await tester.tap(find.text(names.nom(fixedCase.murdererId)).last);
+      await tester.pumpAndSettle();
+      expect(find.byType(VictoryDialog), findsOneWidget);
+
+      await tester.tap(find.text(l10n.victoryDone));
+      await tester.pumpAndSettle();
+      expect(find.text(l10n.appTitle), findsOneWidget);
+    });
+  });
+
+  testWidgets('classic skin: toolbar buttons keep the scheme rendering', (
+    tester,
+  ) async {
+    await pumpGame(tester, skin: SkinSetting.classic);
+
+    Color? containerColor(Key key) =>
+        (tester.widget<Container>(find.byKey(key)).decoration
+                as BoxDecoration?)!
+            .color;
+
+    // The active tool gets the primary container; inactive ones stay
+    // transparent (no skin pill).
+    expect(
+      containerColor(const Key('tool_place')),
+      Theme.of(tester.element(find.byKey(const Key('tool_place'))))
+          .colorScheme
+          .primaryContainer,
+    );
+    expect(containerColor(const Key('tool_mark')), Colors.transparent);
+  });
 }
