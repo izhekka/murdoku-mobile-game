@@ -22,42 +22,46 @@ String digestCase(CaseData c) {
       '${lo.toRadixString(16).padLeft(8, '0')}';
 }
 
-/// Golden digests captured from the pre-refactor generator (2026-11-23,
-/// issue 35). Spaced seeds: consecutive seeds converge onto the same case
-/// through the retry budget, so nearby seeds are not distinct goldens. The
-/// set spans the clue window (easy 6-7, standard 8-10, hard 12-14), the
-/// negated top-up caps (standard 1, hard 3) and distinct retry paths.
+/// Golden digests captured from the issue-61 derived attempt-seed mapping
+/// (2026-11-24; originally captured 2026-11-23, issue 35, and regenerated
+/// in the same change as the attempt-seed re-derivation — the digest test's
+/// seeds list and values move together with any attempt-seed remap, §13).
+/// The set spans the clue window (easy 6-7, standard 8-10, hard 12-14), the
+/// negated top-up caps (standard 1, hard 3) and distinct derived retry
+/// paths; nearby seeds now hash distinct cases (the pre-#61 mapping made
+/// spaced seeds necessary). hard/111 exhausts the whole budget under the
+/// derived mapping, so its slot moved to the generating neighbor 112.
 const golden = {
-  'easy/1': '37deeb690fa7308b',
-  'easy/101': 'bf31588bc989d610',
-  'easy/201': '61ca1d912312dffb',
-  'easy/301': '3f75aea3dbda84ac',
-  'easy/11': '855c02491eb0ca87',
-  'easy/17': '5460643094950c55',
-  'easy/23': 'd635333a79d23874',
-  'easy/29': '606b5183749aabbb',
-  'standard/1': '0df0f25b3d2b2ecb',
-  'standard/101': '9c38b1b9b1c08bf8',
-  'standard/201': '5e202dae78af0985',
-  'standard/301': '9fabc305524e4661',
-  'standard/11': 'a2f5acdd11424e5f',
-  'standard/211': '1522a26a8745728c',
-  'standard/123': 'b3d3e328664db58c',
-  'standard/129': '462878cefc512125',
+  'easy/1': '9824ca8d10f6fd06',
+  'easy/101': '9b771a2636e78992',
+  'easy/201': 'a3cf5e480534c082',
+  'easy/301': 'ac021d40f41f7bf3',
+  'easy/11': 'fc60195ae391159f',
+  'easy/17': 'cc3d3f4914a8d1d8',
+  'easy/23': '4a130a34d2fc23ac',
+  'easy/29': '8a1fa98db4590de8',
+  'standard/1': '8c0ec46047c56cd1',
+  'standard/101': 'a9d0c28bb65b45a3',
+  'standard/201': '3123b4dfc683ad00',
+  'standard/301': '925ebe072620a3e1',
+  'standard/11': 'dfa48b224f6d95f6',
+  'standard/211': '84824d886890ec84',
+  'standard/123': '2bdb97cf8caa3043',
+  'standard/129': '30293967f726e797',
   // 20261119/20261120 are dailySeedFor(2026-11-19) / (2026-11-20) — the UTC
-  // dates pinned in the daily-card tests (issue 49). The two dates converge
-  // to the same case (nearby seeds share a golden), so the digests are
-  // intentionally equal.
-  'standard/20261119': 'f66ea949dbc51475',
-  'standard/20261120': 'f66ea949dbc51475',
-  'hard/1': '84c3f237e01bdefd',
-  'hard/101': '428c494fa6e5496a',
-  'hard/201': '85f9c3ddcf61fc36',
-  'hard/301': '2e15d9a98cf2655f',
-  'hard/401': '7ec1c78a0630dc5e',
-  'hard/11': '62e496e91904957b',
-  'hard/111': 'b7fbb35bb14d30ed',
-  'hard/211': 'bb55ff6c3e9aa786',
+  // dates pinned in the daily-card tests (issue 49). Under the derived
+  // mapping the two consecutive dates generate distinct cases (issue 61),
+  // so the digests differ.
+  'standard/20261119': '780d586106bf65c6',
+  'standard/20261120': 'd12db8c1fb581348',
+  'hard/1': '88b269dfceb54844',
+  'hard/101': 'e0f75bff9a81fec1',
+  'hard/201': '392de78e2dc61cc7',
+  'hard/301': '1132c97e7abaaefe',
+  'hard/401': 'aac354a9898bf2bd',
+  'hard/11': '6992d08c001592d5',
+  'hard/112': '55ec51fcbf077c9c',
+  'hard/211': '87c1dc1d64c500bb',
 };
 
 void main() {

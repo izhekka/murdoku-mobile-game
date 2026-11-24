@@ -242,33 +242,52 @@ passed. Suite runs serialize per checkout instead:
   grep -c PathNotFoundException /tmp/lock_demo_a.log /tmp/lock_demo_b.log
   ```
 
-## 13. Generator seed convergence (issue 46)
+## 13. Generator attempt-seed derivation (issues 46/61)
 
-`generateCase` walks attempt seeds `seed..seed+39` (per widening window) and
-returns the **first successful** one; attempts fail frequently (uniqueness
-retries), so several *requested* seeds regularly land on the same stored
-attempt seed and therefore return the **identical case** — nearby seeds
-converge. Measured 2026-11-24: easy 1–4 → 5, 15–19 → 20; standard 1–4 → 5,
-28–43 → 44; hard 1–5 → 6, 26–44 → 45 (the full table is pinned in
-`test/domain/generator/seed_convergence_test.dart`).
+`generateCase` tries 40 attempts per widening window and stores the first
+successful attempt seed. Under issue 46 every attempt reused the raw
+`requested + i`, so requested seeds inside one failure basin collapsed onto
+one stored seed and returned the **identical case** — measured 2026-11-24:
+easy 1–4 → 5, 15–19 → 20; standard 1–4 → 5, 28–43 → 44; hard 1–5 → 6,
+26–44 → 45. Issue 46 pinned that surface by test; issue 61 removed it.
 
-- **This is deliberate, not a bug.** Issue 46 chose the "document + pin"
-  branch: pin the measured convergence by test so it cannot change
-  silently. Pin the headline and the table: requested seeds 1..60 map to
-  the stored attempt seeds in the test; seeds 1..5 return one identical
-  case per difficulty.
-- **Why not fix the variety instead** (wider attempt stride, hash the seed
-  per attempt): the pinned golden digests in
-  `test/domain/generator/golden_digest_test.dart` include retry-path seeds
-  (easy/1 → attempt 5, easy/11 → 12, hard/1 → 6, standard/1 → 5), and
-  issue 46 freezes them; any attempt-seed re-mapping drifts those digests.
-  The convergence is a variety trade-off, not a correctness problem — for
-  the runtime path a fresh random 30-bit seed is drawn per case, so
-  collisions between consecutively drawn seeds are vanishingly unlikely.
+- **Removed, not re-pinned.** Issue 61 re-derives each attempt's rng seed
+  from `(requested seed, attempt index)` — a splitmix64 stream step
+  (advance by the golden-ratio constant per attempt) followed by the
+  splitmix64 finalizer, masked to 31 bits
+  (`_derivedSeed` in `case_factory.dart`). Nearby requested seeds walk
+  decorrelated attempt streams, so adjacent seeds return distinct cases;
+  the basins above are gone. `dailySeedFor` derivation is untouched, but
+  consecutive dates now generate distinct cases too (the
+  `standard/20261119`/`standard/20261120` golden digests differ since the
+  remap), still deterministic per date.
+- **What still fails is budget exhaust, not convergence.** Exhausts were
+  re-scanned after the remap (measured 2026-11-24): easy 0/20000, standard
+  5/20000 (0.025%), hard 368/12000 (≈3.1%, chunked windows over seeds
+  9001..21000) — stable per window, and the failures are decorrelated
+  singles instead of the old contiguous always-fail bands (the pre-#61
+  81-seed band at 42848100 is history). The runtime-drawn path routes
+  through `generateCaseWithRecovery` (issue 45) — 9 windows of 40 derived
+  attempts in total, the exhausted seam plus 8 fresh strides (360
+  attempts) — and its measured seams are
+  re-pinned: hard 111 (single exhausted window), hard 375 → 415 → 455
+  (two-window corridor), and the daily date-seed 2031-09-28 (the issue-60
+  corridor 2055-12-25 now generates directly).
+- **Why issue 46 originally froze this (history).** The pinned golden
+  digests hash `toJson()`, which includes each attempt's stored seed, so
+  any attempt-seed remap drifts them (easy/1 → attempt 5, standard/1 → 5,
+  hard/1 → 6 pre-remap). Delivering the variety therefore required one
+  coordinated change — re-measure the mapping, regenerate the golden
+  digests, re-pin the corridors — which is exactly what issue 61 landed
+  (hard/111 exhausts under the derived mapping, so that golden slot moved
+  to the generating neighbor 112).
 - **Consciously updating the pin.** Re-measure first with a temporary
-  test/probe that prints requested → stored seeds (never hand-write the
-  table), then update the convergence table — and, if the drift touches
-  them, the golden digests — in the same change, stating the cause.
+  probe that prints requested → stored seeds across difficulties × seeds
+  (never hand-write the table; a tracked probe tool is open issue #62),
+  then update the convergence table together with the golden digests and
+  every measured corridor seam in the same change, stating the cause, and
+  mutation-verify the pin's teeth (reverting the derivation — or shifting
+  any stream constant — must fail the pins).
 
 ## Enforced lint → guideline mapping
 

@@ -451,16 +451,26 @@ void main() {
   });
 
   test(
-    'startNewCase recovers the budget-exhausting hard seed 117 (issue 45)',
+    'startNewCase recovers the budget-exhausting hard seed 111 (issue 45)',
     () async {
       final container = await makeContainer();
       addTearDown(container.dispose);
       final notifier = container.read(gameControllerProvider.notifier);
 
-      // Previously threw StateError right here (issue 45).
-      notifier.startNewCase(Difficulty.hard, seed: 117);
+      // Under the derived mapping (issue 61) hard 111 exhausts the whole
+      // widened budget, so this start genuinely enters
+      // generateCaseWithRecovery's retry path (the pre-61 pin 117 now
+      // generates directly in window 0 — see case_factory_test.dart).
+      notifier.startNewCase(Difficulty.hard, seed: 111);
       final state = container.read(gameControllerProvider)!;
       expect(state.phase, GamePhase.playing);
+      expect(
+        state.caseData.seed,
+        1633640402,
+        reason:
+            'the recovered case is the window-1 seam measured in '
+            'case_factory_test, not the requested seed',
+      );
       expect(
         state.caseData.clues.length,
         inInclusiveRange(Difficulty.hard.minClues, Difficulty.hard.maxClues),
@@ -475,11 +485,12 @@ void main() {
       addTearDown(container.dispose);
       final notifier = container.read(gameControllerProvider.notifier);
 
-      // 116/117 are the documented hard failure cluster; the rest probe
-      // normal and unknown ranges. Every start must yield a playable case,
-      // never a StateError.
+      // Hard 111 and 375 are the measured derived-mapping exhausts (§13);
+      // 116/117 generate directly since #61. The rest probe normal and
+      // unknown ranges. Every start must yield a playable case, never a
+      // StateError.
       for (final difficulty in Difficulty.values) {
-        for (final seed in const [1, 3, 116, 117, 500, 99991]) {
+        for (final seed in const [1, 3, 111, 375, 500, 99991]) {
           notifier.startNewCase(difficulty, seed: seed);
           final state = container.read(gameControllerProvider)!;
           expect(

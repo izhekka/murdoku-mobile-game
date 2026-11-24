@@ -88,40 +88,48 @@ void main() {
 
     // Evidence the pinned date really sits in a budget-exhaustion corridor:
     // bare generateCase (the pre-#60 daily call) throws for standard seed
-    // 20551225 — the only failing date-seed in the 2019-2060 scan.
-    expect(
-      () => generateCase(
-        difficulty: Difficulty.standard,
-        seed: dailySeedFor(parseUtcDate('2055-12-25')),
-      ),
-      throwsStateError,
-      reason:
-          'corridor moved or vanished — re-verify the failing date-seed '
-          'scan and re-pin date/stride',
-    );
+    // 20310928. Under the derived mapping (issue 61) the decorrelated
+    // failures shifted the corridor set: the 2019-2060 scan measured
+    // exactly two failing date-seeds, 2031-09-28 and 2047-04-01 — both
+    // pinned below; the pre-#61 corridor 2055-12-25 (20551225) now
+    // generates directly.
+    for (final date in const ['2031-09-28', '2047-04-01']) {
+      expect(
+        () => generateCase(
+          difficulty: Difficulty.standard,
+          seed: dailySeedFor(parseUtcDate(date)),
+        ),
+        throwsStateError,
+        reason:
+            'corridor moved or vanished — re-verify the failing date-seed '
+            'scan and re-pin date/stride ($date)',
+      );
+    }
 
-    // The daily start must not crash: recovery strides to seed 20551265.
-    notifier.startDaily('2055-12-25');
+    // The daily start must not crash: recovery strides to seed 20310968.
+    notifier.startDaily('2031-09-28');
     final first = container.read(gameControllerProvider)!;
     expect(first.isDaily, isTrue);
-    expect(first.dailyDate, '2055-12-25');
+    expect(first.dailyDate, '2031-09-28');
     expect(
       first.caseData.seed,
-      20551265,
-      reason: 'recovery must land on the window-1 stride seed',
+      895059595,
+      reason:
+          'recovery must land on the window-1 stride seed '
+          '(generateCase(standard, 20310968).seed)',
     );
     expect(
       first.caseData.toJson(),
       generateCaseWithRecovery(
         difficulty: Difficulty.standard,
-        seed: dailySeedFor(parseUtcDate('2055-12-25')),
+        seed: dailySeedFor(parseUtcDate('2031-09-28')),
       ).toJson(),
       reason: 'a corridor date-seed recovers exactly like the issue-45 seam',
     );
 
     // Daily replay determinism after recovery: same date, same recovered case.
     notifier.quit();
-    notifier.startDaily('2055-12-25');
+    notifier.startDaily('2031-09-28');
     final second = container.read(gameControllerProvider)!.caseData;
     expect(second.toJson(), equals(first.caseData.toJson()));
   });

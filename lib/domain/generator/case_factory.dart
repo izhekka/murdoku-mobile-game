@@ -43,11 +43,35 @@ const _roomNames = [
   'Observatory',
 ];
 
+/// Budget of derived attempts per widening window in [generateCase].
 const _retryBudget = 40;
 
 /// Recovery windows for [generateCaseWithRecovery]: how many extra 40-seed
 /// strides the drawn-seed start path may consume past the exhausted one.
 const _recoveredWindows = 8;
+
+/// Keeps derived attempt seeds in [0, 0x7FFFFFFF] — positive, JSON-safe,
+/// and in the same positive, 64-bit-safe class as the runtime-drawn seeds
+/// (`Random().nextInt(1 << 30)` in game_controller.dart).
+const _seedMask = 0x7FFFFFFF;
+
+/// The rng seed for attempt [attempt] after a requested [requested] seed:
+/// a splitmix64 stream step (advance by the golden-ratio constant per
+/// attempt) followed by the splitmix64 finalizer, masked to 31 bits.
+///
+/// Deriving per attempt is issue 61, landing §13's "hash the seed per
+/// attempt" option: under the old sequential `requested + attempt` mapping
+/// the first successful attempt collapsed every requested seed inside one
+/// failure basin onto the same stored seed (easy 1–4 → 5, standard 28–43
+/// → 44, hard 26–44 → 45). Derived attempts spread nearby requested seeds
+/// over decorrelated rng streams, so adjacent requested seeds return
+/// distinct cases.
+int _derivedSeed(int requested, int attempt) {
+  var x = (requested & 0x7FFFFFFFFFFFFFFF) + attempt * 0x9E3779B97F4A7C15;
+  x = (x ^ (x >>> 30)) * 0xBF58476D1CE4E5B9;
+  x = (x ^ (x >>> 27)) * 0x94D049BB133111EB;
+  return (x ^ (x >>> 31)) & _seedMask;
+}
 
 /// Public aliases for tests: the localized pools in localized_names.dart are
 /// index-aligned with these.
@@ -55,21 +79,25 @@ const suspectNamePool = _suspectNames;
 const roomNamePool = _roomNames;
 
 /// Deterministic: same [difficulty] and [seed] produce an identical case.
-/// Tries seeds [seed]..seed+39; if none yields a unique puzzle inside the
-/// difficulty's clue window, widens the window's max by +1 and retries the
-/// whole budget (up to 4 widenings), then throws [StateError].
+/// Tries the [seed]-derived attempt seeds of one 40-attempt window; if none
+/// yields a unique puzzle inside the difficulty's clue window, widens the
+/// window's max by +1 and retries the whole budget (up to 4 widenings),
+/// then throws [StateError].
 ///
-/// The loop returns the FIRST successful attempt seed at or after the
-/// requested one, and attempts fail often (measured 2026-11-24: easy
-/// 1–4 → 5, standard 28–43 → 44, hard 26–44 → 45), so every requested
-/// seed inside one failure basin returns the same case. Deliberate
-/// behavior, pinned by test/domain/generator/seed_convergence_test.dart
-/// (issue 46): re-mapping attempt seeds would drift the frozen golden
-/// digests in golden_digest_test.dart.
+/// Each attempt derives its rng seed from (requested seed, attempt index)
+/// via [_derivedSeed] (issue 61): nearby requested seeds spread their
+/// attempts over decorrelated seeds instead of walking the same contiguous
+/// window — the sequential mapping used before collapsed whole failure
+/// basins onto one stored seed, so adjacent seeds returned the identical
+/// case (§13: easy 1–4 → 5, standard 28–43 → 44, hard 26–44 → 45). The
+/// derived mapping, the re-measured convergence table and the regenerated
+/// golden digests landed together (issue 61) and are pinned by
+/// test/domain/generator/seed_convergence_test.dart and
+/// golden_digest_test.dart.
 CaseData generateCase({required Difficulty difficulty, required int seed}) {
   for (var widen = 0; widen <= 3; widen++) {
     for (var i = 0; i < _retryBudget; i++) {
-      final attempt = _attempt(difficulty, seed + i, widen);
+      final attempt = _attempt(difficulty, _derivedSeed(seed, i), widen);
       if (attempt != null) return attempt;
     }
   }
@@ -78,25 +106,23 @@ CaseData generateCase({required Difficulty difficulty, required int seed}) {
   );
 }
 
-/// Recovery for the runtime-drawn seed path (issue 45): rare requested
-/// seeds exhaust even the widened budget inside [generateCase] (hard
-/// 115-124; ~2.7% of random hard draws threw pre-fix), so the interactive
-/// start path would hand the player a crash. This re-enters the search on
-/// the next untried 40-seed stride — the stride is exactly the budget
-/// [generateCase] already consumed, so window k's seeds were never
-/// attempted. Deterministic in [seed] (forced-seed tests stay
-/// reproducible), and [generateCase]'s own contract, golden and daily
-/// seeds stay untouched.
+/// Recovery for the runtime-drawn seed path (issue 45): a requested seed
+/// whose whole widened budget fails inside [generateCase] would hand the
+/// interactive start path a crash. This re-enters the search on the next
+/// 40-seed stride. Under per-attempt derivation (issue 61) each window
+/// passes a different requested base, so every recovery window derives 40
+/// fresh attempt seeds unlike any previous window's (the sequential
+/// mapping re-walked tried seeds instead); a rare exhaust therefore
+/// retries genuinely new ground. Deterministic in [seed] (forced-seed
+/// tests stay reproducible), and [dailySeedFor] derivation is untouched.
 ///
-/// Give-up safety: the loop blankets the contiguous stretch
-/// [seed, seed + 40 * (recoveryWindows + 1)) — the shipped default covers
-/// [seed, seed+360) with 9 windows — and rethrows only when every seed in
-/// that stretch fails at every widen level. The widest always-fail
-/// corridor measured on hard is 81 seeds (42848100-42848180; none found
-/// on standard/easy), so the blanket carries ~4x headroom.
-/// [recoveryWindows] is a test seam (0 pins the give-up rethrow) and
-/// behaves as 0 below zero. On give-up the FIRST exhausted window's error
-/// is rethrown — its message carries the requested seed.
+/// Give-up safety: the loop spans `recoveryWindows + 1` windows, each
+/// deriving 40 fresh attempts — the shipped default covers 360 derived
+/// attempts per requested seed, and rethrows only when every window
+/// exhausts at every widen level. [recoveryWindows] is a test seam
+/// (0 pins the give-up rethrow) and behaves as 0 below zero. On give-up
+/// the FIRST exhausted window's error is rethrown — its message carries
+/// the requested seed.
 CaseData generateCaseWithRecovery({
   required Difficulty difficulty,
   required int seed,

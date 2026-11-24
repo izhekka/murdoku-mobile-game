@@ -291,13 +291,14 @@ void main() {
   });
 
   test('different seeds produce different cases (sanity)', () {
-    // Under seed retry, case.seed is the successful seed, not the requested
-    // one — so assert on determinism and cross-seed difference instead.
+    // The stored case.seed is the first successful derived attempt, not
+    // the requested one (issue 61) — so assert on determinism and
+    // cross-seed difference instead.
     final a = generateCase(difficulty: Difficulty.easy, seed: 1);
     final a2 = generateCase(difficulty: Difficulty.easy, seed: 1);
     expect(a2.toJson(), equals(a.toJson()));
-    // Seed ranges 1..40 and 1000..1039 are disjoint retries, so the results
-    // must differ.
+    // The derived attempt families of requested seeds 1 and 1000 are
+    // decorrelated, so the results must differ.
     final c = generateCase(difficulty: Difficulty.easy, seed: 1000);
     expect(a.toJson() == c.toJson(), isFalse);
   });
@@ -334,12 +335,14 @@ void main() {
   });
 
   test('generated rooms draw from the whole pool, not constants (UX-1)', () {
-    // The plan pinned seed 1 easy to poolIndex 1, but the shipped name
-    // permutation for that seed is [10,15,5,9,7] — distribution is proven
-    // instead: distinct slots within a case, wide coverage across cases.
-    // Same-room item clues (UX-8) made uniqueness retries frequent, so
-    // several requested seeds can return the same successful seed; sample
-    // until 5 DISTINCT cases (bounded scan) rather than 5 requested seeds.
+    // Distribution is proven, not a specific seed's permutation: distinct
+    // slots within a case, wide coverage across cases. (The plan pinned
+    // seed 1 easy to poolIndex 1; the shipped permutation for that seed
+    // changed again with the issue-61 attempt-seed remap, so no single
+    // permutation is named here.) Requested seeds map to distinct stored
+    // seeds since the remap, so the scan finds five distinct cases among
+    // the first seeds — the bounded scan stays as a guard against any
+    // future mapping change.
     final seen = <int>{};
     final distinctCases = <int>{};
     for (var seed = 1; seed <= 60 && distinctCases.length < 5; seed++) {
@@ -365,8 +368,12 @@ void main() {
     );
   });
 
-  test('recovery: budget-exhausting hard seed 117 yields a case (#45)', () {
-    final c = generateCaseWithRecovery(difficulty: Difficulty.hard, seed: 117);
+  test('recovery: budget-exhausting hard seed 111 yields a case (#45)', () {
+    // Seed 111 exhausts [generateCase]'s whole budget under the derived
+    // mapping (measured 2026-11-24; the derived attempts fail as a whole
+    // instead of clustering in a contiguous corridor — old pin 117 now
+    // generates directly, issue 61).
+    final c = generateCaseWithRecovery(difficulty: Difficulty.hard, seed: 111);
     expect(c.suspects, hasLength(Difficulty.hard.gridSize));
     expect(
       c.clues.length,
@@ -374,10 +381,11 @@ void main() {
     );
     expect(
       c.seed,
-      greaterThan(117),
+      1633640402,
       reason:
-          'recovery strides past the exhausted window; case.seed is '
-          'the successful attempt',
+          'recovery strides to the window-1 base 151 and returns the first '
+          'succeeding derived attempt of the 151 stream (index 18; '
+          'attempts 0..17 fail — generateCase(hard, 151).seed)',
     );
   });
 
@@ -386,11 +394,11 @@ void main() {
     () {
       final a = generateCaseWithRecovery(
         difficulty: Difficulty.hard,
-        seed: 117,
+        seed: 111,
       );
       final b = generateCaseWithRecovery(
         difficulty: Difficulty.hard,
-        seed: 117,
+        seed: 111,
       );
       expect(b.toJson(), equals(a.toJson()));
     },
@@ -402,7 +410,7 @@ void main() {
       expect(
         () => generateCaseWithRecovery(
           difficulty: Difficulty.hard,
-          seed: 117,
+          seed: 111,
           recoveryWindows: 0,
         ),
         throwsStateError,
@@ -412,7 +420,7 @@ void main() {
       expect(
         () => generateCaseWithRecovery(
           difficulty: Difficulty.hard,
-          seed: 117,
+          seed: 111,
           recoveryWindows: -1,
         ),
         throwsStateError,
@@ -421,15 +429,13 @@ void main() {
   );
 
   test('recovery: corridor spanning two strides recovers on the third window (#45)', () {
-    // Hard corridor 42848100-42848180 (81 consecutive always-fail
-    // seeds): windows 0 and 1 both exhaust before window 2 lands on
-    // 42848181 — pins the multi-window path (stride arithmetic and loop
-    // bound), which the single-stride 117 tests cannot reach.
-    // Review-measured values.
-    final c = generateCaseWithRecovery(
-      difficulty: Difficulty.hard,
-      seed: 42848100,
-    );
-    expect(c.seed, 42848181);
+    // Under the derived mapping (issue 61) the always-fail windows are
+    // decorrelated instead of forming a contiguous seed band: hard 375
+    // exhausts window 0 and window 1 (base 415) also exhausts, then window
+    // 2 lands on base 455 — pins the multi-window path (stride arithmetic
+    // and loop bound), which the single-window 111 tests cannot reach.
+    // Measured 2026-11-24.
+    final c = generateCaseWithRecovery(difficulty: Difficulty.hard, seed: 375);
+    expect(c.seed, 1398946454);
   });
 }

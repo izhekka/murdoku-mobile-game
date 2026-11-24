@@ -4,205 +4,274 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:murdoku/domain/generator/case_factory.dart';
 import 'package:murdoku/domain/models.dart';
 
-/// Pins the deliberate retry-convergence behavior of [generateCase]
-/// (issue 46): the loop returns the first successful attempt seed at or
-/// after the requested one, so every requested seed inside one failure
-/// basin gets the same case — nearby seeds return identical puzzles.
+/// Pins the attempt-seed mapping of [generateCase]: each attempt derives its
+/// rng seed from `(requested seed, attempt index)` (splitmix64 stream step +
+/// finalizer), so failure basins measured under the old sequential mapping
+/// (easy 1–4 → 5, standard 28–43 → 44, hard 26–44 → 45) are genuinely
+/// removed — nearby requested seeds no longer collapse onto one stored seed
+/// (issue 61, landing §13's "hash the seed per attempt" option).
 ///
-/// The choice for issue 46 was to document + pin this (see
-/// `docs/code-guidelines.md` §13): re-mapping attempt seeds (a wider
-/// stride, or hashing the seed per attempt) would drift the pinned
-/// golden digests in `golden_digest_test.dart`, which include retry-path
-/// seeds (easy/1 → attempt 5, easy/11 → 12, hard/1 → 6, standard/1 → 5)
-/// and are frozen by the issue's acceptance criteria.
-///
-/// Measured 2026-11-24 over requested seeds 1..60 per difficulty.
-/// Update only together with a fresh probe run (temporary test, run and
-/// transcribe) — never by hand.
+/// The table below pins the measured requested → stored mapping (seeds
+/// 0..60, all difficulties). Measured 2026-11-24 over the derived mapping;
+/// update only together with a fresh probe run (temporary test, run and
+/// transcribe) — never by hand, and only in the same change as the
+/// regenerated golden digests (§13).
 const _convergence = {
   'easy': {
-    1: 5,
-    2: 5,
-    3: 5,
-    4: 5,
-    6: 7,
-    9: 12,
-    10: 12,
-    11: 12,
-    15: 20,
-    16: 20,
-    17: 20,
-    18: 20,
-    19: 20,
-    22: 23,
-    24: 25,
-    26: 30,
-    27: 30,
-    28: 30,
-    29: 30,
-    31: 32,
-    34: 36,
-    35: 36,
-    38: 39,
-    40: 41,
-    44: 45,
-    46: 49,
-    47: 49,
-    48: 49,
-    50: 52,
-    51: 52,
-    53: 54,
-    56: 57,
-    59: 60,
+    0: 565798388,
+    1: 269157861,
+    2: 201072194,
+    3: 1662265584,
+    4: 1647545034,
+    5: 596231002,
+    6: 1461135984,
+    7: 2065162004,
+    8: 485206504,
+    9: 2145213143,
+    10: 691144057,
+    11: 1966783341,
+    12: 796882670,
+    13: 792109169,
+    14: 1982840361,
+    15: 887756089,
+    16: 1233478731,
+    17: 1914458558,
+    18: 638846681,
+    19: 406976599,
+    20: 1382288114,
+    21: 1873750857,
+    22: 914179662,
+    23: 1046035621,
+    24: 1535560376,
+    25: 1892136713,
+    26: 2047477467,
+    27: 1501628042,
+    28: 863116194,
+    29: 134336368,
+    30: 1920077262,
+    31: 127920874,
+    32: 1233104197,
+    33: 1042421928,
+    34: 445755009,
+    35: 1905496626,
+    36: 1834291426,
+    37: 266932680,
+    38: 583017877,
+    39: 1204080003,
+    40: 1890816805,
+    41: 1001954597,
+    42: 803958421,
+    43: 1800400776,
+    44: 697979987,
+    45: 849014403,
+    46: 943464469,
+    47: 1501354885,
+    48: 1980235555,
+    49: 1841473880,
+    50: 2045141623,
+    51: 1317486696,
+    52: 258929363,
+    53: 665525204,
+    54: 818264924,
+    55: 1938557595,
+    56: 1385470105,
+    57: 1381736465,
+    58: 58162078,
+    59: 2057509952,
+    60: 295270247,
   },
   'standard': {
-    1: 5,
-    2: 5,
-    3: 5,
-    4: 5,
-    6: 10,
-    7: 10,
-    8: 10,
-    9: 10,
-    12: 19,
-    13: 19,
-    14: 19,
-    15: 19,
-    16: 19,
-    17: 19,
-    18: 19,
-    21: 24,
-    22: 24,
-    23: 24,
-    25: 27,
-    26: 27,
-    28: 44,
-    29: 44,
-    30: 44,
-    31: 44,
-    32: 44,
-    33: 44,
-    34: 44,
-    35: 44,
-    36: 44,
-    37: 44,
-    38: 44,
-    39: 44,
-    40: 44,
-    41: 44,
-    42: 44,
-    43: 44,
-    46: 50,
-    47: 50,
-    48: 50,
-    49: 50,
-    51: 59,
-    52: 59,
-    53: 59,
-    54: 59,
-    55: 59,
-    56: 59,
-    57: 59,
-    58: 59,
+    0: 607567,
+    1: 1849870603,
+    2: 2145908324,
+    3: 1526829037,
+    4: 1647545034,
+    5: 628934311,
+    6: 1886925676,
+    7: 1732127179,
+    8: 2131474435,
+    9: 9333758,
+    10: 173551562,
+    11: 1966783341,
+    12: 434016003,
+    13: 778752663,
+    14: 635718904,
+    15: 1660181831,
+    16: 980914695,
+    17: 786658147,
+    18: 638846681,
+    19: 156087121,
+    20: 880243823,
+    21: 779188571,
+    22: 872734075,
+    23: 1503966089,
+    24: 1878557717,
+    25: 114556472,
+    26: 2047477467,
+    27: 1501628042,
+    28: 661062661,
+    29: 1618976026,
+    30: 1920077262,
+    31: 74379621,
+    32: 2023635428,
+    33: 175103428,
+    34: 832841459,
+    35: 1605021787,
+    36: 1480678066,
+    37: 1870007832,
+    38: 380927664,
+    39: 1413884065,
+    40: 211915026,
+    41: 1378504331,
+    42: 319790930,
+    43: 778044235,
+    44: 1918749909,
+    45: 164260894,
+    46: 116433452,
+    47: 1177696270,
+    48: 1980235555,
+    49: 606314889,
+    50: 811644344,
+    51: 2118185977,
+    52: 635735079,
+    53: 361675542,
+    54: 818264924,
+    55: 1423753265,
+    56: 689942532,
+    57: 2119914330,
+    58: 805855186,
+    59: 819116092,
+    60: 1778269306,
   },
   'hard': {
-    1: 6,
-    2: 6,
-    3: 6,
-    4: 6,
-    5: 6,
-    7: 17,
-    8: 17,
-    9: 17,
-    10: 17,
-    11: 17,
-    12: 17,
-    13: 17,
-    14: 17,
-    15: 17,
-    16: 17,
-    18: 25,
-    19: 25,
-    20: 25,
-    21: 25,
-    22: 25,
-    23: 25,
-    24: 25,
-    26: 45,
-    27: 45,
-    28: 45,
-    29: 45,
-    30: 45,
-    31: 45,
-    32: 45,
-    33: 45,
-    34: 45,
-    35: 45,
-    36: 45,
-    37: 45,
-    38: 45,
-    39: 45,
-    40: 45,
-    41: 45,
-    42: 45,
-    43: 45,
-    44: 45,
-    46: 48,
-    47: 48,
-    49: 58,
-    50: 58,
-    51: 58,
-    52: 58,
-    53: 58,
-    54: 58,
-    55: 58,
-    56: 58,
-    57: 58,
-    59: 77,
-    60: 77,
+    0: 524628705,
+    1: 1463172261,
+    2: 479680206,
+    3: 811354239,
+    4: 1851393414,
+    5: 110751531,
+    6: 1405041736,
+    7: 2065162004,
+    8: 1199405057,
+    9: 389111904,
+    10: 1745764648,
+    11: 2058377230,
+    12: 1254822303,
+    13: 1741265682,
+    14: 1900373939,
+    15: 737497093,
+    16: 1951536959,
+    17: 1491364279,
+    18: 1142938966,
+    19: 1472649530,
+    20: 476470136,
+    21: 937960903,
+    22: 914179662,
+    23: 1570979062,
+    24: 1043353066,
+    25: 1809021843,
+    26: 2112612905,
+    27: 858394364,
+    28: 1846860506,
+    29: 1310381705,
+    30: 420790252,
+    31: 885541809,
+    32: 878315235,
+    33: 175103428,
+    34: 1171057327,
+    35: 84173749,
+    36: 326744860,
+    37: 1040744996,
+    38: 991683712,
+    39: 807778937,
+    40: 3516187,
+    41: 1001954597,
+    42: 803958421,
+    43: 90724455,
+    44: 105396679,
+    45: 163621601,
+    46: 263882868,
+    47: 1265858728,
+    48: 1123840120,
+    49: 928480153,
+    50: 2045141623,
+    51: 1714975233,
+    52: 258929363,
+    53: 1612738422,
+    54: 1775498101,
+    55: 1187393398,
+    56: 1385470105,
+    57: 1480665456,
+    58: 535188786,
+    59: 1660219416,
+    60: 1403540709,
   },
 };
 
 void main() {
-  test('pin: requested seeds 1..60 map to the measured first-success attempt seeds (#46)', () {
+  test('pin: requested seeds 0..60 map to the measured derived attempt seeds (#61)', () {
     for (final entry in _convergence.entries) {
       final difficulty = DifficultyX.fromName(entry.key);
       final diverging = entry.value;
-      for (var seed = 1; seed <= 60; seed++) {
+      for (var seed = 0; seed <= 60; seed++) {
         final c = generateCase(difficulty: difficulty, seed: seed);
         expect(
+          // Full table coverage: a missing entry fails here (the derived
+          // mapping never stores the requested seed itself, so `?? seed`
+          // would silently hide drift).
+          diverging[seed]!,
           c.seed,
-          diverging[seed] ?? seed,
-          reason: '${difficulty.name} seed $seed converged differently',
+          reason: '${difficulty.name} seed $seed mapped differently',
         );
       }
     }
   });
 
+  test('pin: requested seeds 0..5 each produce one distinct case per difficulty (#61)', () {
+    // Issue 61's user story: nearby seeds must not collapse onto one
+    // stored attempt seed. Basins measured under the old sequential
+    // mapping put seeds 0..5 in one basin; the derived mapping must
+    // produce one distinct stored seed AND one distinct case per seed.
+    for (final entry in _convergence.entries) {
+      final difficulty = DifficultyX.fromName(entry.key);
+      final stored = <int>{};
+      final jsons = <String>{};
+      for (var seed = 0; seed <= 5; seed++) {
+        final c = generateCase(difficulty: difficulty, seed: seed);
+        stored.add(c.seed);
+        jsons.add(jsonEncode(c.toJson()));
+      }
+      expect(
+        stored.length,
+        6,
+        reason:
+            '${difficulty.name} seeds 0..5 must map to distinct '
+            'attempt seeds',
+      );
+      expect(
+        jsons.length,
+        6,
+        reason: '${difficulty.name} seeds 0..5 must produce distinct cases',
+      );
+    }
+  });
+
   test(
-    'pin: seeds 1..5 converge to one identical case per difficulty (#46)',
+    'pin: no two adjacent requested seeds 1..59 share a stored seed (#61)',
     () {
-      // The issue's headline observation: requested seeds through seed 5
-      // sit in one basin — the stored attempt seed alone decides the case.
       for (final entry in _convergence.entries) {
         final difficulty = DifficultyX.fromName(entry.key);
-        final stored = <int>{};
-        final jsons = <String>{};
-        for (var seed = 1; seed <= 5; seed++) {
-          final c = generateCase(difficulty: difficulty, seed: seed);
-          stored.add(c.seed);
-          jsons.add(jsonEncode(c.toJson()));
+        for (var seed = 1; seed <= 59; seed++) {
+          final a = generateCase(difficulty: difficulty, seed: seed);
+          final b = generateCase(difficulty: difficulty, seed: seed + 1);
+          expect(
+            a.seed == b.seed,
+            isFalse,
+            reason:
+                '${difficulty.name} adjacent seeds $seed/${seed + 1} share '
+                'stored seed ${a.seed} — a convergence basin survived',
+          );
         }
-        expect(
-          stored.length,
-          1,
-          reason: '${difficulty.name} seeds 1..5 must share one attempt seed',
-        );
-        expect(
-          jsons.length,
-          1,
-          reason: '${difficulty.name} seeds 1..5 must produce one case',
-        );
       }
     },
   );

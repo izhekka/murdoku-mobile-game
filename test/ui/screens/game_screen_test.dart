@@ -185,7 +185,24 @@ void main() {
 
     final names = NameForms.forLocale(l10n.localeName, fixedCase);
     final murdererName = names.nom(fixedCase.murdererId);
-    await tester.tap(find.text(murdererName).last);
+    // Scope the tap to the accuse sheet and scroll its list until the tile
+    // is reachable: the murderer's name can also appear on displayed clue
+    // cards, and its sheet tile can sit below the sheet fold (the fixture
+    // case content changed with the issue-61 remap).
+    final murdererTile = find.descendant(
+      of: find.byType(AccuseSheet),
+      matching: find.text(murdererName),
+    );
+    await tester.scrollUntilVisible(
+      murdererTile,
+      50,
+      scrollable: find.descendant(
+        of: find.byType(AccuseSheet),
+        matching: find.byType(Scrollable),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(murdererTile);
     await tester.pumpAndSettle();
 
     expect(find.byType(VictoryDialog), findsOneWidget);
@@ -956,6 +973,23 @@ void main() {
         .selectSuspect(negated.first.suspectId);
     await tester.pumpAndSettle();
 
+    // The clue card can sit outside the suspect grid's built viewport —
+    // the grid lazily builds until scrolled, and the card holding this
+    // clue drifted into row 2 with the issue-61 remap. Scroll the grid's
+    // own scrollable (document order puts it before each card's clue
+    // scroll view, so .first is the grid).
+    await tester.scrollUntilVisible(
+      find.text(text),
+      100,
+      scrollable: find
+          .descendant(
+            of: find.byType(SuspectPanel),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
+    await tester.pumpAndSettle();
+
     expect(
       find.text(text),
       findsOneWidget,
@@ -1212,7 +1246,23 @@ void main() {
       await tester.pumpAndSettle();
 
       final names = NameForms.forLocale(l10n.localeName, fixedCase);
-      await tester.tap(find.text(names.nom(fixedCase.murdererId)).last);
+      // Scope to the accuse sheet and scroll to the tile (issue 61: the
+      // fixture case content changed — the unscoped `.last` name can hit a
+      // clue card or a below-the-fold sheet tile).
+      final murdererTile = find.descendant(
+        of: find.byType(AccuseSheet),
+        matching: find.text(names.nom(fixedCase.murdererId)),
+      );
+      await tester.scrollUntilVisible(
+        murdererTile,
+        50,
+        scrollable: find.descendant(
+          of: find.byType(AccuseSheet),
+          matching: find.byType(Scrollable),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(murdererTile);
       await tester.pumpAndSettle();
       expect(find.byType(VictoryDialog), findsOneWidget);
 
