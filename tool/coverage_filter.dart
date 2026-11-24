@@ -1,5 +1,6 @@
 /// lcov post-processor that drops excluded directories from a coverage
-/// report (issue #37).
+/// report (issue #37) and normalizes the section order of its output
+/// (issue #53).
 ///
 /// `flutter test --coverage` cannot filter source paths, and the generated
 /// localization code under `lib/l10n/generated/**` jitters its lcov hit
@@ -7,9 +8,13 @@
 /// `DA:148` / `DA:150` in `app_localizations_ru.dart` flipped 1↔0), which
 /// makes coverage output non-byte-deterministic. This tool rewrites the
 /// lcov report in place, removing every `SF:…end_of_record` section whose
-/// `SF:` path lives under `lib/l10n/`. The CRAP gate
-/// (`tool/crap_check.dart`) already skips generated paths itself, so the
-/// removal does not change gate behavior.
+/// `SF:` path lives under `lib/l10n/`. Because the upstream writer's
+/// `SF:`-section order also jitters between runs (observed during #37:
+/// only SF-section reordering between two identical runs), the kept
+/// sections are additionally re-emitted sorted by `SF:` path — preamble
+/// bytes keep their relative order — so the whole filtered report hashes
+/// stably. The CRAP gate (`tool/crap_check.dart`) already skips generated
+/// paths itself, so neither behavior changes gate output.
 library;
 
 import 'dart:io';
@@ -32,47 +37,63 @@ bool isExcludedPath(String path) {
 
 /// Filters [lcov]: drops every section (`SF:` through `end_of_record`,
 /// or through end-of-input when truncated) whose `SF:` path satisfies
-/// [isExcludedPath]. Kept bytes — preamble, neighbor sections, trailing
-/// newline — are byte-identical to the input.
+/// [isExcludedPath], and re-emits the kept sections sorted by `SF:` path
+/// (issue #53). Lines outside any `SF:` section keep their relative
+/// order and stay in front of the sorted sections — including lines
+/// sitting between records, which are hoisted to that preamble, so
+/// tracefiles with inter-record data (e.g. genhtml-style `TN:`/`BRF:`
+/// blocks) must be pre-stripped to preserve their per-record placement.
 String filterLcov(String lcov) => filterLcovWithDropped(lcov).$1;
 
-/// Same filtering as [filterLcov], additionally returning the number of
-/// dropped `SF:` sections (per section, not per line).
+/// Same filtering and SF-path sorting as [filterLcov], additionally
+/// returning the number of dropped `SF:` sections (per section, not per
+/// line).
 (String, int) filterLcovWithDropped(String lcov) {
+  final endsWithNewline = lcov.endsWith('\n');
   final lines = lcov.split('\n');
-  final out = <String>[];
-  String? currentSf;
-  var dropping = false;
-  var dropped = 0;
-  var lastKeptIndex = -1;
-  for (var i = 0; i < lines.length; i++) {
-    final line = lines[i];
+  if (endsWithNewline && lines.isNotEmpty) lines.removeLast();
+
+  // Preamble: lines outside any `SF:` section, in relative order. A
+  // truncated kept section (no `end_of_record`) is closed implicitly by
+  // the next `SF:` or end-of-input and stays kept, as before.
+  final preamble = <String>[];
+  final records = <(String, List<String>)>[];
+  List<String>? current;
+  var sfPath = '';
+  for (final line in lines) {
     if (line.startsWith('SF:')) {
-      currentSf = line.substring(3);
-      dropping = isExcludedPath(currentSf);
-      if (dropping) dropped++;
-      if (!dropping) {
-        out.add(line);
-        lastKeptIndex = i;
+      if (current != null) records.add((sfPath, current));
+      sfPath = line.substring(3);
+      current = <String>[line];
+    } else if (current != null) {
+      current.add(line);
+      if (line == 'end_of_record') {
+        records.add((sfPath, current));
+        current = null;
       }
-      continue;
+    } else {
+      preamble.add(line);
     }
-    if (line == 'end_of_record') {
-      final hasOpenSection = currentSf != null;
-      currentSf = null;
-      if (hasOpenSection && dropping) continue;
-    } else if (currentSf != null && dropping) {
-      continue;
-    }
-    out.add(line);
-    lastKeptIndex = i;
   }
-  // `split('\n')`/`join('\n')` reproduction is byte-exact except for the
-  // terminator of the last kept element when everything after it is
-  // dropped — `join` only emits separators between kept elements, so that
-  // trailing '\n' must be restored explicitly.
+  if (current != null) records.add((sfPath, current));
+
+  final kept = records.where((r) => !isExcludedPath(r.$1)).toList()
+    ..sort((a, b) {
+      final byPath = a.$1.compareTo(b.$1);
+      if (byPath != 0) return byPath;
+      // Duplicate SF paths cannot occur in a valid report; the
+      // tie-break just makes the sort a total order.
+      return a.$2.join('\n').compareTo(b.$2.join('\n'));
+    });
+  final dropped = records.length - kept.length;
+
+  final out = <String>[];
+  out.addAll(preamble);
+  for (final record in kept) {
+    out.addAll(record.$2);
+  }
   var text = out.join('\n');
-  if (lastKeptIndex != -1 && lastKeptIndex < lines.length - 1) text += '\n';
+  if (out.isNotEmpty && endsWithNewline) text += '\n';
   return (text, dropped);
 }
 
@@ -108,6 +129,7 @@ void main(List<String> args) {
   final kept = 'SF:'.allMatches(filtered).length;
   if (filtered != original) file.writeAsStringSync(filtered);
   stdout.writeln(
-    'coverage_filter: dropped $dropped section(s), kept $kept in $lcovPath',
+    'coverage_filter: dropped $dropped section(s), kept $kept '
+    '(SF-sorted) in $lcovPath',
   );
 }

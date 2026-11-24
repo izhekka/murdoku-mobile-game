@@ -52,6 +52,43 @@ void main() {
     test('keeps preamble before the first SF section', () {
       expect(filterLcov('TN:coverage\n$l10nSection'), 'TN:coverage\n');
     });
+
+    test('sorts kept SF sections by path (issue #53)', () {
+      const b = 'SF:lib/b.dart\nDA:1,1\nLF:1\nLH:1\nend_of_record\n';
+      const a = 'SF:lib/a.dart\nDA:2,1\nLF:1\nLH:1\nend_of_record\n';
+      final sorted = a + b;
+      // Input order must not matter: whole-report bytes are canonical.
+      expect(filterLcov(b + a), sorted);
+      expect(filterLcov(a + b), sorted);
+    });
+
+    test('drops l10n sections from anywhere and keeps the rest sorted', () {
+      const a = 'SF:lib/a.dart\nDA:1,0\nLF:1\nLH:0\nend_of_record\n';
+      const z = 'SF:lib/z.dart\nDA:9,1\nLF:1\nLH:1\nend_of_record\n';
+      expect(filterLcov('$z$l10nSection$a'), a + z);
+    });
+
+    test('already filtered output is byte-identical when re-filtered', () {
+      const b = 'SF:lib/b.dart\nDA:5,0\nLF:1\nLH:0\nend_of_record\n';
+      const a = 'SF:lib/a.dart\nDA:1,1\nLF:1\nLH:1\nend_of_record\n';
+      final once = filterLcov(b + a);
+      expect(filterLcov(once), once);
+    });
+
+    test('keeps a preamble in front of the sorted sections', () {
+      const b = 'SF:lib/b.dart\nDA:1,1\nLF:1\nLH:1\nend_of_record\n';
+      const a = 'SF:lib/a.dart\nDA:2,1\nLF:1\nLH:1\nend_of_record\n';
+      expect(filterLcov('TN:cov\n$b$a'), 'TN:cov\n$a$b');
+    });
+
+    test('input without trailing newline stays newline-less when sorted', () {
+      expect(
+        filterLcov(
+          'SF:lib/b.dart\nend_of_record\nSF:lib/a.dart\nend_of_record',
+        ),
+        'SF:lib/a.dart\nend_of_record\nSF:lib/b.dart\nend_of_record',
+      );
+    });
   });
 
   group('filterLcovWithDropped', () {
