@@ -9,11 +9,16 @@ How to set up and use the local development toolchain for Murdoku. See
 - **Flutter stable channel, Dart bundled with it.** The repo was scaffolded
   against Flutter 3.50.0 / Dart 3.14.0; any recent stable works. Check with
   `flutter doctor -v`.
-- **Swift Package Manager is disabled machine-globally**
-  (`flutter config --no-enable-swift-package-manager`). The committed iOS
-  native integration is CocoaPods (`ios/Podfile` + `ios/Podfile.lock`).
-  Flutter prints a notice that SPM will eventually be required again; until
-  Flutter drops CocoaPods support, keep the current flow. Do not commit
+- **Swift Package Manager is the active dependency manager for iOS**
+  (re-enabled machine-globally via `flutter config --enable-swift-package-manager`,
+  issue #52). The Flutter tool generates
+  `ios/Flutter/ephemeral/Packages/FlutterGeneratedPluginSwiftPackage` with all iOS
+  plugins and the Flutter framework; `flutter build ios` resolves them through Xcode's
+  SPM integration. The CocoaPods flow is deprecated: Flutter's tool announces that SPM
+  "will be required in a future version of Flutter", and the repo migrated off the
+  hybrid SPM/pods pbxproj state before that lands. CocoaPods remains installed only
+  because the tool still runs its (now no-op) `pod install` while a Podfile exists —
+  see the retention rationale under "Native config rules". Do not commit
   `ios/Flutter/ephemeral/` artifacts (already gitignored).
 - The first run of any `flutter` command shows an analytics/telemetry notice
   (tool-level, not part of the app — the app itself is fully offline). Opt out
@@ -29,7 +34,9 @@ How to set up and use the local development toolchain for Murdoku. See
 - **First-launch components**: `xcodebuild -checkFirstLaunchStatus` should
   exit 0; if not, run `sudo xcodebuild -runFirstLaunch` once (this also makes
   the `iphoneos`/`iphonesimulator` SDKs available).
-- **CocoaPods**: `brew install cocoapods` (verify with `pod --version`).
+- **CocoaPods**: `brew install cocoapods` (verify with `pod --version`). Still required:
+  while the retained `ios/Podfile` exists, the tool runs a (no-op, integration-free)
+  `pod install` on every iOS build, which fails without CocoaPods.
 - **iOS simulator runtime** (needed to *boot* a simulator, not to build):
   `xcodebuild -downloadPlatform iOS` — one-time, per machine. Without a
   runtime, `flutter build ios --simulator` still succeeds; `xcrun simctl boot`
@@ -48,8 +55,18 @@ xcrun simctl io <udid> screenshot /tmp/murdoku.png   # launch evidence
 
 - Known non-bug: in debug, starting a case blocks the main thread ~60–90 s —
   wait for the home screen / next screen, don't "fix".
-- Podfile/Podfile.lock were generated and are committed; pod resolution runs
-  automatically during the first build (requires `flutter pub get` first).
+- Podfile/Podfile.lock are committed and inert (see "Native config rules"); pod
+  resolution runs as a no-op during builds (requires `flutter pub get` first).
+- **Verified 2026-11-24 (issue #52):** pure-SPM migration — `flutter build ios
+  --simulator` and `flutter build ios --no-codesign` exit 0 with
+  `git status --porcelain` clean after the builds; from a cleaned tree
+  (`flutter clean`, `ios/Pods` removed) `flutter build ios --config-only
+  --no-codesign` exits 0, runs the no-op `pod install`, and leaves the tracked
+  tree untouched. `flutter build ios --simulator` after that clean also exits 0
+  (SPM resolution from cold works; the #34-era
+  "Xcode failed to resolve Swift Package Manager dependencies" failure does not
+  recur once the flag is on and the generated package carries the
+  FlutterFramework dependency).
 - **Verified 2026-11-24 (issue #50):** the flow above works end-to-end —
   install → launch `com.murdoku.game` (pid 19328) → screenshot, each step
   exiting 0 with the home screen visible, on an iPhone 18 Pro simulator
@@ -75,8 +92,31 @@ Any Apple ID works; the repo must never record a specific team:
 
 ### Native config rules
 
-- Commit `ios/Podfile` and `ios/Podfile.lock`. To regenerate locally:
-  `flutter pub get && flutter build ios --simulator`.
+- **CocoaPods scaffolding is committed but inert.** `ios/Podfile` declares no
+  pods and sets `install! 'cocoapods', :integrate_targets => false`; `ios/Podfile.lock`
+  is the regenerated empty lock. This retains the working CocoaPods fallback from
+  issue #34 without letting `pod install` re-hybridize the project: CocoaPods
+  re-integrates `Pods_` wiring into `Runner.xcodeproj` on every plain install, but
+  with no pod declarations and user-project integration disabled, `pod install` (which
+  the tool still runs while a Podfile exists) writes only lockfiles. The guard test
+  `test/tool/ios_toolchain_guard_test.dart` pins this state.
+- The two `#include? "Pods/Target Support Files/…"` lines in
+  `ios/Flutter/{Debug,Release}.xcconfig` are tool-managed: the tool re-adds them
+  whenever a Podfile and Podfile.lock exist, so removing them churns the tree on every
+  build. They are optional includes and resolve nothing while no pods targets are
+  generated.
+- Expected tool warning on every iOS build while the fallback Podfile exists:
+  "All plugins found for ios are Swift Packages, but your project still has CocoaPods
+  integration…". It is benign (retention is deliberate; see the banner in
+  `ios/Podfile`), and it disappears if the Podfile is ever removed.
+- **Restoring CocoaPods** (e.g. a plugin without `Package.swift` support): restore the
+  podhelper target block from commit 43ab35a, run
+  `flutter config --disable-swift-package-manager`, then `flutter build ios` and commit
+  the regenerated `Podfile.lock`.
+- `flutter build ios` (device, signed) requires a code-signing identity on the machine
+  and exits early without one; `flutter build ios --config-only` inherits the same
+  check. The verified device-path check on machines without certificates is
+  `flutter build ios --config-only --no-codesign` (exit 0, issue #52).
 - **Never commit a `DEVELOPMENT_TEAM` entry** — `grep -r DEVELOPMENT_TEAM ios/`
   must stay empty (signing is a local Xcode setting, not a repo one).
 - `ios/Flutter/Generated.xcconfig`, `ios/Pods/`, and
@@ -94,9 +134,16 @@ Any Apple ID works; the repo must never record a specific team:
   --debug` — makes regeneration a no-op and kills the phantom worktree
   diff (issue #51).
 - To regenerate locally: `flutter pub get && flutter build macos --debug`
-  — the working tree must stay clean afterwards. If a Flutter upgrade changes
-  `macos/Podfile.lock`, commit the updated lock (same rule as
-  `ios/Podfile.lock`).
+  — the working tree must stay clean afterwards. With the SPM feature flag on
+  (issue #52, iOS), the first macOS build after this migration is expected to
+  regenerate `macos/Podfile.lock` without `shared_preferences_foundation`
+  (the plugin ships `Package.swift`, so SPM is expected to serve it there
+  too) — verify at that build and commit the updated lock (same rule as
+  `ios/Podfile.lock`; this forecast is unverified — no macOS build has run
+  since the flag change). The macOS pbxproj already carries its
+  `FlutterGeneratedPluginSwiftPackage` references and the macOS scheme its
+  `macos_assemble.sh prepare` pre-action, so no macOS pbxproj/scheme migration
+  is expected.
 - `macos/Flutter/ephemeral/` and `macos/Pods/` are machine-local and stay
   gitignored; never commit a `DEVELOPMENT_TEAM` entry (`grep -r
   DEVELOPMENT_TEAM macos/` must stay empty).
