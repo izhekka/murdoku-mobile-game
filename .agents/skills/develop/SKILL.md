@@ -28,11 +28,18 @@ ends when the queue is empty, the per-run cap is hit, or something blocks.
 
 ### 1. Pick the next issue
 
+The queue is every open issue whose labels include at least one of `task`,
+`gap`, `issue` — owner-filed `task` issues stay findable alongside follow-up
+`gap`/`issue` filings. gh's REST `labels` parameter is AND-semantics, so the
+union is filtered client-side, never via a comma-label OR query:
+
 ```bash
-gh issue list --label task --state open --json number,title
+gh issue list --state open --json number,title,labels \
+  | jq '[.[] | select(any(.labels[].name; . == "task" or . == "gap" or . == "issue"))] | sort_by(.number)'
 ```
 
-Take the lowest-numbered issue. If there is none, print exactly:
+Take the lowest-numbered issue (first row of the sorted output). If the
+output is empty, print exactly:
 
 ```
 queue empty — nothing to do
@@ -95,15 +102,37 @@ the raw output verbatim.
 
 For each fact in `gaps[]`:
 
-1. Duplicate-check against open `task` issues (`gh issue list --label task
-   --state open`) — skip facts already covered by an open issue.
+1. Duplicate-check against the same universe the pick step uses — every open
+   issue whose labels include at least one of `task`, `gap`, `issue`:
+   `gh issue list --state open --json number,title,labels | jq '[.[] | select(any(.labels[].name; . == "task" or . == "gap" or . == "issue"))]'`
+   — skip facts already covered by an open issue.
 2. Compose the issue body in the exact six-section format of submit-task §5
    (Description, User story, Context, Acceptance criteria, Testing strategy,
    Out Of scope), grounded in the reported fact: the `evidence` goes into
    Context verbatim; when the fix touches code, include the gate
    (`flutter analyze` reports 0 issues and `flutter test` passes) in the
    acceptance criteria and testing strategy.
-3. File it: `gh issue create --title <title> --body-file <tmpfile> --label task`.
+3. File it. Ensure the follow-up labels exist first (idempotent — a fresh
+   clone files labeled follow-ups without pre-setup):
+
+   ```bash
+   gh label create gap --color 006b75 2>/dev/null || true
+   gh label create issue --color ff0000 2>/dev/null || true
+   gh label create severity_low --color 800080 2>/dev/null || true
+   gh label create severity_middle --color 800080 2>/dev/null || true
+   gh label create severity_high --color 800080 2>/dev/null || true
+   ```
+
+   Then create with the provenance and severity labels — never `task`:
+   `gh issue create --title <title> --body-file <tmpfile> --label <provenance> --label <severity>`.
+   Provenance by origin: `gap` when the fact originates from the executor's
+   gap sweep; `issue` when it originates from a reviewer finding — including
+   findings the executor recorded as `filed_as_tasks` with a matching gap
+   fact (origin wins over the report section the fact appears in). Severity,
+   assigned by the orchestrator at filing: `severity_high` = likely player
+   harm or blocks a feature; `severity_middle` = latent crash-capability or
+   a deferred core goal; `severity_low` = cosmetic, latent-internal, or
+   tooling.
 4. Refuse to file a gap whose `evidence` is not concrete (no file:line,
    screenshot, or observed output) — surface it to the user instead.
 
