@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:murdoku/app.dart';
 import 'package:murdoku/core/skins.dart';
+import 'package:murdoku/domain/generator/case_factory.dart';
 import 'package:murdoku/domain/models.dart';
 import 'package:murdoku/l10n/generated/app_localizations.dart';
 import 'package:murdoku/state/clock.dart';
@@ -35,6 +36,11 @@ void main() {
         // mix (and with it the coverage data the CRAP gate consumes) is
         // deterministic per run.
         forcedSeedProvider.overrideWithValue(3),
+        // Issue 49: the daily card starts startDaily(utcToday(clockProvider)),
+        // so the tapped daily case is date-seeded from the wall clock. Pin the
+        // clock so a UTC-midnight crossing between runs cannot flip the
+        // generated daily case and with it the coverage DA sets.
+        clockProvider.overrideWithValue(() => DateTime.utc(2026, 11, 20, 15)),
       ],
     );
     addTearDown(container.dispose);
@@ -159,12 +165,16 @@ void main() {
     final prefs = await SharedPreferences.getInstance();
     final preRepo = PrefsRepository(prefs);
     await preRepo.saveDailyState(
-      DailyState(
-        lastCompletedDate: formatUtcDate(DateTime.now().toUtc()),
-        streak: 1,
-      ),
+      const DailyState(lastCompletedDate: '2026-11-20', streak: 1),
     );
-    container = ProviderContainer(overrides: seededOverrides(prefs));
+    container = ProviderContainer(
+      overrides: [
+        ...seededOverrides(prefs),
+        // Issue 49: same fixed clock as pumpHome, so the done marker asserts
+        // against a pinned date instead of the wall clock.
+        clockProvider.overrideWithValue(() => DateTime.utc(2026, 11, 20, 15)),
+      ],
+    );
     addTearDown(container.dispose);
     await tester.pumpWidget(
       UncontrolledProviderScope(
@@ -225,6 +235,17 @@ void main() {
       expect(find.byKey(const Key('board_view')), findsOneWidget);
       final state = container.read(gameControllerProvider)!;
       expect(state.isDaily, isTrue);
+      // Issue 49: the daily card seeds from the wall clock; with the pinned
+      // clock the tapped case must be exactly the 2026-11-20 daily.
+      expect(state.dailyDate, '2026-11-20');
+      expect(
+        state.caseData.toJson(),
+        generateCase(
+          difficulty: Difficulty.standard,
+          seed: dailySeedFor(parseUtcDate('2026-11-20')),
+        ).toJson(),
+        reason: "the daily tap builds standard's seed 20261120",
+      );
     });
 
     testWidgets('how-to-play, stats and settings tiles navigate', (

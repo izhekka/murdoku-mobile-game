@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:murdoku/app.dart';
+import 'package:murdoku/domain/generator/case_factory.dart';
+import 'package:murdoku/domain/models.dart';
 import 'package:murdoku/l10n/generated/app_localizations.dart';
 import 'package:murdoku/state/clock.dart';
 import 'package:murdoku/state/game_controller.dart';
@@ -76,6 +78,29 @@ void main() {
     );
     expect(repo.loadDailyState().streak, 1);
   });
+
+  test(
+    'daily case for the fixed date is standard seed 20261120 (issue 49)',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final container = ProviderContainer(overrides: seededOverrides(prefs));
+      addTearDown(container.dispose);
+      final notifier = container.read(gameControllerProvider.notifier);
+
+      notifier.startDaily('2026-11-20');
+      expect(
+        container.read(gameControllerProvider)!.caseData.toJson(),
+        generateCase(
+          difficulty: Difficulty.standard,
+          seed: dailySeedFor(parseUtcDate('2026-11-20')),
+        ).toJson(),
+        reason:
+            'startDaily routes the fixed date through the standard generator '
+            'with seed dailySeedFor(date)',
+      );
+    },
+  );
 
   testWidgets('daily card shows no done marker when yesterday was completed', (
     tester,

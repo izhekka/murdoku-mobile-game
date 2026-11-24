@@ -85,6 +85,11 @@ void main() {
     expect(wonState.phase, GamePhase.won);
 
     // Daily card leads into a fresh daily case.
+    // Issue 49: this daily start stays wall-clock dated — murdokuBootstrap
+    // builds its own ProviderScope, so this harness cannot take a
+    // clockProvider override. Keep the daily assertions clock-insensitive
+    // (identity only, no date-content expectations); a bootstrap clock
+    // parameter is a follow-up, not this branch.
     await tester.tap(find.text(l10n.dailyCase));
     await tester.pumpAndSettle();
     final daily = containerOf(tester).read(gameControllerProvider)!;

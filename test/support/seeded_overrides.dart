@@ -9,10 +9,13 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// coverage-derived CRAP gate data between runs.
 ///
 /// Daily starts are date-seeded via dailySeedFor and ignore the forced
-/// seed; daily taps stay deterministic without this pin.
+/// seed; a daily tap is wall-clock deterministic only when the harness
+/// also pins clockProvider to a fixed date (issue 49) — see pumpHome in
+/// test/ui/screens/home_screen_test.dart.
 ///
-/// The one full-app path these overrides cannot reach is the bootstrap
-/// contract (test/main_test.dart): murdokuBootstrap builds its own
+/// The full-app paths these overrides cannot reach are the murdokuBootstrap
+/// callers — the bootstrap contract (test/main_test.dart) and the smoke
+/// test (integration_test/smoke_test.dart): murdokuBootstrap builds its own
 /// ProviderScope, so container overrides never apply there. Instead:
 /// (1) an unseeded murdokuBootstrap() test must stay start-free — no case
 /// start may run in it, enforced by the guard test 'unseeded bootstrap

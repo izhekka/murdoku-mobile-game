@@ -44,6 +44,12 @@ const golden = {
   'standard/211': '1522a26a8745728c',
   'standard/123': 'b3d3e328664db58c',
   'standard/129': '462878cefc512125',
+  // 20261119/20261120 are dailySeedFor(2026-11-19) / (2026-11-20) — the UTC
+  // dates pinned in the daily-card tests (issue 49). The two dates converge
+  // to the same case (nearby seeds share a golden), so the digests are
+  // intentionally equal.
+  'standard/20261119': 'f66ea949dbc51475',
+  'standard/20261120': 'f66ea949dbc51475',
   'hard/1': '84c3f237e01bdefd',
   'hard/101': '428c494fa6e5496a',
   'hard/201': '85f9c3ddcf61fc36',
