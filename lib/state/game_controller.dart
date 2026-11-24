@@ -160,12 +160,18 @@ class GameNotifier extends Notifier<GameState?> {
     );
   }
 
+  /// Starts the daily case for [utcDate] (seed: dailySeedFor of the UTC
+  /// date). Routes through [generateCaseWithRecovery] so a date whose
+  /// derived seed sits in a budget-exhaustion corridor recovers instead of
+  /// crashing the daily start (issue 60): byte-identical to bare
+  /// generateCase for every currently-generating date-seed; only window-0
+  /// exhaustion strides to fresh seeds.
   void startDaily(
     String utcDate, {
     Difficulty difficulty = Difficulty.standard,
   }) {
     _start(
-      generateCase(
+      generateCaseWithRecovery(
         difficulty: difficulty,
         seed: dailySeedFor(_utcDate(utcDate)),
       ),

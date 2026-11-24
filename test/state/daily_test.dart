@@ -79,6 +79,53 @@ void main() {
     expect(repo.loadDailyState().streak, 1);
   });
 
+  test('corridor date-seed recovers instead of crashing the daily start (#60)', () async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final container = ProviderContainer(overrides: seededOverrides(prefs));
+    addTearDown(container.dispose);
+    final notifier = container.read(gameControllerProvider.notifier);
+
+    // Evidence the pinned date really sits in a budget-exhaustion corridor:
+    // bare generateCase (the pre-#60 daily call) throws for standard seed
+    // 20551225 — the only failing date-seed in the 2019-2060 scan.
+    expect(
+      () => generateCase(
+        difficulty: Difficulty.standard,
+        seed: dailySeedFor(parseUtcDate('2055-12-25')),
+      ),
+      throwsStateError,
+      reason:
+          'corridor moved or vanished — re-verify the failing date-seed '
+          'scan and re-pin date/stride',
+    );
+
+    // The daily start must not crash: recovery strides to seed 20551265.
+    notifier.startDaily('2055-12-25');
+    final first = container.read(gameControllerProvider)!;
+    expect(first.isDaily, isTrue);
+    expect(first.dailyDate, '2055-12-25');
+    expect(
+      first.caseData.seed,
+      20551265,
+      reason: 'recovery must land on the window-1 stride seed',
+    );
+    expect(
+      first.caseData.toJson(),
+      generateCaseWithRecovery(
+        difficulty: Difficulty.standard,
+        seed: dailySeedFor(parseUtcDate('2055-12-25')),
+      ).toJson(),
+      reason: 'a corridor date-seed recovers exactly like the issue-45 seam',
+    );
+
+    // Daily replay determinism after recovery: same date, same recovered case.
+    notifier.quit();
+    notifier.startDaily('2055-12-25');
+    final second = container.read(gameControllerProvider)!.caseData;
+    expect(second.toJson(), equals(first.caseData.toJson()));
+  });
+
   test(
     'daily case for the fixed date is standard seed 20261120 (issue 49)',
     () async {
