@@ -1796,4 +1796,93 @@ void main() {
       semantics.dispose();
     });
   });
+
+  group('unbounded-width hosts (issue 59)', () {
+    const documentedSummary =
+        'SuspectPanel was given an unbounded width constraint';
+
+    Widget panel() => SuspectPanel(
+      caseData: fixture,
+      placed: const {},
+      selectedSuspectId: null,
+      onSuspectTap: (_) {},
+    );
+
+    Future<void> pumpHost(WidgetTester tester, Widget host) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          locale: const Locale('en'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(body: host),
+        ),
+      );
+    }
+
+    /// The documented assertion, and nothing else: exactly one reported
+    /// exception, a FlutterError that names the unbounded width.
+    void expectDocumentedAssertion(WidgetTester tester) {
+      final exception = tester.takeException();
+      expect(exception, isA<FlutterError>());
+      expect(
+        exception!.toString(),
+        contains(documentedSummary),
+        reason:
+            'the unbounded-width host gets the documented assertion, '
+            'not a NaN/generic layout cascade',
+      );
+      // The summary names the actual violating value (interpolated, per the
+      // issue-59 review: the guard also fires on non-infinite unbounded
+      // widths such as NaN or -Infinity).
+      expect(
+        exception.toString(),
+        contains('maxWidth = Infinity'),
+        reason: 'the summary interpolates the actual maxWidth value',
+      );
+      expect(
+        tester.takeException(),
+        isNull,
+        reason: 'the documented assertion is the ONLY reported error',
+      );
+    }
+
+    testWidgets('horizontal scroller, pinned height: names the violation', (
+      tester,
+    ) async {
+      // A horizontal ListView item sees maxWidth = double.infinity with a
+      // tight (pinned) height — the issue's canonical latent host.
+      await pumpHost(
+        tester,
+        SizedBox(
+          height: 400,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            children: [panel()],
+          ),
+        ),
+      );
+
+      expectDocumentedAssertion(tester);
+    });
+
+    testWidgets('horizontal scroll view, loose height: names the violation', (
+      tester,
+    ) async {
+      // A horizontal SingleChildScrollView child sees maxWidth = infinity
+      // with a loose height (min 0 / max 400) — the loose unbounded-width
+      // path named in the issue.
+      await pumpHost(
+        tester,
+        SizedBox(
+          height: 400,
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: panel(),
+          ),
+        ),
+      );
+
+      expectDocumentedAssertion(tester);
+    });
+  });
 }
