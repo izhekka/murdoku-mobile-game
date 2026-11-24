@@ -273,6 +273,15 @@ easy 1–4 → 5, 15–19 → 20; standard 1–4 → 5, 28–43 → 44; hard 1�
   re-pinned: hard 111 (single exhausted window), hard 375 → 415 → 455
   (two-window corridor), and the daily date-seed 2031-09-28 (the issue-60
   corridor 2055-12-25 now generates directly).
+- **Re-deriving the corridor evidence is repo-native.** The daily
+  date-seed corridor re-pin is backed by `tool/scan_daily_corridors.dart`
+  (issue #71): `dart run tool/scan_daily_corridors.dart [<yyyy-from>
+  <yyyy-to>] [--all]` sweeps the daily UTC date-seeds (default 2019–2060,
+  15,341 cases at standard difficulty, ~3–4 minutes as measured — the
+  failing map the test comment cites) and prints the bare-exhaust dates
+  with their recovery stride; `--all` prints every date instead. Manual or
+  periodic invocation only — NEVER from `make quality`: a minutes-long
+  generator sweep must not gate every commit.
 - **Why issue 46 originally froze this (history).** The pinned golden
   digests hash `toJson()`, which includes each attempt's stored seed, so
   any attempt-seed remap drifts them (easy/1 → attempt 5, standard/1 → 5,
@@ -286,11 +295,20 @@ easy 1–4 → 5, 15–19 → 20; standard 1–4 → 5, 28–43 → 44; hard 1�
   `difficulty seed -> stored` rows, `map` emits the `_convergence` literal
   of the convergence test; an optional `[start] [end]` widens past the 0..60
   pin range — a lone `[start]` only narrows within 0..60, pass both to
-  widen), then update the convergence table together with the golden
-  digests and every measured corridor seam in the same change, stating the
-  cause, and mutation-verify the pin's teeth (reverting the derivation — or
-  shifting any stream constant — must fail the pins). Never hand-write the
-  table — transcribe the probe's measured output.
+  widen). The golden-digest half of the re-pin is the same probe (issue
+  #72): `digests` reprints the golden literal with freshly measured digests
+  — the exact values to transcribe into the digest test; exhaust entries
+  are reported and never fabricated, drift notes go to stderr —
+  `daily [<yyyy-mm-dd> [<yyyy-mm-dd>]]` prints the daily-date digest inputs
+  (no dates = the golden file's date entries; explicit dates sweep
+  difficulty `standard`), and `check` verifies every committed digest live,
+  exiting 1 on drift or exhaust. The digest modes are manual invocation
+  only — never part of `make quality`. Then update the convergence table
+  together with the golden digests and every measured corridor seam in the
+  same change, stating the cause, and mutation-verify the pin's teeth
+  (reverting the derivation — or shifting any stream constant — must fail
+  the pins). Never hand-write the table — transcribe the probe's measured
+  output.
 
 ## Enforced lint → guideline mapping
 

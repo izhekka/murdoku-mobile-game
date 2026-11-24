@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:murdoku/domain/generator/case_factory.dart';
 import 'package:murdoku/domain/models.dart';
@@ -139,6 +141,180 @@ void main() {
       // past the default end is the inverted-range rejection, not a
       // widening (§13 wording; reviewed on this branch).
       expect(parseArgs(const ['mapping', '61']), isNull);
+    });
+
+    test('parses the digest modes without extra args (#72)', () {
+      expect(parseArgs(const ['digests'])!.mode, ProbeMode.digests);
+      expect(parseArgs(const ['digests', 'x']), isNull);
+      expect(parseArgs(const ['check'])!.mode, ProbeMode.check);
+      expect(parseArgs(const ['check', 'y']), isNull);
+    });
+
+    test('parses daily dates strictly (#72)', () {
+      final none = parseArgs(const ['daily']);
+      expect(none!.dailyStart, isNull);
+      expect(none.dailyEnd, isNull);
+      final single = parseArgs(const ['daily', '2026-11-19']);
+      expect(single!.dailyStart, DateTime.utc(2026, 11, 19));
+      expect(single.dailyEnd, DateTime.utc(2026, 11, 19));
+      final range = parseArgs(const ['daily', '2026-11-19', '2026-11-20']);
+      expect(range!.dailyStart, DateTime.utc(2026, 11, 19));
+      expect(range.dailyEnd, DateTime.utc(2026, 11, 20));
+      expect(parseArgs(const ['daily', '2026-02-30']), isNull); // no such day
+      expect(parseArgs(const ['daily', '20261119']), isNull); // missing dashes
+      expect(
+        parseArgs(const ['daily', '2026-11-20', '2026-11-19']),
+        isNull, // inverted
+      );
+      expect(parseArgs(const ['daily', 'a', 'b', 'c']), isNull); // extra
+    });
+  });
+
+  group('digestOf', () {
+    test('spot-equals the committed golden digests (#72)', () {
+      // Literal copies of test/domain/generator/golden_digest_test.dart —
+      // deliberate: independent of that file, the copies also witness drift
+      // in it (the golden-digest literal-copy style; update in the same
+      // change as any digest re-pin).
+      expect(
+        digestOf(generateCase(difficulty: Difficulty.easy, seed: 1)),
+        '9824ca8d10f6fd06',
+      );
+      expect(
+        digestOf(generateCase(difficulty: Difficulty.hard, seed: 112)),
+        '55ec51fcbf077c9c',
+      );
+      expect(
+        digestOf(generateCase(difficulty: Difficulty.standard, seed: 20261119)),
+        '780d586106bf65c6',
+      );
+    });
+
+    test('deterministic across repeated calls over a fixed entry (#72)', () {
+      final first = digestOf(
+        generateCase(difficulty: Difficulty.standard, seed: 20261119),
+      );
+      final second = digestOf(
+        generateCase(difficulty: Difficulty.standard, seed: 20261119),
+      );
+      expect(first, second);
+    });
+  });
+
+  group('golden entries', () {
+    test('parseGoldenEntries skips comments, blanks and stray lines (#72)', () {
+      final entries = parseGoldenEntries(
+        '// preamble comment\n'
+        '\n'
+        'const golden = {\n'
+        "  'easy/1': '9824ca8d10f6fd06',\n"
+        '  // mid-map comment\n'
+        "  'hard/112': '55ec51fcbf077c9c',\n"
+        '};\n'
+        'trailing prose\n',
+      );
+      expect(entries.map((e) => e.key), ['easy/1', 'hard/112']);
+      expect(entries.first.committed, '9824ca8d10f6fd06');
+      expect(entries.first.difficulty, Difficulty.easy);
+      expect(entries.first.seed, 1);
+    });
+
+    test(
+      'the committed golden file parses with unique 16-hex entries (#72)',
+      () {
+        final entries = readGoldenEntries(goldenFileDefault);
+        expect(entries, isNotEmpty);
+        expect(entries.map((e) => e.key).toSet().length, entries.length);
+        for (final entry in entries) {
+          expect(entry.committed, matches(RegExp(r'^[0-9a-f]{16}$')));
+        }
+        expect(
+          entries.map((e) => e.key),
+          containsAll(<String>[
+            'easy/1',
+            'standard/20261119',
+            'standard/20261120',
+          ]),
+        );
+      },
+    );
+
+    test('isDailySeed selects valid daily-date shapes (#72)', () {
+      expect(isDailySeed(20261119), isTrue);
+      expect(isDailySeed(20261120), isTrue);
+      expect(isDailySeed(20261301), isFalse); // month 13
+      expect(isDailySeed(20261131), isFalse); // Nov has 30 days
+      expect(isDailySeed(1234567), isFalse); // short
+      expect(isDailySeed(11212), isFalse); // short
+    });
+  });
+
+  group('daily rows', () {
+    test(
+      'the golden-driven default reproduces the daily-date inputs (#72)',
+      () {
+        final rows = dailyRows(
+          fromGolden: readGoldenEntries(goldenFileDefault),
+        );
+        expect(rows.length, 2);
+        expect(rows[0].date, '2026-11-19');
+        expect(rows[0].seed, 20261119);
+        expect(rows[0].digest, '780d586106bf65c6');
+        expect(rows[1].date, '2026-11-20');
+        expect(rows[1].seed, 20261120);
+        expect(rows[1].digest, 'd12db8c1fb581348');
+      },
+    );
+
+    test('an explicit single date prints the live digest (#72)', () {
+      final rows = dailyRows(start: DateTime.utc(2026, 11, 19));
+      expect(rows.single.digest, '780d586106bf65c6');
+    });
+
+    test('an explicit range is inclusive across a month boundary (#72)', () {
+      final rows = dailyRows(
+        start: DateTime.utc(2026, 11, 30),
+        end: DateTime.utc(2026, 12),
+      );
+      expect(rows.map((r) => r.date), ['2026-11-30', '2026-12-01']);
+      expect(rows.map((r) => r.seed), [20261130, 20261201]);
+      expect(rows.where((r) => r.digest != null).length, 2);
+    });
+
+    test('formatDailyRows shapes the date digest lines (#72)', () {
+      final rows = dailyRows(fromGolden: readGoldenEntries(goldenFileDefault));
+      expect(
+        formatDailyRows(rows),
+        '2026-11-19 20261119 -> 780d586106bf65c6\n'
+        '2026-11-20 20261120 -> d12db8c1fb581348',
+      );
+    });
+  });
+
+  group('checkGolden', () {
+    test('the committed digests verify live with nothing to report (#72)', () {
+      final entries = readGoldenEntries(goldenFileDefault);
+      final result = checkGolden(goldenFileDefault);
+      expect(result.drifted, isEmpty);
+      expect(result.exhausts, isEmpty);
+      expect(result.ok.length, entries.length);
+    });
+
+    test('a drifted committed value is reported with both sides (#72)', () {
+      final dir = Directory.systemTemp.createTempSync('probe_digest_test');
+      addTearDown(() => dir.deleteSync(recursive: true));
+      final path = '${dir.path}${Platform.pathSeparator}golden.dart';
+      File(path).writeAsStringSync(
+        'const golden = {\n'
+        "  'easy/1': 'deadbeefdeadbeef',\n"
+        '};\n',
+      );
+      final result = checkGolden(path);
+      expect(
+        result.drifted.single,
+        'drift easy/1 live=9824ca8d10f6fd06 committed=deadbeefdeadbeef',
+      );
+      expect(result.ok, isEmpty);
     });
   });
 }

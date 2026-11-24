@@ -92,7 +92,9 @@ void main() {
     // failures shifted the corridor set: the 2019-2060 scan measured
     // exactly two failing date-seeds, 2031-09-28 and 2047-04-01 — both
     // pinned below; the pre-#61 corridor 2055-12-25 (20551225) now
-    // generates directly.
+    // generates directly. Re-derive the scan from repo evidence with the
+    // committed tool `dart run tool/scan_daily_corridors.dart 2019 2060`
+    // (issue 71; manual invocation only, never from make quality).
     for (final date in const ['2031-09-28', '2047-04-01']) {
       expect(
         () => generateCase(
