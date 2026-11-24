@@ -82,3 +82,21 @@ Any Apple ID works; the repo must never record a specific team:
 - `ios/Flutter/Generated.xcconfig`, `ios/Pods/`, and
   `ios/Flutter/ephemeral/` are machine-local and stay gitignored.
 - Bundle id `com.murdoku.game` stands until the Task 17 rename guardrail.
+
+## macOS
+
+- The CocoaPods scaffolding is committed: `macos/Podfile` +
+  `macos/Podfile.lock`, the `#include? "Pods/Target Support Files/..."`
+  lines in `macos/Flutter/Flutter-{Debug,Release}.xcconfig`, and the Pods
+  wiring in `macos/Runner.xcodeproj` + `macos/Runner.xcworkspace`.
+  Every flutter command (even iOS builds/tests) regenerates this
+  scaffolding, so committing it — done once via `flutter build macos
+  --debug` — makes regeneration a no-op and kills the phantom worktree
+  diff (issue #51).
+- To regenerate locally: `flutter pub get && flutter build macos --debug`
+  — the working tree must stay clean afterwards. If a Flutter upgrade changes
+  `macos/Podfile.lock`, commit the updated lock (same rule as
+  `ios/Podfile.lock`).
+- `macos/Flutter/ephemeral/` and `macos/Pods/` are machine-local and stay
+  gitignored; never commit a `DEVELOPMENT_TEAM` entry (`grep -r
+  DEVELOPMENT_TEAM macos/` must stay empty).
