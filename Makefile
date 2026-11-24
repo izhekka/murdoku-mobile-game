@@ -7,7 +7,9 @@
 #   make init zcode  -> .zcode/agents/   (adds ZCode-only `color` chip)
 #   make init claude -> .claude/agents/  (tools array -> Claude's comma form)
 #
-# Both projections are committed real files, not symlinks: ZCode scans only
+# Both projections are regenerated local files, not symlinks and not tracked:
+# git ignores /.zcode/ and /.claude/ entirely, and a fresh clone has neither
+# until you run `make init zcode claude` there. ZCode scans only
 # .zcode/agents/ for agents (no .agents/agents fallback, and its scanner skips
 # symlinks), while Claude Code scans .claude/agents/. Re-run after editing
 # anything in .agents/agents/.
