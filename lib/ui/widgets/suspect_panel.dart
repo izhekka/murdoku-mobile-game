@@ -129,6 +129,39 @@ String _sameRowColSentence(
   _ => throw ArgumentError('no sentence template for: $clue'),
 };
 
+/// Debug-mode guard (issue 59): the panel derives every card size from the
+/// incoming width, so an unbounded-width host has no defined layout. Reject
+/// it with one documented assertion instead of a NaN aspect ratio or a
+/// generic flex/viewport error. Like Flutter's own unbounded-extent guards,
+/// the check is a debug-mode assertion (compiled out in profile/release).
+void _assertHostWidthIsFinite(BoxConstraints constraints) {
+  assert(() {
+    if (!constraints.maxWidth.isFinite) {
+      throw FlutterError.fromParts(<DiagnosticsNode>[
+        ErrorSummary(
+          'SuspectPanel was given an unbounded width constraint '
+          '(maxWidth = ${constraints.maxWidth}).',
+        ),
+        ErrorDescription(
+          'SuspectPanel sizes every card from the host width: the '
+          'narrow layout divides the width into its grid columns and '
+          'measures the clue text at the resulting card width. '
+          'Without a finite width the tiles have an undefined size '
+          '(an infinite card width would make the grid '
+          'childAspectRatio NaN), so SuspectPanel requires a finite '
+          'width constraint.',
+        ),
+        ErrorHint(
+          'Wrap the panel in a width-bounding widget (e.g. SizedBox, '
+          'ConstrainedBox, or Expanded inside a flex), or give the '
+          'host a finite cross-axis extent.',
+        ),
+      ]);
+    }
+    return true;
+  }());
+}
+
 /// The suspects panel: a 3x2 grid of compact cards on phones (tall enough to
 /// show each card's full clue text, uncapped), a vertical column on wide
 /// layouts. Wherever the host leaves the height loose, cards grow to fit
@@ -138,12 +171,8 @@ String _sameRowColSentence(
 /// ellipsize: they render at full size where they fit and scale down to
 /// their row where they don't (issue 15).
 ///
-/// The host must supply a finite width constraint: the panel derives every
-/// card size from the incoming width, so an unbounded-width host is
-/// rejected with a documented assertion naming the violation (issue 59)
-/// instead of an undefined NaN layout. Like Flutter's own unbounded-extent
-/// guards, the check is a debug-mode assertion (compiled out in
-/// profile/release).
+/// The host must supply a finite width constraint — see
+/// [_assertHostWidthIsFinite] (issue 59).
 class SuspectPanel extends StatelessWidget {
   const SuspectPanel({
     super.key,
@@ -174,38 +203,9 @@ class SuspectPanel extends StatelessWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        // Issue 59: the panel derives every card size from the incoming
-        // width — the narrow grid divides maxWidth into _gridColumns tiles
-        // and the row-height math measures clue text at that tile width —
-        // so an unbounded width has no defined layout. Reject it with one
-        // documented assertion instead of a NaN aspect ratio or a generic
-        // flex/viewport error, for any branch the host is headed for (all
-        // of them, whatever the width-bound above decides).
-        assert(() {
-          if (!constraints.maxWidth.isFinite) {
-            throw FlutterError.fromParts(<DiagnosticsNode>[
-              ErrorSummary(
-                'SuspectPanel was given an unbounded width constraint '
-                '(maxWidth = ${constraints.maxWidth}).',
-              ),
-              ErrorDescription(
-                'SuspectPanel sizes every card from the host width: the '
-                'narrow layout divides the width into its grid columns and '
-                'measures the clue text at the resulting card width. '
-                'Without a finite width the tiles have an undefined size '
-                '(an infinite card width would make the grid '
-                'childAspectRatio NaN), so SuspectPanel requires a finite '
-                'width constraint.',
-              ),
-              ErrorHint(
-                'Wrap the panel in a width-bounding widget (e.g. SizedBox, '
-                'ConstrainedBox, or Expanded inside a flex), or give the '
-                'host a finite cross-axis extent.',
-              ),
-            ]);
-          }
-          return true;
-        }());
+        // Issue 59: reject unbounded-width hosts before any width branch
+        // below (see _assertHostWidthIsFinite).
+        _assertHostWidthIsFinite(constraints);
         if (constraints.maxWidth >= 600) {
           // Wide column of cards: each card sizes itself to its content
           // instead of a pinned 150px height, so longer clue text (or large
