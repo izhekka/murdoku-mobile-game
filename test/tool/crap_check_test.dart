@@ -194,6 +194,133 @@ int q2(int? a, int b, int c) {
         expect(byName['q2'], 3); // 1 base + ??= + ??
       });
 
+      test('null-aware access ?. counts as a decision point', () {
+        final src = r'''
+int a1(int? x) => x?.toInt();
+int a2(int? x) => x?.prop;
+int a3(int? x) => x?.prop.deeper;
+int a4(int? x) => x?.prop?.deeper.deeper2;
+
+int a5(int? x) {
+  x?.prop = 1;
+  return 0;
+}
+''';
+        final byName = {
+          for (final m in computeMetrics('lib/t.dart', src))
+            m.member: m.complexity,
+        };
+        expect(byName['a1'], 2); // 1 base + ?. (method invocation)
+        expect(byName['a2'], 2); // 1 base + ?. (property access)
+        expect(
+          byName['a3'],
+          2,
+        ); // 1 base + ?.; the plain .deeper chain is guarded
+        expect(byName['a4'], 3); // 1 base + two ?.; .deeper2 is guarded
+        expect(
+          byName['a5'],
+          2,
+        ); // 1 base + ?.; the guard sits behind the assignment's lhs
+      });
+
+      test('null-aware cascade section counts, plain sections do not', () {
+        final src = r'''
+int c1(List<int>? xs) {
+  xs?..add(1);
+  return 0;
+}
+
+int c2(List<int>? xs) {
+  xs?..add(1)..add(2)..add(3);
+  return 0;
+}
+
+int c3(List<int>? xs) {
+  xs?..addAll([1])..first;
+  return 0;
+}
+
+int c4(List<int>? xs) {
+  xs?..prop = 1;
+  return 0;
+}
+''';
+        final byName = {
+          for (final m in computeMetrics('lib/t.dart', src))
+            m.member: m.complexity,
+        };
+        expect(
+          byName['c1'],
+          2,
+        ); // 1 base + one ?.. guard (method-invocation head section)
+        expect(
+          byName['c2'],
+          2,
+        ); // later .. sections are the same guard, no count
+        expect(
+          byName['c3'],
+          2,
+        ); // ?..-headed METHOD-call section counts once too
+        expect(byName['c4'], 2); // ?..-headed assignment section counts once
+      });
+
+      test('null-aware spread ...? counts, plain spread does not', () {
+        final src = r'''
+int s1(List<int>? xs) => [...?xs].length;
+
+int s2(List<int> ys) => [...ys].length;
+
+int s3(List<int>? xs, List<int>? ys) => [...?xs, ...?ys].length;
+''';
+        final byName = {
+          for (final m in computeMetrics('lib/t.dart', src))
+            m.member: m.complexity,
+        };
+        expect(byName['s1'], 2); // 1 base + ...?
+        expect(byName['s2'], 1); // plain ... is not a decision
+        expect(byName['s3'], 3); // 1 base + two ...?
+      });
+
+      test('explicit branches and null-aware forms score identically', () {
+        final src = r'''
+int explicit(List<int>? xs) {
+  var out = 0;
+  if (xs != null) {
+    out = out + xs.length;
+  }
+  return out;
+}
+
+int nullAware(List<int>? xs) {
+  final out = [...?xs];
+  return out.length;
+}
+''';
+        final byName = {
+          for (final m in computeMetrics('lib/t.dart', src))
+            m.member: m.complexity,
+        };
+        expect(byName['explicit'], 2);
+        expect(byName['nullAware'], 2);
+      });
+
+      test(
+        'null-aware constructs combine with the existing counted operators',
+        () {
+          final src = r'''
+int all(int? x, List<int>? xs, List<int>? ys) {
+  xs?..add(x?.toInt() ?? 0);
+  return [...?ys].length;
+}
+''';
+          final byName = {
+            for (final m in computeMetrics('lib/t.dart', src))
+              m.member: m.complexity,
+          };
+          expect(byName['all'], 5); // 1 base + ?.. + ?. + ?? + ...?
+        },
+      );
+
       test('decision-bearing initializers become their own pseudo-members', () {
         final src = r'''
 final topInit = true ? 1 : 2;

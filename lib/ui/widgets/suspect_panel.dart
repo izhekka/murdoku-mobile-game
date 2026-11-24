@@ -505,16 +505,7 @@ class _SuspectsHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final theme = Theme.of(context);
     final tokens = SkinScope.maybeOf(context);
-    final cartoon = tokens != null && tokens.isCartoon;
-    final text = tokens?.panelHeaderUppercase ?? false
-        ? l10n.suspectsHeader.toUpperCase()
-        : l10n.suspectsHeader;
-    final style = theme.textTheme.titleLarge?.copyWith(
-      fontWeight: FontWeight.w600,
-      color: cartoon ? tokens.ink : theme.colorScheme.onSurface,
-    );
     return Semantics(
       header: true,
       key: suspectsPanelHeaderKey,
@@ -523,9 +514,30 @@ class _SuspectsHeader extends StatelessWidget {
         child: FittedBox(
           fit: BoxFit.scaleDown,
           alignment: Alignment.centerLeft,
-          child: Text(text, style: style),
+          child: Text(
+            _headerText(l10n, tokens),
+            style: _headerStyle(Theme.of(context), tokens),
+          ),
         ),
       ),
+    );
+  }
+
+  /// The localized «Подозреваемые» / "Suspects" row text, uppercased in the
+  /// skins whose [SkinTokens.panelHeaderUppercase] token says so (issue 27).
+  String _headerText(AppLocalizations l10n, SkinTokens? tokens) {
+    return tokens?.panelHeaderUppercase ?? false
+        ? l10n.suspectsHeader.toUpperCase()
+        : l10n.suspectsHeader;
+  }
+
+  /// Comic skins render the header in their [SkinTokens.ink]; classic and the
+  /// other cartoon skins keep the color scheme's on-surface tone.
+  TextStyle? _headerStyle(ThemeData theme, SkinTokens? tokens) {
+    final cartoon = tokens != null && tokens.isCartoon;
+    return theme.textTheme.titleLarge?.copyWith(
+      fontWeight: FontWeight.w600,
+      color: cartoon ? tokens.ink : theme.colorScheme.onSurface,
     );
   }
 }

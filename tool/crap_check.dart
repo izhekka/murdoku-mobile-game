@@ -8,7 +8,11 @@
 /// - Complexity = 1 + decision points: `if` (statements and collection
 ///   elements), `for` (statements and elements), `while`, `do`, statement
 ///   `case` clauses, expression-switch arms with a pattern, `catch` clauses,
-///   `&&`, `||`, `?:`, `??`, `??=`, `&&`/`||` between patterns, and the
+///   `&&`, `||`, `?:`, `??`, `??=`, null-aware member access `?.` (method
+///   invocations and property accesses), null-aware cascade sections (`?..`
+///   — a later `..` section of the same null-aware cascade is the one shared
+///   guard and does not count), null-aware spread elements (`...?`), and
+///   `&&`/`||` between patterns, plus the
 ///   initializer of any top-level variable or field that carries decisions
 ///   (that initializer is measured as its own pseudo-member named like the
 ///   variable — bare name for top-level, `<Type>.<name>` for a field;
@@ -541,6 +545,44 @@ class _ComplexityVisitor extends RecursiveAstVisitor<void> {
   void visitAssignmentExpression(AssignmentExpression node) {
     if (node.operator.type == TokenType.QUESTION_QUESTION_EQ) _bump();
     super.visitAssignmentExpression(node);
+  }
+
+  /// `?.` is the null-guard of the member access it prefixes — method
+  /// invocations and property accesses alike (mirrors `??=`: not counting
+  /// it would let explicit if/else guards be restated with a lower score).
+  /// Cascade sections count by their operator TOKEN: `?..` opens the one
+  /// shared null guard of a null-aware cascade; later `..` sections of
+  /// that cascade are no decisions of their own — their heads are not
+  /// tokenized `?..` (the shared-guard flag `isNullAware` is only on the
+  /// property/assignment heads).
+  @override
+  void visitMethodInvocation(MethodInvocation node) {
+    final type = node.operator?.type;
+    if (type == TokenType.QUESTION_PERIOD ||
+        type == TokenType.QUESTION_PERIOD_PERIOD) {
+      _bump();
+    }
+    super.visitMethodInvocation(node);
+  }
+
+  @override
+  void visitPropertyAccess(PropertyAccess node) {
+    final type = node.operator.type;
+    if (type == TokenType.QUESTION_PERIOD ||
+        type == TokenType.QUESTION_PERIOD_PERIOD) {
+      _bump();
+    }
+    super.visitPropertyAccess(node);
+  }
+
+  /// `...?` skips the spread when its operand is null — one decision per
+  /// null-aware spread; the plain `...` is unguarded.
+  @override
+  void visitSpreadElement(SpreadElement node) {
+    if (node.spreadOperator.type == TokenType.PERIOD_PERIOD_PERIOD_QUESTION) {
+      _bump();
+    }
+    super.visitSpreadElement(node);
   }
 
   @override

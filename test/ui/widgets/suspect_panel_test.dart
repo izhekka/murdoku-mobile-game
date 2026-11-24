@@ -1046,6 +1046,11 @@ void main() {
       reason: 'comic renders the header uppercase per its token',
     );
     expect(find.text('Suspects'), findsNothing);
+    expect(
+      tester.widget<Text>(find.text('SUSPECTS')).style?.color,
+      comicTokens.ink,
+      reason: 'comic renders the header in its ink token',
+    );
 
     for (final tokens in [candyTokens, stickerTokens]) {
       await tester.pumpWidget(skinWrap(tokens));
@@ -1063,6 +1068,12 @@ void main() {
     await tester.pump();
     expect(find.text('Suspects'), findsOneWidget);
     expect(find.text('SUSPECTS'), findsNothing);
+    final theme = Theme.of(tester.element(find.byType(SuspectPanel)));
+    expect(
+      tester.widget<Text>(find.text('Suspects')).style?.color,
+      theme.colorScheme.onSurface,
+      reason: 'classic keeps the color scheme onSurface tone',
+    );
   });
 
   testWidgets('side panel overflow: grown chip rows make the grid scrollable; '
