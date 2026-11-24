@@ -13,9 +13,9 @@ import 'package:murdoku/domain/models.dart';
 ///
 /// The table below pins the measured requested → stored mapping (seeds
 /// 0..60, all difficulties). Measured 2026-11-24 over the derived mapping;
-/// update only together with a fresh probe run (temporary test, run and
-/// transcribe) — never by hand, and only in the same change as the
-/// regenerated golden digests (§13).
+/// update only together with a fresh `dart run tool/probe_convergence.dart`
+/// run (transcribe its `map` output) — never by hand, and only in the same
+/// change as the regenerated golden digests (§13).
 const _convergence = {
   'easy': {
     0: 565798388,

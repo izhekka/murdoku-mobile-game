@@ -281,13 +281,16 @@ easy 1–4 → 5, 15–19 → 20; standard 1–4 → 5, 28–43 → 44; hard 1�
   digests, re-pin the corridors — which is exactly what issue 61 landed
   (hard/111 exhausts under the derived mapping, so that golden slot moved
   to the generating neighbor 112).
-- **Consciously updating the pin.** Re-measure first with a temporary
-  probe that prints requested → stored seeds across difficulties × seeds
-  (never hand-write the table; a tracked probe tool is open issue #62),
-  then update the convergence table together with the golden digests and
-  every measured corridor seam in the same change, stating the cause, and
-  mutation-verify the pin's teeth (reverting the derivation — or shifting
-  any stream constant — must fail the pins).
+- **Consciously updating the pin.** Re-measure first with the committed
+  probe: `dart run tool/probe_convergence.dart` (issue #62; `mapping` prints
+  `difficulty seed -> stored` rows, `map` emits the `_convergence` literal
+  of the convergence test; an optional `[start] [end]` widens past the 0..60
+  pin range — a lone `[start]` only narrows within 0..60, pass both to
+  widen), then update the convergence table together with the golden
+  digests and every measured corridor seam in the same change, stating the
+  cause, and mutation-verify the pin's teeth (reverting the derivation — or
+  shifting any stream constant — must fail the pins). Never hand-write the
+  table — transcribe the probe's measured output.
 
 ## Enforced lint → guideline mapping
 
