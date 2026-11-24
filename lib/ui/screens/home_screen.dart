@@ -124,21 +124,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget _menuCard(AppLocalizations l10n) {
     return SkinCard(
       child: Column(
+        // Issue 75: push, not go — a fresh single-page stack via go
+        // strands the plain-AppBar screens with no back affordance. This
+        // applies to all rows below; the home→game entries keep `go` so the
+        // game's confirm-quit stays the only in-UI exit.
         children: [
           ListTile(
             leading: const Icon(Icons.menu_book),
             title: Text(l10n.howToPlayTitle),
-            onTap: () => context.go('/how-to-play'),
+            onTap: () => context.push('/how-to-play'),
           ),
           ListTile(
             leading: const Icon(Icons.bar_chart),
             title: Text(l10n.statsTitle),
-            onTap: () => context.go('/stats'),
+            onTap: () => context.push('/stats'),
           ),
           ListTile(
             leading: const Icon(Icons.settings),
             title: Text(l10n.settingsTitle),
-            onTap: () => context.go('/settings'),
+            onTap: () => context.push('/settings'),
           ),
         ],
       ),
