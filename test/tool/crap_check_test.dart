@@ -174,6 +174,59 @@ bool andPat(int x) {
         expect(byName['andPat'], 3);
       });
 
+      test('switch when-guards count as decision points', () {
+        final src = r'''
+int g1(int x, bool a, bool b) {
+  return switch (x) {
+    1 when a => 1,
+    2 when b || a => 2,
+    _ => 3,
+  };
+}
+
+int g2(int x, bool a) {
+  switch (x) {
+    case 1:
+      return 1;
+    case 2 when a:
+      return 2;
+    default:
+      return 3;
+  }
+}
+
+int g3(int x, bool a) {
+  return switch (x) {
+    _ when a => 1,
+    _ => 2,
+  };
+}
+
+int g4(int x, bool a) => switch (x) {
+  < 0 || > 5 when a => 1,
+  _ => 2,
+};
+''';
+        final byName = {
+          for (final m in computeMetrics('lib/t.dart', src))
+            m.member: m.complexity,
+        };
+        // Issue #55's report fixture: 1 base + 2 pattern arms + 2 guards +
+        // 1 || inside the second guard; the guards added 0 before the fix
+        // and the || already counted (issue #38).
+        expect(byName['g1'], 6);
+        // 1 base + 2 statement arms + 1 guard; the default clause stays
+        // uncounted (accepted).
+        expect(byName['g2'], 4);
+        // 1 base + 1 guard; the wildcard arm itself stays uncounted
+        // (accepted implicit-else rule) but its guard is a real branch.
+        expect(byName['g3'], 2);
+        // 1 base + 1 arm + 1 guard + 1 logical-or pattern: the guard binds
+        // to the case-level GuardedPattern, so a guard over an
+        // or-pattern counts both exactly once — no double-count.
+        expect(byName['g4'], 4);
+      });
+
       test('null-aware assignment ??= counts as a decision point', () {
         final src = r'''
 int q1(int? x, int y) {

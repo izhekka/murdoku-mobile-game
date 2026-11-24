@@ -7,7 +7,8 @@
 ///
 /// - Complexity = 1 + decision points: `if` (statements and collection
 ///   elements), `for` (statements and elements), `while`, `do`, statement
-///   `case` clauses, expression-switch arms with a pattern, `catch` clauses,
+///   `case` clauses and their `when`-guards, expression-switch arms with a
+///   pattern and their `when`-guards, `catch` clauses,
 ///   `&&`, `||`, `?:`, `??`, `??=`, null-aware member access `?.` (method
 ///   invocations and property accesses), null-aware cascade sections (`?..`
 ///   — a later `..` section of the same null-aware cascade is the one shared
@@ -35,7 +36,10 @@
 /// statement-switch `default:` clause and a `_` wildcard switch-expression
 /// arm are the implicit else branch of their switch — per standard McCabe
 /// counting, the other arm contributes the decision and the else
-/// contributes none, so counting them would double-count.
+/// contributes none, so counting them would double-count. Switch member
+/// `when`-guards ARE counted (issue 55); the `when` clause under an
+/// `if-case` (`if (x case p when g)`) is outside that counting and stays
+/// an accepted non-count here — outside issue 55's switch scope.
 library;
 
 import 'dart:convert';
@@ -513,12 +517,14 @@ class _ComplexityVisitor extends RecursiveAstVisitor<void> {
   @override
   void visitSwitchPatternCase(SwitchPatternCase node) {
     _bump();
+    if (node.guardedPattern.whenClause != null) _bump();
     super.visitSwitchPatternCase(node);
   }
 
   @override
   void visitSwitchExpressionCase(SwitchExpressionCase node) {
     if (node.guardedPattern.pattern is! WildcardPattern) _bump();
+    if (node.guardedPattern.whenClause != null) _bump();
     super.visitSwitchExpressionCase(node);
   }
 
