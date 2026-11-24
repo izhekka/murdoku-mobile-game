@@ -123,9 +123,9 @@ final CaseData overflowFixture = buildFixture([
 ]);
 
 /// Standard-difficulty stand-in: the fixture board gains a sixth guest, so
-/// the panel lays out 7 grid children (6 cards + the empty slot = 3 rows).
-/// The panel only reads suspects and clue sentences, so rooms/solution stay
-/// as-is (issue 39).
+/// the panel lays out 6 grid children = two full 3-column rows (issue 58: no
+/// decorative trailing slot when the last row is full). The panel only reads
+/// suspects and clue sentences, so rooms/solution stay as-is (issue 39).
 final CaseData standardFixture = fixture.copyWith(
   suspects: [
     ...fixture.suspects,
@@ -1203,7 +1203,7 @@ void main() {
   });
 
   testWidgets(
-    'pinned standard case: 3 grown rows overflow the post-header slot; the '
+    'pinned standard case: grown rows overflow the post-header slot; the '
     'grid scrolls and every suspect stays reachable (issue 39)',
     (tester) async {
       final tappedIds = <String>[];
@@ -1229,9 +1229,10 @@ void main() {
 
       // Scroll every card into view with the grid's own scroll machinery and
       // tap it: the AC's reachability is all six cards, not just the deepest
-      // one, and mid-grid hit-test regressions must not pass unnoticed. The
-      // trailing empty-slot row wins at max scroll, so centering (not
-      // overshoot) is what shows each card fully.
+      // one, and mid-grid hit-test regressions must not pass unnoticed.
+      // Centering shows each card fully; since issue 58 the last content
+      // row is a suspect row, but centering does not depend on the scroll
+      // end either way.
       for (final s in standardFixture.suspects) {
         final card = find.ancestor(
           of: find.text(s.name),
@@ -1324,13 +1325,109 @@ void main() {
   );
 
   testWidgets(
+    'pinned standard case at max scroll: the last suspect row sits fully in '
+    'view; no lone decorative slot row (issue 58)',
+    (tester) async {
+      for (final tokens in <SkinTokens?>[null, stickerTokens]) {
+        // Fresh tree per iteration: pumpWidget preserves matching elements
+        // in place, so the second iteration's grid would otherwise inherit
+        // the first one's ScrollPosition (stuck at its max scroll), push the
+        // first row off-viewport and starve any drag started there.
+        await tester.pumpWidget(const SizedBox.shrink());
+        String? tapped;
+        await tester.pumpWidget(
+          pinnedWrap(
+            standardFixture,
+            tokens: tokens,
+            onSuspectTap: (id) => tapped = id,
+          ),
+        );
+        await tester.pump();
+
+        expect(
+          tester.widget<GridView>(find.byType(GridView)).physics,
+          isA<ClampingScrollPhysics>(),
+          reason:
+              'grown rows still overflow the post-header slot; scroll '
+              'physics unchanged (issue 39)',
+        );
+
+        // Issue 58: six suspects fill exactly two full rows of three — the
+        // decorative empty slot no longer opens a trailing row of its own,
+        // so the scroll end is a suspect row, not the decoration.
+        final grid = tester.widget<GridView>(find.byType(GridView));
+        final delegate = grid.childrenDelegate as SliverChildListDelegate;
+        expect(
+          delegate.children.length,
+          standardFixture.suspects.length,
+          reason: '6 suspects = 2 full rows; no trailing empty-slot child',
+        );
+
+        // Drive the grid to the very bottom of the scroll range.
+        await tester.drag(find.text('Ash'), const Offset(0, -2000));
+        await tester.pumpAndSettle();
+
+        final gridRect = tester.getRect(find.byType(GridView));
+        for (final name in ['Drew', 'Ellis', 'Finley']) {
+          final card = find.ancestor(
+            of: find.text(name),
+            matching: find.byType(InkWell),
+          );
+          final rect = tester.getRect(card);
+          expect(
+            rect.top,
+            greaterThanOrEqualTo(gridRect.top - 0.5),
+            reason: '$name is not clipped at the leading edge at max scroll',
+          );
+          expect(
+            rect.bottom,
+            lessThanOrEqualTo(gridRect.bottom + 0.5),
+            reason: '$name row is fully inside the viewport at max scroll',
+          );
+        }
+
+        await tester.tap(find.text('Finley'));
+        expect(tapped, 's5', reason: 'the last suspect stays tappable');
+      }
+    },
+  );
+
+  testWidgets(
+    'side panel at 300px: 6 suspects drop the decorative slot child there '
+    'too (issue 58)',
+    (tester) async {
+      // The children rule is shared by every narrow branch, so the slot-drop
+      // also applies off the pinned branch (the bounded side panel here and
+      // the test-only unbounded host): pin it so a branch-local change cannot
+      // silently reintroduce a lone decorative trailing row.
+      await tester.pumpWidget(sidePanelWrap(standardFixture));
+      await tester.pump();
+
+      final grid = tester.widget<GridView>(find.byType(GridView));
+      final delegate = grid.childrenDelegate as SliverChildListDelegate;
+      expect(
+        delegate.children.length,
+        standardFixture.suspects.length,
+        reason: 'the 300px side panel has no trailing empty-slot child either',
+      );
+      for (final s in standardFixture.suspects) {
+        expect(
+          find.text(s.name),
+          findsOneWidget,
+          reason: 'every suspect card is laid out in the side panel',
+        );
+      }
+    },
+  );
+
+  testWidgets(
     'pinned standard case that fits: grid stays non-scrollable and the real '
-    '3 rows split the post-header slot (issue 39)',
+    '2 rows split the post-header slot (issue 39)',
     (tester) async {
       // A tall narrow surface: grown rows of a generated-style case are far
       // taller than the 300px phone slot, so the fitting premise needs a
-      // 700px slot for 3 grown rows to fit (same premise as the UX-2 test's
-      // 1400px surface).
+      // 700px slot for the 2 grown rows to fit (same premise as the UX-2
+      // test's 1400px surface).
       tester.view.physicalSize = const Size(800, 900);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
@@ -1347,9 +1444,9 @@ void main() {
         expect(find.text(s.name), findsOneWidget);
       }
       // The grid fills the post-header slot exactly, and each tile comes
-      // from the real 3-row split of that slot (7 children = 6 cards +
-      // empty slot): slot minus 2*4 padding minus 2 gutters of 4, minus the
-      // 2*4 card padding on the tile.
+      // from the real 2-row split of that slot (6 children = two full rows
+      // of 3, issue 58 — no trailing empty-slot child): slot minus 2*4
+      // padding minus 1 gutter of 4, minus the 2*4 card padding on the tile.
       final panelRect = tester.getRect(find.byType(SuspectPanel));
       final headerRect = tester.getRect(find.byKey(suspectsPanelHeaderKey));
       final slot = panelRect.bottom - headerRect.bottom;
@@ -1362,8 +1459,8 @@ void main() {
       final cardRect = tester.getRect(find.byType(InkWell).first);
       expect(
         cardRect.height,
-        closeTo((slot - 2 * 4 - 2 * 4) / 3 - 2 * 4, 0.5),
-        reason: '3 real rows split the post-header slot',
+        closeTo((slot - 2 * 4 - 1 * 4) / 2 - 2 * 4, 0.5),
+        reason: '2 real rows split the post-header slot',
       );
     },
   );
@@ -1400,8 +1497,9 @@ void main() {
         reason: 'the hard case keeps grown rows, not compressed 2-row tiles',
       );
       // The seventh card sits in row 3, outside the initial viewport's build
-      // range; scroll to the end (the last content row IS Grey there, unlike
-      // the 6-suspect case's lone empty-slot row) and tap it.
+      // range; scroll to the end (the last content row IS Grey there —
+      // unlike the pre-issue-58 6-suspect case's lone empty-slot row) and
+      // tap it.
       await tester.drag(find.text('Ash'), const Offset(0, -2000));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Grey'));

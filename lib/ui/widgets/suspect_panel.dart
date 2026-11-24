@@ -259,8 +259,14 @@ class SuspectPanel extends StatelessWidget {
     // grown row, and the gutters between them (issue 30's overflow
     // detection, now shared by the pinned branch's overflow check via the
     // layout-time slot compare — issue 39). The row count is the real grid
-    // children's: 5 suspects lay out 2 rows, 6 suspects 3 (issue 39).
-    final children = [...cards, const _EmptySlot()];
+    // children's (issue 39). The decorative empty slot joins only when the
+    // last row has a spare cell to fill: 5 suspects lay out 2 rows with the
+    // slot in the sixth cell, 6 suspects lay out 2 full rows — appending the
+    // slot to a full last row would open a lone decorative row that owns the
+    // scroll end and clip the last suspect row at max scroll (issue 58).
+    final children = caseData.suspects.length % _gridColumns != 0
+        ? [...cards, const _EmptySlot()]
+        : cards;
     final rows = (children.length / _gridColumns).ceil();
     final gridContentHeight =
         2 * _gridHPad + rows * grownRowHeight + (rows - 1) * _gridSpacing;
@@ -542,7 +548,9 @@ class _SuspectsHeader extends StatelessWidget {
   }
 }
 
-/// Fills the sixth grid slot when the case has 5 suspects.
+/// Decorates the spare cell of the narrow grid's last row (the sixth slot
+/// of a 5-suspect case, the cell after a seventh guest). Appended only when
+/// the last row has an empty cell — never as a lone trailing row (issue 58).
 class _EmptySlot extends StatelessWidget {
   const _EmptySlot();
 
