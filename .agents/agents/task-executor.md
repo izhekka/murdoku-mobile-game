@@ -46,18 +46,34 @@ labeled `task` whose dependencies (if any) are already closed.
       plus exactly one `class` from
       `in_scope_miss|disclosed_by_new_tooling|out_of_scope_by_issue|environment_owner|observation_only`.
       Report a gap only when actually observed; evidence must be concrete.
+      Materiality gate — every sweep fact records its reachability before it
+      can land:
+      - `reachable` — something that ships can produce it: a player flow, an
+        existing measured code path in `lib/`/`tool/`, or a running CI stage;
+      - `note_only` — automatic disqualifiers, judged by the evidence's own
+        phrases: "no current usage", "no host can produce this",
+        "`lib/**` contains none", "only if a future change".
+      Only `reachable` facts may land in `gaps[]` (carrying
+      `reachability: "reachable"`); `note_only` facts go into the report's
+      `notes` and never into `gaps[]` — they cannot become tickets. The
+      materiality gate classifies observed facts; it does not license
+      hunting for unobservable defects.
    c. Findings evaluation — when the orchestrator forwards the reviewer's
       findings, every finding lands somewhere — never dropped:
       - `[P0]`/`[P1]` → fix in the branch if in budget, else keep it out of
         the branch;
       - `[P2]`/`[P3]` → fix if in budget and cheap, else note it in the
         final report;
-      - bounce budget: an in-branch fix touches only files the issue already
-        changed (plus new test files), needs no new dependencies, and costs
-        ≤ 1 extra TDD cycle per finding. A finding outside this budget is
-        recorded in the final report as `filed_as_tasks` and gets a matching
-        gap fact in `gaps[]` (class `in_scope_miss` when the issue's scope
-        covers it);
+      - close-forward budget (replaces the old file-set bound): an in-branch
+        fix is in budget when it is small (≤ 1 extra TDD cycle per fix),
+        mechanical (no new dependencies; behavior change limited to the
+        defect being fixed, or test-only), and verified by the same gate run
+        — regardless of which files it touches. Squashes may carry
+        multiple `Closes #N` footers (one per absorbed issue); the final report
+        discloses every absorbed fix and its issue number. A finding outside
+        this budget is recorded in the final report as `filed_as_tasks` and
+        gets a matching gap fact in `gaps[]` (class `in_scope_miss` when the
+        issue's scope covers it);
       - after any fix, re-run the gates (step 5); there is no full second
         review — at most a delta check of the fix diff — and one review round
         total;
@@ -69,7 +85,8 @@ labeled `task` whose dependencies (if any) are already closed.
       `noted` — one line each, `[Pn] file:line — finding`.
 
 7. Squash the branch into `main` per the git workflow: single typed commit
-   with a `Closes #N` footer, then delete the branch.
+   with `Closes #N` footer(s) — one per issue the squash closes (this issue
+   plus any close-forward absorbed fixes) — then delete the branch.
 8. End the whole reply with ONLY a single JSON object — no markdown fences,
    no prose outside it:
 
@@ -107,12 +124,15 @@ labeled `task` whose dependencies (if any) are already closed.
      `completed`, on `ready_for_review` `commit` is `null` and
      `branch_deleted` is `false` (pre-squash); `branch_deleted`: bool.
      `gates`: analyze/test counts. `files_changed`: repo-relative paths.
-     `deviations`: one line each. `notes`: one line or empty.
+     `deviations`: one line each. `notes`: one line or empty; `note_only`
+     sweep facts (the step 6b materiality gate) are recorded here, one line
+     each, as `note_only: <title> — <evidence>`.
    - `gaps[]` — facts only (`title`, `evidence`, `why`, `scope_hint`, plus
      one `class` from
-     `in_scope_miss|disclosed_by_new_tooling|out_of_scope_by_issue|environment_owner|observation_only`),
-     never pre-composed issue bodies; the orchestrator composes and files
-     the issues.
+     `in_scope_miss|disclosed_by_new_tooling|out_of_scope_by_issue|environment_owner|observation_only`
+     and `reachability: "reachable"` — the materiality gate means `gaps[]`
+     carries no `note_only` facts), never pre-composed issue bodies; the
+     orchestrator composes and files the issues.
    - `review` — `{reviewer_dispatched: bool, findings: {fixed_in_branch: [],
      filed_as_tasks: [], noted: []}}`; list items are one-line strings
      (`[Pn] file:line — finding`); `reviewer_dispatched` is false when the

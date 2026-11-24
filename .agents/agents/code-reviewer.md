@@ -12,6 +12,11 @@ the issue (`gh issue view <n>`) and `AGENTS.md` in that repo — together they
 are the spec (the issue is the spec; `AGENTS.md` adds the guardrails), there
 is no other plan file to check against.
 
+- Finding scope is the change and the issue's acceptance criteria, nothing
+  more: every finding must be grounded ONLY in the branch diff or in the
+  issue's acceptance criteria — never an adjacent non-task proposal. An
+  out-of-scope observation is at most one non-actionable note line in the
+  review output — never a finding, and it never routes to fixes or filings.
 - Check the change against that spec: acceptance-criteria coverage, TDD
   order, per-task gates (`flutter analyze` 0 issues, `flutter test` all
   pass), the runtime-dependency allowlist, `AppLocalizations` for
