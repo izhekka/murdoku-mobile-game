@@ -1,6 +1,7 @@
 import 'package:cupertino_ui/cupertino_ui.dart'
     show GlobalCupertinoLocalizations;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart' show GoRouter;
 import 'package:material_ui/material_ui.dart';
 
 import 'package:murdoku/core/routes.dart';
@@ -27,11 +28,23 @@ const List<LocalizationsDelegate<dynamic>> murdokuLocalizationsDelegates = [
   GlobalCupertinoLocalizations.delegate,
 ];
 
-class MurdokuApp extends ConsumerWidget {
+class MurdokuApp extends ConsumerStatefulWidget {
   const MurdokuApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<MurdokuApp> createState() => _MurdokuAppState();
+}
+
+class _MurdokuAppState extends ConsumerState<MurdokuApp> {
+  /// One router for the app's lifetime (issue 76, found by the iOS pixel
+  /// fidelity capture driver): `buildRouter()` in `build` handed
+  /// MaterialApp.router a fresh GoRouter on every settings-driven rebuild
+  /// (theme/skin/language change), which reset navigation to the home route
+  /// and kicked the player out of the settings screen.
+  late final GoRouter _router = buildRouter();
+
+  @override
+  Widget build(BuildContext context) {
     final settings = ref.watch(settingsControllerProvider);
     return MaterialApp.router(
       title: 'Murdoku',
@@ -41,7 +54,7 @@ class MurdokuApp extends ConsumerWidget {
       locale: _localeFor(settings.language),
       localizationsDelegates: murdokuLocalizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
-      routerConfig: buildRouter(),
+      routerConfig: _router,
       builder: (context, child) {
         // The builder context sits below MaterialApp, so the theme here is
         // the resolved one — classic tokens derive from its live scheme and

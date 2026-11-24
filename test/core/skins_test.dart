@@ -162,7 +162,16 @@ void main() {
   });
 
   test('every cartoon skin exposes the mockup clue chip (issue 26)', () {
-    for (final t in [candyTokens, stickerTokens, comicTokens]) {
+    // The default skin's chip diverges from the mockup token (issue 76):
+    // its 10px horizontal padding left the 402x874 iPhone chip text box
+    // ~70px wide and long ru words wrapped mid-word; sticker uses 6px per
+    // side so every clue word fits. candy/comic keep the mockup values.
+    expect(
+      stickerTokens.chip!.padding,
+      const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+      reason: 'sticker chip padding (issue 76)',
+    );
+    for (final t in [candyTokens, comicTokens]) {
       expect(t.chip, isNotNull, reason: '${t.skin} chip token');
       expect(t.chip!.background, c(0xFFF1F3F5), reason: '${t.skin} chip color');
       expect(t.chip!.radius, 12, reason: '${t.skin} chip radius');

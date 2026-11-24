@@ -153,6 +153,28 @@ void expectNameParagraphInFull(
 }
 
 void main() {
+  testWidgets('ru library clue chip does not wrap mid-word at the phone '
+      'viewport (issue 76)', (tester) async {
+    await pumpGame(tester, size: const Size(402, 874), tutorialSeen: true);
+    final paragraph = tester.renderObject<RenderParagraph>(
+      find.descendant(
+        of: find.byType(SuspectPanel),
+        matching: find.textContaining('библиотек'),
+      ),
+    );
+    // Issue 76 run-1 evidence (per-PNG verdicts travel with the issue's run
+    // report): the sticker chip's ~70px text
+    // box broke «библиотеке.» mid-word and wrapped the sentence into FOUR
+    // lines (~80px). The chip-padding token fix widens the text box to
+    // ~79px, so the sentence wraps in at most three lines (one per word
+    // group; ~64px) with no mid-word fragments — pixel-verified on the
+    // real device fonts by the issue 76 closing re-capture, pump-asserted
+    // here by the line count (the test font renders glyphs at fontSize
+    // width, so exact word-width comparisons are not faithful here).
+    expect(paragraph.size.height, lessThan(72));
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('solving the board opens the accuse prompt', (tester) async {
     await pumpGame(tester);
     final notifier = container.read(gameControllerProvider.notifier);

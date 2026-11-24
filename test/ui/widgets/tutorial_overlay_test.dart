@@ -42,7 +42,14 @@ Future<ProviderContainer> pumpTutorialWorstCase(
   tester.platformDispatcher.textScaleFactorTestValue = 2.0;
   addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
   await tester.pumpWidget(
-    UncontrolledProviderScope(container: container, child: const MurdokuApp()),
+    // A distinct key per call: since issue 76 the app owns one GoRouter for
+    // its lifetime, so a same-type pumpWidget would reuse the app state
+    // (router and home tutorial queue) — this helper must instead model a
+    // FRESH app per skin/language case.
+    UncontrolledProviderScope(
+      container: container,
+      child: MurdokuApp(key: ValueKey('worst-case-$skin-$language')),
+    ),
   );
   await tester.pumpAndSettle();
   return container;

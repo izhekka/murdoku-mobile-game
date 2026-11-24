@@ -1,3 +1,6 @@
+import 'dart:convert';
+
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -117,5 +120,102 @@ void main() {
     final prefs2 = await SharedPreferences.getInstance();
     expect(PrefsRepository(prefs2).loadSettings().skin, SkinSetting.comic);
     expect(repo.loadSettings().skin, SkinSetting.comic);
+  });
+
+  testWidgets('skin segment labels stay single-line at the iPhone size '
+      '(issue 76)', (tester) async {
+    tester.view.physicalSize = const Size(1206, 2622);
+    tester.view.devicePixelRatio = 3.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await pumpSettings(tester);
+    final l10n = l10nOf(tester);
+
+    // Issue 76 run-1 evidence (per-PNG verdicts travel with the issue's run
+    // report; screenshots are uncommitted build/ artifacts): at the 402x874
+    // logical viewport
+    // the selected segment's check icon squeezed long skin names into
+    // mid-word wraps («Классик/а», «Стик/еры», «Stick/er», «Class/ic» on the
+    // ru/en × light/dark settings shots). One text line is ~24px tall at the
+    // fixed segment style; two lines ~40px.
+    for (final label in [
+      l10n.skinClassic,
+      l10n.skinCandy,
+      l10n.skinSticker,
+      l10n.skinComic,
+    ]) {
+      final paragraph = tester.renderObject<RenderParagraph>(find.text(label));
+      expect(
+        paragraph.size.height,
+        lessThan(28),
+        reason: 'skin label "$label" must stay on one line',
+      );
+    }
+    // Rubric item 5 (issue 76): interactive controls stay >= 44 logical pt
+    // tall; the segmented rows are 12px-label one-line controls.
+    expect(
+      tester.getRect(find.byType(SegmentedButton<SkinSetting>)).height,
+      greaterThanOrEqualTo(44),
+    );
+    expect(
+      tester.getRect(find.byType(SegmentedButton<ThemeMode>)).height,
+      greaterThanOrEqualTo(44),
+    );
+    expect(
+      tester.getRect(find.byType(SegmentedButton<LanguageSetting>)).height,
+      greaterThanOrEqualTo(44),
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('ru + dark settings segments stay single-line and overflow-free '
+      'at the iPhone size (issue 76)', (tester) async {
+    // The issue-76 criterion's example: Russian + dark, no overflow
+    // exceptions at the iPhone 18 Pro logical size. Dark only exists on the
+    // classic skin (cartoon skins are light-only, lib/app.dart).
+    tester.view.physicalSize = const Size(1206, 2622);
+    tester.view.devicePixelRatio = 3.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    SharedPreferences.setMockInitialValues({
+      'murdoku.settings': jsonEncode(
+        const Settings(
+          skin: SkinSetting.classic,
+          themeMode: ThemeMode.dark,
+        ).toJson(),
+      ),
+    });
+    final prefs = await SharedPreferences.getInstance();
+    final container = ProviderContainer(overrides: seededOverrides(prefs));
+    addTearDown(container.dispose);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MurdokuApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final home = tester.element(find.byType(Scaffold).first);
+    GoRouter.of(home).go('/settings');
+    await tester.pumpAndSettle();
+    final l10n = AppLocalizations.of(
+      tester.element(find.byType(Scaffold).first),
+    )!;
+
+    for (final label in [
+      l10n.skinClassic,
+      l10n.skinCandy,
+      l10n.skinSticker,
+      l10n.skinComic,
+      l10n.themeDark,
+    ]) {
+      final paragraph = tester.renderObject<RenderParagraph>(find.text(label));
+      expect(
+        paragraph.size.height,
+        lessThan(28),
+        reason: 'label "$label" must stay on one line (ru + dark)',
+      );
+    }
+    expect(tester.takeException(), isNull);
   });
 }

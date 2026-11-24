@@ -50,13 +50,13 @@ class AppLocalizationsRu extends AppLocalizations {
   String get difficultyHard => 'Сложно';
 
   @override
-  String get discardTitle => 'Отменить текущее дело?';
+  String get discardTitle => 'Сбросить текущее дело?';
 
   @override
-  String get discardBody => 'Новое дело отменит текущий прогресс.';
+  String get discardBody => 'Новое дело сбросит текущий прогресс.';
 
   @override
-  String get discard => 'Отменить';
+  String get discard => 'Сбросить';
 
   @override
   String get cancel => 'Отмена';

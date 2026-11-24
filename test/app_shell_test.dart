@@ -8,6 +8,7 @@ import 'package:murdoku/l10n/generated/app_localizations.dart';
 import 'package:murdoku/state/settings_controller.dart';
 import 'package:murdoku/storage/prefs_repository.dart';
 import 'package:murdoku/ui/screens/home_screen.dart';
+import 'package:murdoku/ui/screens/settings_screen.dart';
 import 'package:murdoku/ui/screens/stats_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -145,5 +146,40 @@ void main() {
 
     expect(find.byType(StatsScreen), findsOneWidget);
     expect(find.text(l10n.statsTitle), findsOneWidget);
+  });
+
+  testWidgets('settings changes keep the navigation stack (issue 76)', (
+    tester,
+  ) async {
+    // Every MurdokuApp rebuild must reuse the same GoRouter: a fresh router
+    // on each rebuild resets navigation to '/', kicking the player out of
+    // Settings on every theme/skin/language switch (found by the iOS
+    // pixel-fidelity capture driver).
+    final prefs = await mockPrefs();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: seededOverrides(prefs),
+        child: const MurdokuApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final context = tester.element(find.byType(HomeScreen));
+    GoRouter.of(context).go('/settings');
+    await tester.pumpAndSettle();
+    expect(find.byType(SettingsScreen), findsOneWidget);
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(SettingsScreen)),
+    );
+    container
+        .read(settingsControllerProvider.notifier)
+        .setThemeMode(ThemeMode.light);
+    await tester.pumpAndSettle();
+    container
+        .read(settingsControllerProvider.notifier)
+        .setSkin(SkinSetting.classic);
+    await tester.pumpAndSettle();
+    expect(find.byType(SettingsScreen), findsOneWidget);
   });
 }

@@ -31,6 +31,11 @@ class SettingsScreen extends ConsumerWidget {
             ),
           ),
           SegmentedButton<ThemeMode>(
+            // Same uniform segment treatment as the skin control (issue 76).
+            showSelectedIcon: false,
+            style: const ButtonStyle(
+              textStyle: WidgetStatePropertyAll(TextStyle(fontSize: 12)),
+            ),
             segments: [
               ButtonSegment(
                 value: ThemeMode.system,
@@ -64,6 +69,18 @@ class SettingsScreen extends ConsumerWidget {
             ),
           ),
           SegmentedButton<SkinSetting>(
+            // Uniform segment treatment (issue 76): at the 402x874 iPhone
+            // viewport the selected segment's check icon chrome plus the
+            // longest skin name exceed the quarter-tile width and the 14px labels
+            // wrapped mid-word («Классик/а», «Stick/er»). The check is redundant
+            // (the selected segment is already filled in by the theme) and a
+            // uniform 12px label keeps every skin label on one line. Per-PNG
+            // pixel verdicts travel with the issue 76 run report (screenshots
+            // stay uncommitted artifacts under the gitignored build/).
+            showSelectedIcon: false,
+            style: const ButtonStyle(
+              textStyle: WidgetStatePropertyAll(TextStyle(fontSize: 12)),
+            ),
             segments: [
               ButtonSegment(
                 value: SkinSetting.classic,
@@ -102,6 +119,11 @@ class SettingsScreen extends ConsumerWidget {
             ),
           ),
           SegmentedButton<LanguageSetting>(
+            // Same uniform segment treatment as the skin control (issue 76).
+            showSelectedIcon: false,
+            style: const ButtonStyle(
+              textStyle: WidgetStatePropertyAll(TextStyle(fontSize: 12)),
+            ),
             segments: [
               ButtonSegment(
                 value: LanguageSetting.system,

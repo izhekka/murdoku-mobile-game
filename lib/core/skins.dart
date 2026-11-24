@@ -332,10 +332,24 @@ const SkinActions _cartoonActions = SkinActions(
 /// Clue-chip look shared by the three cartoon mockups (issue 26): a rounded
 /// light-gray pill behind each clue sentence. Token-driven so a skin can
 /// diverge later; classic keeps null (plain clue text).
+/// The candy/comic clue chip keeps the issue 26 mockup values.
 const SkinChip _cartoonChip = SkinChip(
   background: Color(0xFFF1F3F5),
   radius: 12,
   padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+  gap: 6,
+);
+
+/// The default skin's clue chip (issue 76): the shared mockup token's 10px
+/// horizontal padding left the 402x874 iPhone chip text box ~70px wide and
+/// long ru words («библиотеке.», ~75px) wrapped mid-word into orphan
+/// fragments. Sticker diverges to 6px per side (the token is explicitly
+/// per-skin), widening the text box to ~79px so every clue word fits its
+/// line; the pill look is unchanged.
+const SkinChip _stickerChip = SkinChip(
+  background: Color(0xFFF1F3F5),
+  radius: 12,
+  padding: EdgeInsets.symmetric(horizontal: 6, vertical: 4),
   gap: 6,
 );
 
@@ -454,7 +468,7 @@ const stickerTokens = SkinTokens(
   sheetBackground: Color(0xFFFFFFFF),
   sheetRadius: 20,
   menuIcons: false,
-  chip: _cartoonChip,
+  chip: _stickerChip,
   frame: SkinCard(
     background: Color(0xFFFFF8EF),
     borderColor: Color(0xFF1D3557),
