@@ -21,8 +21,10 @@ ends when the queue is empty, the per-run cap is hit, or something blocks.
 - The six-section issue format is mandatory for gap issues (submit-task §5).
 - Strictly sequential: the next issue's dispatch happens only after the
   previous dispatch's JSON report is parsed and acted on. The one parallelism
-  allowed is inside a single issue's review round: at most one background
-  `code-reviewer` at a time, dispatched against that issue's own branch.
+  allowed is inside a single issue's review round: at most one reviewer of
+  each kind (one background `code-reviewer` and, for render-path diffs per
+  step 4.3, one background `visual-reviewer`), each dispatched against that
+  issue's own branch.
 
 ## Loop
 
@@ -68,7 +70,10 @@ the accounting line's `surfaced`, never treat its contents as `gaps[]`, and
 never file from it on its own — the one path that files a surfaced fact is
 the Batcher rule's ≥4 batch (§5 item 5), which converts accumulated
 low-severity facts into `severity_low` issues at the line, deliberately and
-never solo.
+never solo. The report's `review.findings` buckets may carry findings from
+both reviewers (issue #84): items originating from the visual-reviewer carry
+a `source: visual` marker, and every bucket — whichever reviewer it came
+from — is parsed and acted on identically.
 
 ### 4. Act by status
 
@@ -83,17 +88,30 @@ never solo.
      the round inline — sending it straight to its gap sweep.
   2. Otherwise dispatch a subagent running the `code-reviewer` agent
      (`.agents/agents/code-reviewer.md`) in the background with the issue
-     number, the branch, and `AGENTS.md` — the issue is the spec — and
-     simultaneously resume the executor to run its gap sweep while the
-     reviewer works.
-  3. When the reviewer lands, forward its findings verbatim to the executor
-     (SendMessage). The executor evaluates every finding against its bounce
-     budget, fixes what is in budget in the same branch, re-runs the gates,
-     and squashes — then delivers its final report; parse it per step 3.
-  4. One review round total: never re-dispatch the reviewer for the fix diff
-     (the executor's own delta check of the fix diff is the only follow-up).
-     Review is an enhancement: a dispatch failure or junk findings are noted
-     at the end of the run and never stop the run.
+     number, the branch, and `AGENTS.md` — the issue is the spec.
+  3. Visual-dispatch predicate (issue #84): additionally, once the report's
+     `files_changed` is parsed, if it touches render paths — `lib/ui/widgets/**`,
+     `lib/core/skins.dart`, `lib/core/theme.dart`, or any `CustomPainter`/
+     painter subclass — dispatch a subagent running the `visual-reviewer`
+     agent (`.agents/agents/visual-reviewer.md`) in the background TOGETHER
+     with the `code-reviewer`, with the issue number, the branch, `AGENTS.md`,
+     and the coverage matrix reference (baked into the agent definition).
+     Invariant: at most one reviewer of each kind. A logic-only diff (no
+     render-path file touched) gets NO visual-reviewer dispatch. Both
+     dispatches precede the executor resume (step 4) so review runs
+     in parallel with the executor's gap sweep.
+  4. When a reviewer lands, forward its findings verbatim to the executor
+     (SendMessage) — when both reviewers ran, forward BOTH sets of findings
+     merged into one list. The executor evaluates every finding against its
+     bounce budget, fixes what is in budget in the same branch, re-runs the
+     gates, and squashes — then delivers its final report; parse it per
+     step 3. `[P0]`–`[P2]` from either reviewer bind the bounce round.
+     Findings the executor records from the visual-reviewer carry a
+     `source: visual` marker in `review.findings`.
+  5. One review round total: never re-dispatch either reviewer for the fix
+     diff (the executor's own delta check of the fix diff is the only
+     follow-up). Review is an enhancement: a dispatch failure or junk
+     findings are noted at the end of the run and never stop the run.
 - `completed` — push gate first: confirm the report's `review.findings` has
   no `[P0]` finding outside `fixed_in_branch`. An unresolved `[P0]` blocks
   the landing: do not push, do not close the issue, surface it to the user

@@ -16,7 +16,12 @@ labeled `task` whose dependencies (if any) are already closed.
    Plans are local working docs (gitignored) — do not commit them.
 4. Execute the plan task-by-task with the superpowers TDD cycle
    (`test-driven-development` skill): failing test first, minimal
-   implementation, then green.
+   implementation, then green. For diffs touching painting code — any
+   `CustomPainter`/painter subclass or render-path file — the TDD cycle
+   MUST include a headless painter-pixel test (paint the painter
+   off-screen, rasterize it to an image, assert on raw pixels) proving the
+   fix before the review round: prose or screenshot claims do not prove a
+   painter fix.
 5. Gate after every task: `flutter analyze` (0 issues) and `flutter test`
    (all pass) — then commit on the branch per the git workflow.
 6. Review round between the gates and the squash. When the last task's gates
@@ -37,8 +42,12 @@ labeled `task` whose dependencies (if any) are already closed.
       reviewer was dispatched; the single squash happens only after this
       round, in the resumed reply. The orchestrator then dispatches
       `code-reviewer` (issue number + branch + AGENTS.md per the
-      review-applies policy) and resumes you to run the gap sweep — review
-      and sweep run in parallel.
+      review-applies policy) and — when the report's `files_changed` touches
+      render paths per develop SKILL.md — the `visual-reviewer` in the
+      background together with it (at most one reviewer of each kind; its
+      self-rendered pixel verdicts forward with the code-reviewer's findings,
+      and `[P0]`–`[P2]` from either reviewer bind the bounce round) and
+      resumes you to run the gap sweep — review and sweep run in parallel.
    b. Gap sweep: re-read the issue's acceptance criteria against the diff and
       the tests; actively look for behavior contradicting the issue, missing
       acceptance coverage, and adjacent defects surfaced by tests. Record
@@ -105,7 +114,12 @@ labeled `task` whose dependencies (if any) are already closed.
         dependency).
    d. Disposition: record each finding in the final report's
       `review.findings` under `fixed_in_branch` / `filed_as_tasks` /
-      `noted` — one line each, `[Pn] file:line — finding`.
+      `noted` — one line each, `[Pn] file:line — finding`. Findings that
+      originated from the `visual-reviewer` (when the orchestrator
+      dispatched it for a render-path diff) carry a `source: visual` marker:
+      `[Pn] [source: visual] file:line — finding`. Findings are evaluated
+      identically whichever reviewer produced them (both reviewers' `[P0]`–
+      `[P2]` bind the bounce round).
 
 7. Squash the branch into `main` per the git workflow: single typed commit
    with `Closes #N` footer(s) — one per issue the squash closes (this issue
@@ -178,7 +192,11 @@ labeled `task` whose dependencies (if any) are already closed.
      low-severity facts deliberately at the line, never solo.
    - `review` — `{reviewer_dispatched: bool, findings: {fixed_in_branch: [],
      filed_as_tasks: [], noted: []}}`; list items are one-line strings
-     (`[Pn] file:line — finding`); `reviewer_dispatched` is false when the
+     (`[Pn] file:line — finding`); when the orchestrator dispatched the
+     visual-reviewer alongside the code-reviewer (render-path diff), that
+     reviewer's findings merge into the same buckets with a
+     `[source: visual]` marker on each affected item — one channel, both
+     reviewers, nothing dropped; `reviewer_dispatched` is false when the
      orchestrator skipped the dispatch (pure documentation diff per the
      review-applies policy) or the dispatch failed; findings recorded here
      must never be silently dropped, and neither dispatch failure nor junk

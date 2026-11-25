@@ -19,7 +19,7 @@ ZCODE_DST  := .zcode/agents
 CLAUDE_DST := .claude/agents
 
 # ZCode-only frontmatter key: UI chip color per agent (name=color)
-ZCODE_COLORS := task-executor=green issue-triage=orange code-reviewer=cyan ux-verifier=purple
+ZCODE_COLORS := task-executor=green issue-triage=orange code-reviewer=cyan ux-verifier=purple visual-reviewer=blue
 
 # Test steps of the quality gate, serialized per checkout by the lock in
 # tool/flutter_test_lock.dart (issue 43): overlapping quality runs wait here
