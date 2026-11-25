@@ -60,7 +60,15 @@ The reply must be a single JSON object per `.agents/agents/task-executor.md`
 step 8 — that file is the schema's single source of truth; parse it, do not
 restate it. On invalid JSON, send the SAME agent ONE follow-up asking for the
 corrected JSON object only. If it is still invalid, stop the run and surface
-the raw output verbatim.
+the raw output verbatim. Optional fields are never a parse error: the
+executor report's `surfaced[]` field (issue #78) may be present or absent —
+both are valid parses. Treat `surfaced[]` (entries shaped `{title, evidence,
+why}`) as note-only: print its entries in the run summary and count them in
+the accounting line's `surfaced`, never treat its contents as `gaps[]`, and
+never file from it on its own — the one path that files a surfaced fact is
+the Batcher rule's ≥4 batch (§5 item 5), which converts accumulated
+low-severity facts into `severity_low` issues at the line, deliberately and
+never solo.
 
 ### 4. Act by status
 
@@ -101,8 +109,13 @@ the raw output verbatim.
 ### 5. File the gaps
 
 File only gaps the executor reported as `gaps[]` facts — reachable facts
-only per the materiality gate below; the Batcher rule (item 5) decides
-whether a filing ships solo or inside one batch issue. Instrument
+only per the materiality gate below. The
+Batcher rule (item 5) decides whether a filing ships solo or inside one
+batch issue — and for `severity_low` it is the ONLY filing path: a
+low-severity fact can never be filed on its own, only through the ≥4 batch
+(issue #78). Facts the executor reported in the optional `surfaced[]` field
+are note-only below the batch line and are never filed solo — they reach
+issue status only through item 5's ≥4 batch. Instrument
 completeness stays demand-driven: counters/parsers gain new constructs
 only when one appears in measured code or the owner asks — never as a
 spec-completeness follow-up.
@@ -162,15 +175,48 @@ spec-completeness follow-up.
    assigned by the orchestrator at filing: `severity_high` = likely player
    harm or blocks a feature; `severity_middle` = latent crash-capability or
    a deferred core goal; `severity_low` = cosmetic, latent-internal, or
-   tooling.
-5. Batcher rule: when ≥4 open low-severity mechanical tickets accumulate in
-   the queue (each labeled `severity_low`, none `severity_middle`/
-   `severity_high`, every fix mechanical), consolidate them into ONE batch
-   issue (six-section body naming every consolidated item) instead of solo
-   dispatches. The batch ships as one branch with per-item tests and one
-   squash that carries multiple `Closes #N` footers — one per consolidated
-   issue. The batch issue carries the items' shared class + severity labels
-   plus a provenance label (`gap` or `issue`) so the pick step finds it.
+   tooling. The executor report's per-gap `severity`/`mechanical` fields
+   (task-executor step 8) inform but do not bind this assignment — the
+   orchestrator may override, as today. Filing-path rule: `severity_middle`
+   and `severity_high` file solo through this item's ensure-and-create flow;
+   a fact that would carry
+   `severity_low` NEVER files solo — below the Batcher rule's ≥4 line it is
+   surfaced and accumulated instead (item 5), and it files only through
+   that rule's ≥4 batch. A `gaps[]` fact the executor marked
+   `severity_low` + non-mechanical needs a design decision, and that
+   decision is exactly the orchestrator's filing-time assignment: either
+   override the `mechanical` flag to true (the fix is mechanical after the
+   orchestrator's own review — the fact then joins the Batcher rule's ≥4
+   pool) or assign the `severity_middle`/`severity_high` the design weight
+   warrants and file solo here. Confirming both `severity_low` and
+   non-mechanical is not a filing disposition — the executor's flag exists
+   precisely to force this decision — so no low fact is left accumulating
+   forever.
+5. Batcher rule — the only filing path for `severity_low`. Solo
+   low-severity filing does not exist: a low-severity mechanical fact is
+   never filed on its own. Below the line — when fewer than 4 open
+   low-severity mechanical tickets exist in the queue universe (item 2's
+   list; each labeled `severity_low`, none `severity_middle`/
+   `severity_high`, every fix mechanical; the count includes already-open
+   batch seeds and the low-severity facts this run chose not to
+   file) — do NOT file: record the fact in the run summary (the accounting
+   line's `surfaced`, matching the executor report's optional `surfaced[]`
+   field) and accumulate it in orchestrator memory, carried forward in the
+   run summaries so a later run can batch it. The batch line's
+   `every fix mechanical` qualification covers facts whose executor
+   assessment the orchestrator confirms; a fact the orchestrator re-assesses
+   at filing time (`mechanical` to true, or severity to middle/high) follows
+   item 4's filing-path rule instead, so no low fact accumulates forever.
+   At ≥4 open low-severity
+   mechanical tickets: consolidate them into ONE batch issue (six-section
+   body naming every consolidated item) instead of solo dispatches — the
+   run's newly accumulated facts become their own `severity_low` issues
+   only at that moment, so the batch's squash carries one `Closes #N`
+   footer per consolidated issue. The batch ships as one branch with
+   per-item tests and one squash that carries multiple `Closes #N` footers
+   — one per consolidated issue. The batch issue carries the items' shared
+   class + severity labels plus a provenance label (`gap` or `issue`) so
+   the pick step finds it.
 6. Refuse to file a gap whose `evidence` is not concrete (no file:line,
    screenshot, or observed output) — surface it to the user instead.
 
@@ -181,10 +227,14 @@ iteration. Stop conditions:
 
 - Queue empty → print a per-issue summary (issue, status, commit, gaps
   filed) plus the run's accounting line — absorbed in-branch / filed /
-  surfaced (absorbed = found issues fixed inside a task's branch per the
-  close-forward budget, disclosed with issue numbers; filed = follow-up
-  issues filed; surfaced = `note_only` facts and out-of-scope notes
-  reported without a ticket) — and stop normally.
+  surfaced (absorbed = found work fixed inside a task's branch per the
+  close-forward budget — reviewer findings whose issues the squash closes
+  with `Closes #N` footers, and executor-sweep absorbs disclosed in the
+  report's `notes` as `absorbed: <title> — <evidence>` lines with no
+  ticket, by design; filed = follow-up issues filed; surfaced =
+  `note_only` facts, the executor report's `surfaced[]` entries,
+  below-the-line low-severity facts accumulated for a future batch, and
+  out-of-scope notes reported without a ticket) — and stop normally.
 - 10 issues processed in one run (hard cap) → print the same summary
   (with the accounting line) and the remaining queue, then stop.
 - `blocked` / `failed` / invalid JSON after the one retry → stop and surface

@@ -30,7 +30,7 @@ QUALITY_TEST_PIPELINE := flutter test --coverage && dart run tool/coverage_filte
 
 hooks: ## install the pre-commit quality gate: git config core.hooksPath .githooks
 	git config core.hooksPath .githooks
-	@echo "Pre-commit hook installed (core.hooksPath=.githooks)"
+	@echo "Pre-commit hook installed (core.hooksPath=.githooks): agent-projection drift guard + format + analyze"
 
 quality: ## one-command local gate: format check + analyze + test --coverage (checkout-locked) + lcov l10n filter + CRAP ratchet
 	dart format --output=none --set-exit-if-changed .

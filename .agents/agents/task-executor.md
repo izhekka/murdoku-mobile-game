@@ -58,6 +58,29 @@ labeled `task` whose dependencies (if any) are already closed.
       `notes` and never into `gaps[]` — they cannot become tickets. The
       materiality gate classifies observed facts; it does not license
       hunting for unobservable defects.
+      Severity routing (absorb-or-note, issue #78) — every `reachable` fact
+      also records the executor-suggested `severity` (`severity_low`,
+      `severity_middle`, or `severity_high`) and `mechanical` (true when the
+      fix would be mechanical: no new dependencies, behavior change limited
+      to the defect being fixed, or test-only). The routing decides where a
+      reachable fact lands:
+      - `severity_low` + mechanical → absorb-or-note, never `gaps[]`: either
+        absorb it — fix in-branch under the close-forward budget of step 6c
+        (≤ 1 extra TDD cycle, mechanical, verified by the same gate run) and
+        disclose it in the final report's `notes`, one line each,
+        `absorbed: <title> — <evidence>` — or note it in the report's
+        optional `surfaced[]` field (step 8; `{title, evidence, why}`).
+        Absorb when the fix is in budget; surface when it is not. Absorbed
+        sweep facts have no issue number, so disclosure in `notes` is what
+        keeps them visible; they never open a ticket.
+      - `severity_middle` / `severity_high`, or `severity_low` +
+        non-mechanical (the fact needs a design decision, not a mechanical
+        fix), lands in `gaps[]` with its suggested `severity` and
+        `mechanical` fields — the orchestrator may override them at filing
+        time.
+      - `note_only` facts keep their existing route: report `notes`, one
+        line each (`note_only: <title> — <evidence>`) — the severity routing
+        does not move them.
    c. Findings evaluation — when the orchestrator forwards the reviewer's
       findings, every finding lands somewhere — never dropped:
       - `[P0]`/`[P1]` → fix in the branch if in budget, else keep it out of
@@ -105,8 +128,11 @@ labeled `task` whose dependencies (if any) are already closed.
         "evidence": "lib/features/board/widgets/legend.dart:42 — Text overflows by 12 px at 320 px width",
         "why": "The player cannot read the legend on small phones",
         "scope_hint": "Wrap the legend text in Flexible",
-        "class": "in_scope_miss"}
+        "class": "in_scope_miss",
+        "severity": "severity_middle",
+        "mechanical": false}
      ],
+     "surfaced": [],
      "review": {"reviewer_dispatched": true,
                 "findings": {"fixed_in_branch": [], "filed_as_tasks": [], "noted": []}},
      "notes": ""
@@ -126,13 +152,30 @@ labeled `task` whose dependencies (if any) are already closed.
      `gates`: analyze/test counts. `files_changed`: repo-relative paths.
      `deviations`: one line each. `notes`: one line or empty; `note_only`
      sweep facts (the step 6b materiality gate) are recorded here, one line
-     each, as `note_only: <title> — <evidence>`.
+     each, as `note_only: <title> — <evidence>`; low+mechanical sweep facts
+     absorbed in-branch (the step 6b severity routing) are disclosed here,
+     one line each, as `absorbed: <title> — <evidence>`.
    - `gaps[]` — facts only (`title`, `evidence`, `why`, `scope_hint`, plus
      one `class` from
      `in_scope_miss|disclosed_by_new_tooling|out_of_scope_by_issue|environment_owner|observation_only`
      and `reachability: "reachable"` — the materiality gate means `gaps[]`
      carries no `note_only` facts), never pre-composed issue bodies; the
-     orchestrator composes and files the issues.
+     orchestrator composes and files the issues. Composition rule (step 6b
+     severity routing): `gaps[]` carries only `severity_middle`/
+     `severity_high` facts, or `severity_low` facts that need a design
+     decision (non-mechanical) — a `severity_low` + mechanical fact never
+     lands here (absorb-or-note). Each entry additionally carries the
+     executor-suggested `severity` (`severity_low` | `severity_middle` |
+     `severity_high`) and `mechanical` (bool); the orchestrator may override
+     them at filing time.
+   - `surfaced[]` — optional (absent = none): reachable low+mechanical sweep
+     facts recorded instead of being absorbed or filed (step 6b), each
+     `{title, evidence, why}`. The orchestrator treats the field as
+     note-only: prints it in the run summary, counts it in the accounting
+     line's `surfaced`, and never auto-files from it — solo filing from
+     `surfaced[]` does not exist; the only path that files a surfaced fact
+     is the orchestrator's ≥4 batcher rule, which files accumulated
+     low-severity facts deliberately at the line, never solo.
    - `review` — `{reviewer_dispatched: bool, findings: {fixed_in_branch: [],
      filed_as_tasks: [], noted: []}}`; list items are one-line strings
      (`[Pn] file:line — finding`); `reviewer_dispatched` is false when the

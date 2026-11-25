@@ -1,7 +1,16 @@
 #!/bin/sh
-# Pre-commit quality gate (issue #33, decision record 0006):
-# 1. format-check every staged Dart file,
-# 2. run `flutter analyze`.
+# Pre-commit hooks (install with `make hooks`, core.hooksPath=.githooks):
+#
+# 1. Agent-projection drift guard (issue #78): when .agents/agents/** is
+#    staged, re-project the canonical definitions into a scratch dir and
+#    compare them against the on-disk .zcode/agents/ + .claude/agents/
+#    projections (ignoring injected transform lines such as the projected
+#    `color:` chip), naming any out-of-sync file. .zcode/ and .claude/ are
+#    gitignored-local, so CI cannot check projection drift — this hook is the
+#    only gate. .agents/skills/** needs no guard (ZCode reads skills live
+#    from .agents/skills, verified 2026-11-25).
+# 2. format-check every staged Dart file (issue #33, decision record 0006),
+# 3. run `flutter analyze`.
 #
 # Tests are deliberately NOT run here (too slow for a hook) — `make quality`
 # and CI cover them. The format check is check-only (`--output=none`): the
@@ -9,6 +18,17 @@
 # landing a stale, unformatted staged blob. Install with `make hooks`.
 #
 # Staged files only: added/copied/modified/renamed (deleted files skip).
+hook_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+if [ -f "$hook_dir/check-projections.sh" ]; then
+	sh "$hook_dir/check-projections.sh" || exit 1
+else
+	# Fail closed: .zcode/ and .claude/ are gitignored-local, so CI cannot
+	# check projection drift — a deleted guard script must not silently
+	# disable the only gate.
+	echo "pre-commit: check-projections.sh missing next to the hook — the projection-drift gate cannot run; restore the tracked script (.githooks/check-projections.sh)" >&2
+	exit 1
+fi
+
 files=$(git diff --cached --name-only --diff-filter=ACMR -- '*.dart')
 if [ -n "$files" ]; then
 	# shellcheck disable=SC2086
