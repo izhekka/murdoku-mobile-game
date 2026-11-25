@@ -79,7 +79,8 @@ class _BoardViewState extends State<BoardView> {
               height: side,
               child: Stack(
                 children: [
-                  // The room-fill layer under the cells (issue 23/82).
+                  // The wall bed (plate + room tiles) under the cells
+                  // (issue 23/82/83).
                   ?_fillLayer(tokens, g, side, cell),
                   for (var row = 0; row < g; row++)
                     for (var col = 0; col < g; col++)
@@ -115,9 +116,9 @@ class _BoardViewState extends State<BoardView> {
     );
   }
 
-  /// The room-fill layer under the cells (issue 23/82): one continuous
-  /// K-rounded hull path per room; null for the classic skin, which keeps
-  /// its per-cell borders.
+  /// The wall bed under the cells (issue 23/83): `SkinRoomPainter`'s mortar
+  /// plate + room-tint tiles; null for the classic skin, which keeps its
+  /// per-cell borders.
   Widget? _fillLayer(SkinTokens? tokens, int g, double side, double cell) {
     if (tokens == null || !tokens.solidRooms) return null;
     return Positioned(
@@ -325,15 +326,11 @@ Pos _segDir(List<Pos> loop, int j) => (
 );
 
 /// The pixel path over the traced [loop]: unit straight runs joined by
-/// quadratic K-rounding at every 90° turn when [roundConcave], at convex
-/// right-turn corners only otherwise — the mock's continuous outline; K =
-/// [radius] clamped to the unit segment (mock K-rounding, issue 82).
-Path _roomOutlinePath(
-  List<Pos> loop,
-  double cellSize,
-  double radius, {
-  required bool roundConcave,
-}) {
+/// quadratic K-rounding at every 90° turn — the mock's continuous rounded
+/// silhouette the wall stroke traces; K = [radius] clamped to the unit
+/// segment (mock K-rounding, issue 82; since issue 83 the tile layer is the
+/// only fill, so the painter's one remaining caller always rounds corners).
+Path _roomOutlinePath(List<Pos> loop, double cellSize, double radius) {
   final path = Path();
   final n = loop.length;
   if (n < 3) return path;
@@ -349,12 +346,7 @@ Path _roomOutlinePath(
     final back = vertex - _roomDirPixel(prevDir, k);
     final out = vertex + _roomDirPixel(outDir, k);
     path.lineTo(back.dx, back.dy);
-    if (roundConcave || _rotateCW(prevDir) == outDir) {
-      path.quadraticBezierTo(vertex.dx, vertex.dy, out.dx, out.dy);
-    } else {
-      path.lineTo(vertex.dx, vertex.dy);
-      path.lineTo(out.dx, out.dy);
-    }
+    path.quadraticBezierTo(vertex.dx, vertex.dy, out.dx, out.dy);
   }
   path.close();
   return path;
@@ -880,13 +872,16 @@ class _RoomBadge extends StatelessWidget {
   );
 }
 
-/// Paints the cartoon board's room fills (issue 23/82): one continuous
-/// K-rounded hull path per traced room (same-room cells meet seamlessly),
-/// falling back to the legacy per-cell render (per-cell fills, boundary
-/// lines and corner arcs) for a room whose loop fails to close —
-/// unreachable on generated data. Runs BELOW the cell layer; the wall
-/// stroke pass on top is [SkinRoomWallPainter]. Classic boards never use
-/// this painter.
+/// Paints the cartoon board's wall bed (issue 23/83): the mortar plate (one
+/// rounded bar over the whole map — any gap in the layers above reveals
+/// mortar, never the page, so the page-colored pocket-artifact class is
+/// unrepresentable by construction), then per-cell room-tint tiles inset by
+/// the wall band (half a line on shared boundaries, the full line on outer
+/// edges, zero within a room), then the legacy per-cell fallback (fills,
+/// boundary lines and corner arcs) for a room whose loop fails to trace —
+/// unreachable on generated data. The [SkinRoomWallPainter] stroke overpass
+/// stays the cosmetic layer above the cells. Classic boards never use this
+/// painter.
 class SkinRoomPainter extends CustomPainter {
   SkinRoomPainter({
     required this.rooms,
@@ -923,26 +918,79 @@ class SkinRoomPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    _paintPlate(canvas);
     final fill = Paint();
+    _paintTiles(canvas, fill);
     for (final (index, room) in rooms.indexed) {
-      final loop = traceRoomOutline(rooms, gridSize, room.id);
-      if (loop != null) {
-        _paintRoomFill(canvas, fill, loop, index);
-      } else {
+      if (traceRoomOutline(rooms, gridSize, room.id) == null) {
         _paintRoomLegacy(canvas, fill, room, index);
       }
     }
   }
 
-  /// One room's continuous fill: the traced hull path with K-rounded
-  /// convex corners so the fill meets the wall stroke exactly (issue 82).
-  void _paintRoomFill(Canvas canvas, Paint fill, List<Pos> loop, int index) {
-    fill.color = tints[index % tints.length];
-    canvas.drawPath(
-      _roomOutlinePath(loop, cellSize, radius, roundConcave: false),
-      fill,
+  /// The wall-color plate (issue 83, layer 1): one rounded bar covering the
+  /// whole map bounds in [mortarColor], corner radius from the skin's
+  /// tokens; painted first so every later layer's gaps show mortar.
+  void _paintPlate(Canvas canvas) {
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(0, 0, gridSize * cellSize, gridSize * cellSize),
+        Radius.circular(radius),
+      ),
+      Paint()..color = mortarColor,
     );
   }
+
+  /// The room-tint tiles (issue 83, layer 2): the union of per-cell rects,
+  /// each side inset by the wall band, drawn as one path per room. Abutting
+  /// zero-inset same-room edges are the same coordinate, so they cancel
+  /// inside the union fill: same-color rects meet exactly, with no
+  /// fractional AA fringe across a room in the live app, and the band edges
+  /// sit exactly on their insets.
+  void _paintTiles(Canvas canvas, Paint tiles) {
+    for (final (index, room) in rooms.indexed) {
+      final path = Path();
+      for (final cell in room.cells) {
+        final (l, t, r, b) = _tileInsets(cell.row, cell.col);
+        path.addRect(
+          Rect.fromLTRB(
+            cell.col * cellSize + l,
+            cell.row * cellSize + t,
+            (cell.col + 1) * cellSize - r,
+            (cell.row + 1) * cellSize - b,
+          ),
+        );
+      }
+      tiles.color = tints[index % tints.length];
+      canvas.drawPath(path, tiles);
+    }
+  }
+
+  /// The tile's per-side wall insets: (left, top, right, bottom).
+  (double, double, double, double) _tileInsets(int row, int col) => (
+    _insetFor(row, col, 0, -1),
+    _insetFor(row, col, -1, 0),
+    _insetFor(row, col, 0, 1),
+    _insetFor(row, col, 1, 0),
+  );
+
+  /// The tile's inset on one side: the full [lineWidth] on the board's outer
+  /// edge (no opposite tile contributes the other half), half a line across a
+  /// room boundary (the two tiles combine into one full wall), zero within a
+  /// room (exactly abutting, no AA fringe).
+  double _insetFor(int row, int col, int dr, int dc) {
+    final (nRow, nCol) = (row + dr, col + dc);
+    if (_offBoard(nRow, nCol)) {
+      return lineWidth;
+    }
+    return _roomIndexAt((nRow, nCol)) == _roomIndexAt((row, col))
+        ? 0.0
+        : lineWidth / 2;
+  }
+
+  /// True when the cell at (row, col) is off the board.
+  bool _offBoard(int row, int col) =>
+      row < 0 || row >= gridSize || col < 0 || col >= gridSize;
 
   /// The legacy per-cell render for a room whose trace failed: today's
   /// rounded fill, boundary lines and corner arcs (issue 82 fallback).
@@ -1238,10 +1286,7 @@ class SkinRoomWallPainter extends CustomPainter {
     for (final room in rooms) {
       final loop = traceRoomOutline(rooms, gridSize, room.id);
       if (loop == null) continue;
-      canvas.drawPath(
-        _roomOutlinePath(loop, cellSize, radius, roundConcave: true),
-        mortar,
-      );
+      canvas.drawPath(_roomOutlinePath(loop, cellSize, radius), mortar);
     }
   }
 
