@@ -54,7 +54,6 @@ class _BoardViewState extends State<BoardView> {
     // Cartoon skins repaint the board as solid room blocks (issue 23); the
     // classic skin keeps its per-cell borders (maybeOf null → classic).
     final tokens = SkinScope.maybeOf(context);
-    final cartoon = tokens != null && tokens.solidRooms;
     return AspectRatio(
       aspectRatio: 1,
       child: LayoutBuilder(
@@ -80,25 +79,8 @@ class _BoardViewState extends State<BoardView> {
               height: side,
               child: Stack(
                 children: [
-                  if (cartoon)
-                    Positioned(
-                      left: 0,
-                      top: 0,
-                      width: side,
-                      height: side,
-                      child: CustomPaint(
-                        size: Size(side, side),
-                        painter: SkinRoomPainter(
-                          rooms: widget.caseData.rooms,
-                          gridSize: g,
-                          cellSize: cell,
-                          tints: tokens.roomTints,
-                          mortarColor: tokens.mortarColor,
-                          lineWidth: tokens.roomLineWidth,
-                          radius: tokens.roomRadius,
-                        ),
-                      ),
-                    ),
+                  // The room-fill layer under the cells (issue 23/82).
+                  ?_fillLayer(tokens, g, side, cell),
                   for (var row = 0; row < g; row++)
                     for (var col = 0; col < g; col++)
                       Positioned(
@@ -109,6 +91,7 @@ class _BoardViewState extends State<BoardView> {
                         child: _Cell(
                           key: Key('cell_${row}_$col'),
                           caseData: widget.caseData,
+                          cellSize: cell,
                           pos: (row: row, col: col),
                           roomNumber: _roomBadgeNumber(
                             anchors,
@@ -121,11 +104,72 @@ class _BoardViewState extends State<BoardView> {
                           onCellTap: widget.onCellTap,
                         ),
                       ),
+                  // The wall pass strokes over the cell content (issue 82).
+                  ?_wallLayer(tokens: tokens, g: g, side: side, cell: cell),
                 ],
               ),
             ),
           );
         },
+      ),
+    );
+  }
+
+  /// The room-fill layer under the cells (issue 23/82): one continuous
+  /// K-rounded hull path per room; null for the classic skin, which keeps
+  /// its per-cell borders.
+  Widget? _fillLayer(SkinTokens? tokens, int g, double side, double cell) {
+    if (tokens == null || !tokens.solidRooms) return null;
+    return Positioned(
+      left: 0,
+      top: 0,
+      width: side,
+      height: side,
+      child: CustomPaint(
+        size: Size(side, side),
+        painter: SkinRoomPainter(
+          rooms: widget.caseData.rooms,
+          gridSize: g,
+          cellSize: cell,
+          tints: tokens.roomTints,
+          mortarColor: tokens.mortarColor,
+          lineWidth: tokens.roomLineWidth,
+          radius: tokens.roomRadius,
+        ),
+      ),
+    );
+  }
+
+  /// The wall pass strokes over the cell content (issue 82): one continuous
+  /// rounded outline per room, clipped to the board so hull walls cut at
+  /// the board edge like the mock; null for the classic skin.
+  Widget? _wallLayer({
+    required SkinTokens? tokens,
+    required int g,
+    required double side,
+    required double cell,
+  }) {
+    if (tokens == null || !tokens.solidRooms) return null;
+    return Positioned(
+      left: 0,
+      top: 0,
+      width: side,
+      height: side,
+      child: ClipRect(
+        // Taps pass through to the cells below the stroke.
+        child: IgnorePointer(
+          child: CustomPaint(
+            size: Size(side, side),
+            painter: SkinRoomWallPainter(
+              rooms: widget.caseData.rooms,
+              gridSize: g,
+              cellSize: cell,
+              mortarColor: tokens.mortarColor,
+              lineWidth: tokens.roomLineWidth,
+              radius: tokens.roomRadius,
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -145,6 +189,176 @@ int? _roomBadgeNumber(Set<Pos> anchors, CaseData caseData, Pos pos) =>
     anchors.contains(pos)
     ? caseData.rooms.indexWhere((r) => r.contains(pos)) + 1
     : null;
+
+/// One cell-edge spec relative to a cell: the traced half-edge walks from
+/// the start vertex along [dir], and the edge is a boundary when the
+/// neighbor across [neighbor] differs (mock-verified half-edge table:
+/// north (r,c)→E, east (r,c+1)→S, south (r+1,c+1)→W, west (r+1,c)→N).
+const List<({Pos dir, Pos start, Pos neighbor})> _edgeSpecs = [
+  (dir: (row: 0, col: 1), start: (row: 0, col: 0), neighbor: (row: -1, col: 0)),
+  (dir: (row: 1, col: 0), start: (row: 0, col: 1), neighbor: (row: 0, col: 1)),
+  (dir: (row: 0, col: -1), start: (row: 1, col: 1), neighbor: (row: 1, col: 0)),
+  (
+    dir: (row: -1, col: 0),
+    start: (row: 1, col: 0),
+    neighbor: (row: 0, col: -1),
+  ),
+];
+
+/// Grid-space vector addition (vertices, directions).
+Pos _shift(Pos a, Pos b) => (row: a.row + b.row, col: a.col + b.col);
+
+/// 90° clockwise rotation (screen space, y grows down): E→S→W→N→E.
+Pos _rotateCW(Pos d) => (row: d.col, col: -d.row);
+
+/// 90° counter-clockwise rotation.
+Pos _rotateCCW(Pos d) => (row: -d.col, col: d.row);
+
+/// True while [p] sits inside a G×G board.
+bool _inBoard(Pos p, int g) =>
+    p.row >= 0 && p.row < g && p.col >= 0 && p.col < g;
+
+/// True when the cell edge across [neighbor] is a room boundary: the
+/// neighbor is off-board or belongs to another room. The victim cell is a
+/// room cell like any other (issue 82).
+bool _edgeIsBoundary(
+  List<RoomDef> rooms,
+  int gridSize,
+  String roomId,
+  Pos neighbor,
+) => _inBoard(neighbor, gridSize) ? roomOf(rooms, neighbor) != roomId : true;
+
+/// The tiled room's cells, empty when [roomId] names no room.
+List<Pos> _roomCells(List<RoomDef> rooms, String roomId) {
+  for (final room in rooms) {
+    if (room.id == roomId) return room.cells;
+  }
+  return const [];
+}
+
+/// The room's boundary half-edges grouped by start vertex: each entry keeps
+/// the pending walking directions leaving that vertex. A LIST per vertex —
+/// a corner vertex legitimately starts two edges (one per side).
+Map<Pos, List<Pos>> _roomHalfEdges(
+  List<RoomDef> rooms,
+  int gridSize,
+  String roomId,
+) {
+  final edges = <Pos, List<Pos>>{};
+  for (final cell in _roomCells(rooms, roomId)) {
+    for (final (dir: dir, start: relStart, neighbor: relNeighbor)
+        in _edgeSpecs) {
+      if (_edgeIsBoundary(rooms, gridSize, roomId, _shift(cell, relNeighbor))) {
+        edges.putIfAbsent(_shift(cell, relStart), () => <Pos>[]).add(dir);
+      }
+    }
+  }
+  return edges;
+}
+
+/// Walks one closed clockwise boundary loop from [start], room interior on
+/// the right (right turn, then straight, never reverse), consuming exactly
+/// one pending half-edge per step; null when the walk cannot continue.
+List<Pos>? _walkLoop(Map<Pos, List<Pos>> pending, Pos start) {
+  final first = pending[start]?.removeAt(0);
+  if (first == null) return null;
+  final loop = <Pos>[start];
+  var dir = first;
+  var cur = _shift(start, first);
+  while (cur != start) {
+    final next = _advance(pending, cur, dir, loop);
+    if (next == null) return null;
+    dir = next;
+    cur = _shift(cur, next);
+  }
+  return loop;
+}
+
+/// Consumes one pending half-edge at [cur] (turn priority in
+/// [_pickNext]), records [cur] in [loop] and returns the next direction.
+Pos? _advance(Map<Pos, List<Pos>> pending, Pos cur, Pos dir, List<Pos> loop) {
+  final options = pending[cur];
+  if (options == null || options.isEmpty) return null;
+  final next = _pickNext(options, dir);
+  if (next == null) return null;
+  loop.add(cur);
+  return next;
+}
+
+/// Removes and returns the option to walk next from [options]: the right
+/// turn first, then straight, then the left turn; null leaves only the
+/// reverse, which a clean room boundary never needs.
+Pos? _pickNext(List<Pos> options, Pos incoming) {
+  var i = options.indexOf(_rotateCW(incoming));
+  if (i < 0) i = options.indexOf(incoming);
+  if (i < 0) i = options.indexOf(_rotateCCW(incoming));
+  if (i < 0) return null;
+  return options.removeAt(i);
+}
+
+/// The room's boundary as one closed clockwise unit-edge loop — a cycle of
+/// grid vertices whose consecutive deltas are unit cell-edge steps, room
+/// interior on the right — or null when the boundary does not trace
+/// cleanly (hole, disconnected pieces; such rooms render with the legacy
+/// per-cell path, unreachable on generated data).
+List<Pos>? traceRoomOutline(List<RoomDef> rooms, int gridSize, String roomId) {
+  final pending = _roomHalfEdges(rooms, gridSize, roomId);
+  if (pending.isEmpty) return null;
+  final loop = _walkLoop(pending, pending.keys.first);
+  if (loop == null || loop.length < 4) return null;
+  return pending.values.every((left) => left.isEmpty) ? loop : null;
+}
+
+/// Grid vertex [p] in board pixels at [cell] per cell.
+Offset _roomVertexPixel(Pos p, double cell) =>
+    Offset(p.col * cell, p.row * cell);
+
+/// The pixel step of [length] along axis direction [d].
+Offset _roomDirPixel(Pos d, double length) =>
+    Offset(d.col * length, d.row * length);
+
+/// The unit-step direction of the loop's j-th segment (vertex j → j+1,
+/// wrapping).
+Pos _segDir(List<Pos> loop, int j) => (
+  row: loop[(j + 1) % loop.length].row - loop[j].row,
+  col: loop[(j + 1) % loop.length].col - loop[j].col,
+);
+
+/// The pixel path over the traced [loop]: unit straight runs joined by
+/// quadratic K-rounding at every 90° turn when [roundConcave], at convex
+/// right-turn corners only otherwise — the mock's continuous outline; K =
+/// [radius] clamped to the unit segment (mock K-rounding, issue 82).
+Path _roomOutlinePath(
+  List<Pos> loop,
+  double cellSize,
+  double radius, {
+  required bool roundConcave,
+}) {
+  final path = Path();
+  final n = loop.length;
+  if (n < 3) return path;
+  final k = math.min(radius, cellSize / 2);
+  final start =
+      _roomVertexPixel(loop[0], cellSize) + _roomDirPixel(_segDir(loop, 0), k);
+  path.moveTo(start.dx, start.dy);
+  for (var i = 1; i <= n; i++) {
+    final j = i % n;
+    final vertex = _roomVertexPixel(loop[j], cellSize);
+    final prevDir = _segDir(loop, (j + n - 1) % n);
+    final outDir = _segDir(loop, j);
+    final back = vertex - _roomDirPixel(prevDir, k);
+    final out = vertex + _roomDirPixel(outDir, k);
+    path.lineTo(back.dx, back.dy);
+    if (roundConcave || _rotateCW(prevDir) == outDir) {
+      path.quadraticBezierTo(vertex.dx, vertex.dy, out.dx, out.dy);
+    } else {
+      path.lineTo(vertex.dx, vertex.dy);
+      path.lineTo(out.dx, out.dy);
+    }
+  }
+  path.close();
+  return path;
+}
 
 /// The suspect sitting at [p], or null when the cell is guest-free.
 String? _suspectAt(Map<String, Pos> placed, Pos p) {
@@ -168,6 +382,7 @@ class _Cell extends StatelessWidget {
   const _Cell({
     super.key,
     required this.caseData,
+    required this.cellSize,
     required this.pos,
     required this.placed,
     required this.xMarks,
@@ -177,6 +392,7 @@ class _Cell extends StatelessWidget {
   });
 
   final CaseData caseData;
+  final double cellSize;
   final Pos pos;
   final Map<String, Pos> placed;
   final Set<Pos> xMarks;
@@ -231,8 +447,17 @@ class _Cell extends StatelessWidget {
     if (state.isEmpty) state = l10n.stateEmpty;
     final label = l10n.cellSemantics(pos.row, pos.col, room.name, state);
 
+    final spritePad = _spritePad(cartoon, tokens);
     final content = isVictim
-        ? _victimContent(l10n, label, scheme, tokens, cartoon)
+        ? _victimContent(
+            l10n,
+            label,
+            scheme,
+            tokens,
+            cartoon,
+            spritePad: spritePad,
+            cellSize: cellSize,
+          )
         : _guestContent(
             c,
             suspectIdHere: suspectIdHere,
@@ -243,6 +468,8 @@ class _Cell extends StatelessWidget {
             scheme: scheme,
             tokens: tokens,
             cartoon: cartoon,
+            spritePad: spritePad,
+            cellSize: cellSize,
           );
 
     return Semantics(
@@ -399,14 +626,34 @@ class _Cell extends StatelessWidget {
     ].join(' · ');
   }
 
+  /// The sprite inset per side: the wall pass plus the mock's 2px gap
+  /// (issue 82); classic cells keep today's zero inset.
+  double _spritePad(bool cartoon, SkinTokens? tokens) =>
+      cartoon ? tokens!.roomLineWidth + 2 : 0;
+
+  /// The victim sprite side: capped at 40, shrunk inside the cell's inner
+  /// area (wall pass + 2px per side) on narrow boards (issue 82).
+  double _victimSide(bool cartoon, double cellSize, double spritePad) =>
+      cartoon ? math.min(40, math.max(0, cellSize - spritePad * 2)) : 40;
+
+  /// The centered furniture sprite's [ItemSprite] size param capped at 28
+  /// and shrunk inside the cell's inner area on narrow boards; the rendered
+  /// image is 1.35× this (issue 82).
+  double _furnitureSize(bool cartoon, double cellSize, double spritePad) =>
+      cartoon
+      ? math.min(28, math.max(0, (cellSize - spritePad * 2) / 1.35))
+      : 28;
+
   /// The victim cell: striped cartoon backdrop under the chalk-outline image.
   Widget _victimContent(
     AppLocalizations l10n,
     String label,
     ColorScheme scheme,
     SkinTokens? tokens,
-    bool cartoon,
-  ) {
+    bool cartoon, {
+    required double spritePad,
+    required double cellSize,
+  }) {
     return Semantics(
       label: '${l10n.victimLabel}: $label',
       child: Stack(
@@ -422,19 +669,24 @@ class _Cell extends StatelessWidget {
                 ),
               ),
             ),
-          Center(
-            child: Image.asset(
-              'assets/items/victim.png',
-              width: 40,
-              height: 40,
-              // Chalk outline always beats a letter — the letter is a
-              // last-resort fallback if the asset is missing.
-              errorBuilder: (_, _, _) => Text(
-                'V',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: scheme.onErrorContainer,
+          Padding(
+            padding: EdgeInsets.all(spritePad),
+            child: ClipRect(
+              child: Center(
+                child: Image.asset(
+                  'assets/items/victim.png',
+                  width: _victimSide(cartoon, cellSize, spritePad),
+                  height: _victimSide(cartoon, cellSize, spritePad),
+                  // Chalk outline always beats a letter — the letter is a
+                  // last-resort fallback if the asset is missing.
+                  errorBuilder: (_, _, _) => Text(
+                    'V',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: scheme.onErrorContainer,
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -455,6 +707,8 @@ class _Cell extends StatelessWidget {
     required ColorScheme scheme,
     required SkinTokens? tokens,
     required bool cartoon,
+    required double spritePad,
+    required double cellSize,
   }) {
     final itemIcon = objectHere.isNotEmpty
         ? objectIcon(objectHere.first.kind)
@@ -479,18 +733,26 @@ class _Cell extends StatelessWidget {
         ),
         // Furniture renders under everything in the cell.
         ?underlay,
-        _occupant(
-          c,
-          suspectIdHere,
-          suspectIndexHere,
-          hasX,
-          itemIcon,
-          objectHere,
-          selectedSuspectId,
-          dimmed,
-          scheme,
-          tokens,
-          cartoon,
+        // The occupant layer is inset and clipped so sprites never cross
+        // the border band (issue 82).
+        Padding(
+          padding: EdgeInsets.all(spritePad),
+          child: ClipRect(
+            child: _occupant(
+              c,
+              suspectIdHere,
+              suspectIndexHere,
+              hasX,
+              itemIcon,
+              objectHere,
+              selectedSuspectId,
+              dimmed,
+              scheme,
+              tokens,
+              cartoon,
+              furnitureSize: _furnitureSize(cartoon, cellSize, spritePad),
+            ),
+          ),
         ),
       ],
     );
@@ -528,8 +790,9 @@ class _Cell extends StatelessWidget {
     bool dimmed,
     ColorScheme scheme,
     SkinTokens? tokens,
-    bool cartoon,
-  ) {
+    bool cartoon, {
+    required double furnitureSize,
+  }) {
     if (suspectIndexHere != null) {
       return Center(
         child: Avatar(
@@ -550,7 +813,11 @@ class _Cell extends StatelessWidget {
     }
     if (itemIcon != null) {
       return Center(
-        child: _furnitureSprite(objectHere.first.kind, 28, dimmed: dimmed),
+        child: _furnitureSprite(
+          objectHere.first.kind,
+          furnitureSize,
+          dimmed: dimmed,
+        ),
       );
     }
     return const SizedBox.shrink();
@@ -613,11 +880,13 @@ class _RoomBadge extends StatelessWidget {
   );
 }
 
-/// Paints the cartoon board's rooms as solid blocks (issue 23): a union of
-/// per-cell fills rounded only at outer room corners, with boundary-only
-/// mortar lines (north/west rules plus the outer south/east edges keep one
-/// stroke per internal boundary) wrapping rounded corners in arcs. Classic
-/// boards never use this painter.
+/// Paints the cartoon board's room fills (issue 23/82): one continuous
+/// K-rounded hull path per traced room (same-room cells meet seamlessly),
+/// falling back to the legacy per-cell render (per-cell fills, boundary
+/// lines and corner arcs) for a room whose loop fails to close —
+/// unreachable on generated data. Runs BELOW the cell layer; the wall
+/// stroke pass on top is [SkinRoomWallPainter]. Classic boards never use
+/// this painter.
 class SkinRoomPainter extends CustomPainter {
   SkinRoomPainter({
     required this.rooms,
@@ -655,25 +924,51 @@ class SkinRoomPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final fill = Paint();
+    for (final (index, room) in rooms.indexed) {
+      final loop = traceRoomOutline(rooms, gridSize, room.id);
+      if (loop != null) {
+        _paintRoomFill(canvas, fill, loop, index);
+      } else {
+        _paintRoomLegacy(canvas, fill, room, index);
+      }
+    }
+  }
+
+  /// One room's continuous fill: the traced hull path with K-rounded
+  /// convex corners so the fill meets the wall stroke exactly (issue 82).
+  void _paintRoomFill(Canvas canvas, Paint fill, List<Pos> loop, int index) {
+    fill.color = tints[index % tints.length];
+    canvas.drawPath(
+      _roomOutlinePath(loop, cellSize, radius, roundConcave: false),
+      fill,
+    );
+  }
+
+  /// The legacy per-cell render for a room whose trace failed: today's
+  /// rounded fill, boundary lines and corner arcs (issue 82 fallback).
+  void _paintRoomLegacy(Canvas canvas, Paint fill, RoomDef room, int index) {
     final mortar = Paint()
       ..color = mortarColor
       ..strokeWidth = lineWidth
       ..strokeCap = StrokeCap.round
       ..style = PaintingStyle.stroke;
-    final w = lineWidth;
-
-    for (var row = 0; row < gridSize; row++) {
-      for (var col = 0; col < gridSize; col++) {
-        final roomIndex = _roomIndexAt((row, col));
-        if (roomIndex < 0) continue;
-        final rect = Rect.fromLTWH(
-          col * cellSize,
-          row * cellSize,
-          cellSize,
-          cellSize,
-        );
-        _paintCell(canvas, fill, mortar, w, rect, roomIndex, row, col);
-      }
+    for (final cell in room.cells) {
+      final rect = Rect.fromLTWH(
+        cell.col * cellSize,
+        cell.row * cellSize,
+        cellSize,
+        cellSize,
+      );
+      _paintCell(
+        canvas,
+        fill,
+        mortar,
+        lineWidth,
+        rect,
+        index,
+        cell.row,
+        cell.col,
+      );
     }
   }
 
@@ -906,6 +1201,62 @@ bool _fieldsChanged(List<Object?> a, List<Object?> b) {
     if (a[i] != b[i]) return true;
   }
   return false;
+}
+
+/// Strokes one continuous rounded wall outline per traced room, ABOVE the
+/// cell layer (issue 82): a single path per room, `strokeJoin`/`strokeCap`
+/// round, quadratic K-rounding at every 90° turn (convex and concave) with
+/// `radius` clamped to the unit segment — so walls always read as one
+/// solid line, including over the victim's chalk sprite. Paints nothing for
+/// a room whose trace fails ([SkinRoomPainter]'s legacy pass renders
+/// those per-cell). Classic boards never use this painter.
+class SkinRoomWallPainter extends CustomPainter {
+  SkinRoomWallPainter({
+    required this.rooms,
+    required this.gridSize,
+    required this.cellSize,
+    required this.mortarColor,
+    required this.lineWidth,
+    required this.radius,
+  });
+
+  final List<RoomDef> rooms;
+  final int gridSize;
+  final double cellSize;
+  final Color mortarColor;
+  final double lineWidth;
+  final double radius;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final mortar = Paint()
+      ..color = mortarColor
+      ..strokeWidth = lineWidth
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..style = PaintingStyle.stroke;
+    for (final room in rooms) {
+      final loop = traceRoomOutline(rooms, gridSize, room.id);
+      if (loop == null) continue;
+      canvas.drawPath(
+        _roomOutlinePath(loop, cellSize, radius, roundConcave: true),
+        mortar,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(SkinRoomWallPainter oldDelegate) => _fieldsChanged(
+    [rooms, gridSize, cellSize, mortarColor, lineWidth, radius],
+    [
+      oldDelegate.rooms,
+      oldDelegate.gridSize,
+      oldDelegate.cellSize,
+      oldDelegate.mortarColor,
+      oldDelegate.lineWidth,
+      oldDelegate.radius,
+    ],
+  );
 }
 
 /// Diagonal stripes for the cartoon victim cell (issue 23 mockups). Painted

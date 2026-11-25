@@ -482,6 +482,12 @@ const stickerTokens = SkinTokens(
 /// Комикс (style-d-comic.png): yellow halftone page, white app card with a
 /// black outline and a white ring, hard black offset shadows, uppercase
 /// chrome ink.
+///
+/// Radius/lineWidth pairing (issue 82): comic's 14/4 puts the wall corner
+/// rounding K ≈ 3.5× the stroke half-width — right at the ~3.4 threshold
+/// where a four-way junction can leave a ≤ 0.1px sub-pixel pocket at its
+/// center (sticker's 10/3.5 sits safely at ≈ 2.9). If the radius grows,
+/// raise the line width along with it.
 const comicTokens = SkinTokens(
   skin: SkinSetting.comic,
   isCartoon: true,
