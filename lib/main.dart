@@ -17,22 +17,33 @@ Future<void> main() => murdokuBootstrap();
 /// callers with a bounded lifetime (integration tests) can dispose it, while
 /// the production entrypoint ignores it and keeps semantics on for the whole
 /// app run.
+///
+/// Zone discipline (issue 81): the whole bootstrap runs inside one guarded
+/// zone so `WidgetsFlutterBinding.ensureInitialized` and `runApp` execute in
+/// the same zone. With the binding initialized before the guarded zone,
+/// the binding's zone check (`BindingBase.debugCheckZone`) reports
+/// "Zone mismatch" during `runApp` — absorbed under an attached `flutter run`,
+/// but terminal for first paint on a detached debug launch (install +
+/// `simctl launch` without `flutter run`).
 @visibleForTesting
 Future<SemanticsHandle> murdokuBootstrap({
   int? forcedSeed,
   bool skipTutorial = false,
 }) async {
-  WidgetsFlutterBinding.ensureInitialized();
-  // Веб: семантическое дерево сразу — скринридеры и автоматизация видят
-  // все виджеты (кнопки, доску, карточки с уликами).
-  final semanticsHandle = SemanticsBinding.instance.ensureSemantics();
-  FlutterError.onError = (details) {
-    FlutterError.presentError(details);
-    debugPrint('FlutterError: ${details.exception}');
-  };
-  ErrorWidget.builder = fatalErrorWidget;
-  await runZonedGuarded(
+  // The body is an async closure, so it cannot throw synchronously and
+  // runZonedGuarded never returns null here (null is only for synchronous
+  // throws); its `!` documents that and keeps the return type clean.
+  return (await runZonedGuarded<Future<SemanticsHandle>>(
     () async {
+      WidgetsFlutterBinding.ensureInitialized();
+      // Веб: семантическое дерево сразу — скринридеры и автоматизация видят
+      // все виджеты (кнопки, доску, карточки с уликами).
+      final semanticsHandle = SemanticsBinding.instance.ensureSemantics();
+      FlutterError.onError = (details) {
+        FlutterError.presentError(details);
+        debugPrint('FlutterError: ${details.exception}');
+      };
+      ErrorWidget.builder = fatalErrorWidget;
       final prefs = await SharedPreferences.getInstance();
       if (skipTutorial) {
         await prefs.setBool('murdoku.tutorialSeen', true);
@@ -47,10 +58,10 @@ Future<SemanticsHandle> murdokuBootstrap({
           child: const MurdokuApp(),
         ),
       );
+      return semanticsHandle;
     },
     (error, stack) {
       debugPrint('Uncaught zone error: $error\n$stack');
     },
-  );
-  return semanticsHandle;
+  ))!;
 }
