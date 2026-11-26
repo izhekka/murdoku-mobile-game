@@ -247,95 +247,116 @@ class _GameScreenState extends ConsumerState<GameScreen>
       onPressed: () => notifier.setTool(tool),
     );
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
-          Expanded(
-            child: toolButton(
-              Tool.place,
-              Icons.person,
-              l10n.toolPlace,
-              tooltip: l10n.toolPlace,
-              pillColor: _actionColor(actions, (a) => a.place),
-            ),
-          ),
-          Expanded(
-            child: toolButton(
-              Tool.markX,
-              Icons.close,
-              l10n.toolMark,
-              tooltip: l10n.toolMarkTooltip,
-              pillColor: _actionColor(actions, (a) => a.mark),
-            ),
-          ),
-          Expanded(
-            child: toolButton(
-              Tool.erase,
-              Icons.auto_fix_normal,
-              l10n.toolErase,
-              tooltip: l10n.toolErase,
-              pillColor: _actionColor(actions, (a) => a.erase),
-            ),
-          ),
-          Expanded(
-            child: _MiniButton(
-              icon: Icons.undo,
-              label: l10n.toolUndo,
-              tooltip: l10n.toolUndo,
-              keyName: 'tool_undo',
-              pillColor: _actionColor(actions, (a) => a.undo),
-              tokens: tokens,
-              onPressed: notifier.undo,
-            ),
-          ),
-          Expanded(
-            child: _MiniButton(
-              icon: Icons.fact_check,
-              label: l10n.toolCheck,
-              tooltip: l10n.toolCheckTooltip,
-              keyName: 'tool_check',
-              pillColor: _actionColor(actions, (a) => a.check),
-              tokens: tokens,
-              onPressed: () => _runCheck(l10n),
-            ),
-          ),
-          Expanded(
-            child: _MiniButton(
-              icon: Icons.lightbulb,
-              label: l10n.toolHint,
-              tooltip: l10n.toolHintTooltip,
-              keyName: 'tool_hint',
-              pillColor: _actionColor(actions, (a) => a.hint),
-              tokens: tokens,
-              onPressed: () => _showHintSheet(l10n, hintsLeft),
-            ),
-          ),
-          Expanded(
-            child: _MiniButton(
-              icon: Icons.gavel,
-              label: l10n.toolAccuse,
-              tooltip: l10n.accuse,
-              keyName: 'tool_accuse',
-              pillColor: _actionColor(actions, (a) => a.accuse),
-              tokens: tokens,
-              onPressed: showAccuseSheet,
-            ),
-          ),
-          Expanded(
-            child: _MiniButton(
-              icon: Icons.pause,
-              label: l10n.pauseMenuTitle,
-              tooltip: l10n.pauseMenuTitle,
-              keyName: 'tool_menu',
-              pillColor: _actionColor(actions, (a) => a.menu),
-              tokens: tokens,
-              onPressed: () => _showPauseMenu(l10n),
-            ),
-          ),
-        ],
+    // Issue 88: board-interaction tools share the first row, case-level
+    // actions the second — the split is semantic, not arbitrary.
+    final tools = <Widget>[
+      Expanded(
+        child: toolButton(
+          Tool.place,
+          Icons.person,
+          l10n.toolPlace,
+          tooltip: l10n.toolPlace,
+          pillColor: _actionColor(actions, (a) => a.place),
+        ),
       ),
+      Expanded(
+        child: toolButton(
+          Tool.markX,
+          Icons.close,
+          l10n.toolMark,
+          tooltip: l10n.toolMarkTooltip,
+          pillColor: _actionColor(actions, (a) => a.mark),
+        ),
+      ),
+      Expanded(
+        child: toolButton(
+          Tool.erase,
+          Icons.auto_fix_normal,
+          l10n.toolErase,
+          tooltip: l10n.toolErase,
+          pillColor: _actionColor(actions, (a) => a.erase),
+        ),
+      ),
+      Expanded(
+        child: _MiniButton(
+          icon: Icons.undo,
+          label: l10n.toolUndo,
+          tooltip: l10n.toolUndo,
+          keyName: 'tool_undo',
+          pillColor: _actionColor(actions, (a) => a.undo),
+          tokens: tokens,
+          onPressed: notifier.undo,
+        ),
+      ),
+    ];
+    final meta = <Widget>[
+      Expanded(
+        child: _MiniButton(
+          icon: Icons.fact_check,
+          label: l10n.toolCheck,
+          tooltip: l10n.toolCheckTooltip,
+          keyName: 'tool_check',
+          pillColor: _actionColor(actions, (a) => a.check),
+          tokens: tokens,
+          onPressed: () => _runCheck(l10n),
+        ),
+      ),
+      Expanded(
+        child: _MiniButton(
+          icon: Icons.lightbulb,
+          label: l10n.toolHint,
+          tooltip: l10n.toolHintTooltip,
+          keyName: 'tool_hint',
+          pillColor: _actionColor(actions, (a) => a.hint),
+          tokens: tokens,
+          onPressed: () => _showHintSheet(l10n, hintsLeft),
+        ),
+      ),
+      Expanded(
+        child: _MiniButton(
+          icon: Icons.gavel,
+          label: l10n.toolAccuse,
+          tooltip: l10n.accuse,
+          keyName: 'tool_accuse',
+          pillColor: _actionColor(actions, (a) => a.accuse),
+          tokens: tokens,
+          onPressed: showAccuseSheet,
+        ),
+      ),
+      Expanded(
+        child: _MiniButton(
+          icon: Icons.pause,
+          label: l10n.pauseMenuTitle,
+          tooltip: l10n.pauseMenuTitle,
+          keyName: 'tool_menu',
+          pillColor: _actionColor(actions, (a) => a.menu),
+          tokens: tokens,
+          onPressed: () => _showPauseMenu(l10n),
+        ),
+      ),
+    ];
+
+    // The LayoutBuilder sits OUTSIDE the horizontal padding so maxWidth is
+    // the toolbar's full available width (= the logical viewport width in
+    // both body branches) and the _toolbarWrapWidth threshold means
+    // viewport px.
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final narrow = constraints.maxWidth < _toolbarWrapWidth;
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          child: narrow
+              ? Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _toolbarRow(tools),
+                    const SizedBox(height: 8),
+                    _toolbarRow(meta),
+                  ],
+                )
+              : _toolbarRow([...tools, ...meta]),
+        );
+      },
     );
   }
 
@@ -565,6 +586,27 @@ class _MiniButton extends StatelessWidget {
     return pillColor == tokens.dangerColor ? Colors.white : tokens.ink;
   }
 }
+
+/// One toolbar row of equal-width [buttons] with ≥4px logical seams between
+/// them, so pills (skin shadows, the active tool's ink outline) never touch
+/// at any width (issue 88).
+Widget _toolbarRow(List<Widget> buttons) => Row(
+  children: [
+    for (var i = 0; i < buttons.length; i++) ...[
+      if (i > 0) const SizedBox(width: 4),
+      buttons[i],
+    ],
+  ],
+);
+
+/// Viewport width below which the toolbar wraps to two rows of 4 (issue 88).
+/// Two constraints point at the same 472: (1) targets — a single row needs
+/// 8 × 48px + 7 × 4px seams + 16px padding = 428px; (2) the 9px label floor —
+/// the widest ru label («Подсказка», Roboto ideal ≈50.5px at 10px) needs a
+/// (W − 108)/8 paint box ≥ 0.9 × 50.5px, which recovers at W ≈ 472, so the
+/// 440–471px band stays on two rows to keep every label ≥9px effective.
+/// The wrap is computed from width only, so every skin shares the geometry.
+const double _toolbarWrapWidth = 472;
 
 /// The test key of a tool button, matching the tool's name.
 String _toolKeyName(Tool tool) => switch (tool) {

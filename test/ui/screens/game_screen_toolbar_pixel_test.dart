@@ -35,7 +35,12 @@ Future<void> pumpCandyGame(WidgetTester tester) async {
   final prefs = await SharedPreferences.getInstance();
   container = ProviderContainer(overrides: seededOverrides(prefs));
   addTearDown(container.dispose);
-  tester.view.physicalSize = const Size(800, 600);
+  // dpr 3.0 rasterizes the pills for the pixel assertions; the logical
+  // viewport must stay inside the app's supported range (≥320 wide — issue
+  // 88 wraps the toolbar to two rows below 440 and the taller toolbar needs
+  // panel room): 1206×2622 physical = 402×874 logical at 3x, the issue-88
+  // acceptance viewport (iPhone 18 Pro class).
+  tester.view.physicalSize = const Size(1206, 2622);
   tester.view.devicePixelRatio = 3.0;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);

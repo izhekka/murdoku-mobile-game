@@ -1,6 +1,9 @@
 import 'dart:convert';
+import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart' show FontLoader;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -1392,4 +1395,270 @@ void main() {
     );
     expect(containerColor(const Key('tool_mark')), Colors.transparent);
   });
+
+  group('toolbar two-row wrap (issue 88)', () {
+    testWidgets('toolbar wraps to two rows of 4 at 402x874 (issue 88)', (
+      tester,
+    ) async {
+      await pumpGame(
+        tester,
+        size: const Size(402, 874),
+        skin: SkinSetting.classic,
+        tutorialSeen: true,
+      );
+      expect(tester.takeException(), isNull);
+      expectToolbarTwoRows(tester);
+    });
+
+    testWidgets('toolbar wraps to two rows at 320x568 with readable labels '
+        '(issue 88)', (tester) async {
+      await pumpGame(
+        tester,
+        size: const Size(320, 568),
+        skin: SkinSetting.classic,
+        tutorialSeen: true,
+      );
+      expect(tester.takeException(), isNull);
+      expectToolbarTwoRows(tester);
+
+      // The widest ru label («Подсказка») must stay readable: the FittedBox
+      // scales the ideal paragraph down to fit its slot, and the label may
+      // not render below 9px effective at the narrowest supported viewport.
+      // Flutter's default text family is Roboto, but widget tests render
+      // every glyph with the fixed-advance FlutterTest font instead (1.02em
+      // per glyph: this very label measures an inflated 92.25px at 10px), so
+      // the floor is measured with the SDK's bundled production Roboto.
+      final effectiveFont = await hintLabelEffectiveFont(tester);
+      expect(
+        effectiveFont,
+        greaterThanOrEqualTo(9.0),
+        reason:
+            'the widest ru label renders at $effectiveFont px effective, '
+            'below the 9px floor (issue 88)',
+      );
+    });
+
+    testWidgets('toolbar wraps at 471, just below the single-row threshold '
+        '(issue 88)', (tester) async {
+      await pumpGame(
+        tester,
+        size: const Size(471, 800),
+        skin: SkinSetting.classic,
+        tutorialSeen: true,
+      );
+      expect(tester.takeException(), isNull);
+      expectToolbarTwoRows(tester);
+      expect(
+        await hintLabelEffectiveFont(tester),
+        greaterThanOrEqualTo(9.0),
+        reason:
+            'just below the threshold the two-row layout keeps the '
+            'widest ru label ≥9px effective (issue 88)',
+      );
+    });
+
+    testWidgets('toolbar keeps one row of 8 at exactly the 472px threshold '
+        '(issue 88)', (tester) async {
+      await pumpGame(
+        tester,
+        size: const Size(472, 800),
+        skin: SkinSetting.classic,
+        tutorialSeen: true,
+      );
+      expect(tester.takeException(), isNull);
+      expectToolbarOneRow(tester);
+      expect(
+        await hintLabelEffectiveFont(tester),
+        greaterThanOrEqualTo(9.0),
+        reason:
+            'the tightest single-row slot still keeps the widest ru '
+            'label ≥9px effective — pinning the wrap threshold (issue 88)',
+      );
+    });
+
+    testWidgets('toolbar keeps one row of 8 at 1024x768 (issue 88)', (
+      tester,
+    ) async {
+      await pumpGame(
+        tester,
+        size: const Size(1024, 768),
+        skin: SkinSetting.classic,
+        tutorialSeen: true,
+      );
+      expect(tester.takeException(), isNull);
+      expectToolbarOneRow(tester);
+    });
+
+    testWidgets('two-row wrap holds on a cartoon skin at 402x874 (issue 88)', (
+      tester,
+    ) async {
+      await pumpGame(
+        tester,
+        size: const Size(402, 874),
+        skin: SkinSetting.candy,
+        tutorialSeen: true,
+      );
+      expect(tester.takeException(), isNull);
+      expectToolbarTwoRows(tester);
+    });
+  });
+}
+
+/// The effective (post-`FittedBox` scale-down) font size of the hint
+/// button's ru label, measured with the production Roboto metrics instead of
+/// the fixed-advance FlutterTest font. The base size is read off the
+/// rendered label's own style rather than a literal, so the ≥9px floor stays
+/// absolute in px even if production recalibrates the font size.
+Future<double> hintLabelEffectiveFont(WidgetTester tester) async {
+  final hintButton = find.byKey(const Key('tool_hint'));
+  final fittedFinder = find.descendant(
+    of: hintButton,
+    matching: find.byType(FittedBox),
+  );
+  final fitted = tester.renderObject<RenderFittedBox>(fittedFinder);
+  await _ensureRobotoLoaded(tester);
+  final label = tester.widget<Text>(
+    find.descendant(of: fittedFinder, matching: find.byType(Text)),
+  );
+  final fontSize = label.style!.fontSize!;
+  final robotoIdealWidth = _measureWithRoboto(
+    l10nOf(tester).toolHint,
+    fontSize,
+  );
+  final paintBox = fitted.constraints.maxWidth;
+  final scale = paintBox >= robotoIdealWidth
+      ? 1.0
+      : paintBox / robotoIdealWidth;
+  return fontSize * scale;
+}
+
+/// Loads the Flutter SDK's bundled Roboto-Regular.ttf (the production font
+/// families for these labels default to) under the 'Roboto' family name, so
+/// label widths can be measured with device metrics instead of the
+/// fixed-advance FlutterTest font.
+///
+/// The path is a stock Flutter cache artifact and a missing file fails the
+/// test loudly DELIBERATELY: the ≥9px readability floor may only be measured
+/// with the production font, never a substitute (vendoring the font would be
+/// an owner-side option if some environment ships it elsewhere).
+Future<void> _ensureRobotoLoaded(WidgetTester tester) async {
+  final ttf = () {
+    final root = Platform.environment['FLUTTER_ROOT'];
+    if (root != null) {
+      final file = File(
+        '$root/bin/cache/artifacts/material_fonts/Roboto-Regular.ttf',
+      );
+      if (file.existsSync()) return file;
+    }
+    // flutter test runs text through the flutter_tester engine binary at
+    // <sdk>/bin/cache/artifacts/engine/<platform>/flutter_tester; walk the
+    // ancestors to find <sdk>/bin/cache/artifacts/material_fonts.
+    var dir = File(Platform.resolvedExecutable).parent;
+    while (true) {
+      final candidate = File('${dir.path}/material_fonts/Roboto-Regular.ttf');
+      if (candidate.existsSync()) return candidate;
+      final parent = dir.parent;
+      if (parent.path == dir.path) {
+        throw StateError(
+          'Roboto-Regular.ttf not found in the Flutter SDK cache',
+        );
+      }
+      dir = parent;
+    }
+  }();
+  final loader = FontLoader('Roboto')
+    ..addFont(Future.value(ByteData.view(ttf.readAsBytesSync().buffer)));
+  await tester.runAsync(loader.load);
+}
+
+/// The ideal single-line width [text] needs at [fontSize]px in Roboto —
+/// the width a device lays out for it.
+double _measureWithRoboto(String text, double fontSize) {
+  final painter = TextPainter(
+    text: TextSpan(
+      text: text,
+      style: TextStyle(fontSize: fontSize, fontFamily: 'Roboto'),
+    ),
+    textDirection: TextDirection.ltr,
+  )..layout();
+  final width = painter.width;
+  painter.dispose();
+  return width;
+}
+
+/// Adjacent-pair ≥4px seam assertions shared by the issue-88 wrap tests.
+void assertSeams(List<Rect> row, String rowName) {
+  for (var i = 0; i < row.length - 1; i++) {
+    expect(
+      row[i + 1].left - row[i].right,
+      greaterThanOrEqualTo(4),
+      reason: '$rowName: pill $i and ${i + 1} must be ≥4px apart (issue 88)',
+    );
+  }
+}
+
+/// Issue 88 two-row wrap geometry: every button ≥44×44, the 4 tool buttons
+/// (place/mark/erase/undo) share one row, the 4 meta buttons
+/// (check/hint/accuse/menu) share a second row at least one pill+seam below,
+/// and adjacent pills in both rows are ≥4px apart.
+void expectToolbarTwoRows(WidgetTester tester) {
+  const toolKeys = ['tool_place', 'tool_mark', 'tool_erase', 'tool_undo'];
+  const metaKeys = ['tool_check', 'tool_hint', 'tool_accuse', 'tool_menu'];
+  Rect rect(String key) => tester.getRect(find.byKey(Key(key)));
+  final row1 = [for (final k in toolKeys) rect(k)];
+  final row2 = [for (final k in metaKeys) rect(k)];
+  for (var i = 0; i < 4; i++) {
+    expect(row1[i].width, greaterThanOrEqualTo(44), reason: toolKeys[i]);
+    expect(row1[i].height, greaterThanOrEqualTo(44), reason: toolKeys[i]);
+    expect(row2[i].width, greaterThanOrEqualTo(44), reason: metaKeys[i]);
+    expect(row2[i].height, greaterThanOrEqualTo(44), reason: metaKeys[i]);
+    expect(
+      (row1[i].top - row1[0].top).abs(),
+      lessThan(0.01),
+      reason: 'tool row: ${toolKeys[i]} shares one y with tool_place',
+    );
+    expect(
+      (row2[i].top - row2[0].top).abs(),
+      lessThan(0.01),
+      reason: 'meta row: ${metaKeys[i]} shares one y with tool_check',
+    );
+    expect(
+      row2[i].top - row1[i].top,
+      greaterThanOrEqualTo(60),
+      reason: 'meta row sits at least one pill+seam below the tool row',
+    );
+  }
+  assertSeams(row1, 'tool row');
+  assertSeams(row2, 'meta row');
+  expect(
+    row2[0].top - row1[0].bottom,
+    greaterThanOrEqualTo(4),
+    reason: 'the two rows must not touch',
+  );
+}
+
+/// Issue 88 wide-viewport geometry: all 8 buttons on one shared row, ≥44×44
+/// each, ≥4px seams between adjacent pills.
+void expectToolbarOneRow(WidgetTester tester) {
+  const keys = [
+    'tool_place',
+    'tool_mark',
+    'tool_erase',
+    'tool_undo',
+    'tool_check',
+    'tool_hint',
+    'tool_accuse',
+    'tool_menu',
+  ];
+  final row = [for (final k in keys) tester.getRect(find.byKey(Key(k)))];
+  for (var i = 0; i < keys.length; i++) {
+    expect(row[i].width, greaterThanOrEqualTo(44), reason: keys[i]);
+    expect(row[i].height, greaterThanOrEqualTo(44), reason: keys[i]);
+    expect(
+      (row[i].top - row[0].top).abs(),
+      lessThan(0.01),
+      reason: '${keys[i]} shares the single toolbar row',
+    );
+  }
+  assertSeams(row, 'toolbar');
 }
