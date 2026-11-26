@@ -554,8 +554,16 @@ class _MiniButton extends StatelessWidget {
     border: active ? Border.all(color: tokens!.ink, width: 2.5) : null,
   );
 
-  /// White ink on the colored pill; theme ink on classic.
-  Color? _foreground() => pillColor != null ? Colors.white : null;
+  /// Cartoon pills: white glyphs rendered on every pastel pill failed
+  /// WCAG AA 4.5:1 on all three skins (issue 87), so only the danger pill
+  /// keeps white and every other pill paints the skin's ink. Classic
+  /// (null pill) keeps the theme's default text color.
+  Color? _foreground() {
+    if (pillColor == null) return null;
+    final tokens = this.tokens;
+    if (tokens == null) return Colors.white;
+    return pillColor == tokens.dangerColor ? Colors.white : tokens.ink;
+  }
 }
 
 /// The test key of a tool button, matching the tool's name.

@@ -277,23 +277,35 @@ class SkinActions {
       Object.hash(place, mark, erase, undo, hint, check, accuse, menu);
 }
 
+/// Cartoon danger accent (issue 87): deep burnt orange so the white glyphs
+/// on the accuse pill clear WCAG AA 4.5:1 (white on it measures 5.18:1;
+/// the old #E8590C gave 3.58:1). Shared by candy, sticker and comic — the
+/// owner approved deepening all three error/danger highlights along with
+/// the toolbar.
+const Color _cartoonDanger = Color(0xFFC2410C);
+
 /// Shared cartoon toolbar palette (issue 23). The mockups show no Accuse
-/// button (the app has one), so accuse takes the danger accent.
+/// button (the app has one), so accuse takes the danger accent. Issue 87
+/// retunes the palette for ink glyphs: place/menu lighten one step so the
+/// skin ink on them reaches AA 4.5:1 (the other pills already do; place is
+/// the thinnest pair at 4.66:1 with the weakest skin ink), and the danger
+/// pill alone renders white glyphs.
 const SkinActions _cartoonActions = SkinActions(
-  place: Color(0xFFFF6B9D),
+  place: Color(0xFFFF8FB3),
   mark: Color(0xFFFFA94D),
   erase: Color(0xFF38D9A9),
   undo: Color(0xFF74C0FC),
   hint: Color(0xFFFFC078),
   check: Color(0xFF51CF66),
-  accuse: Color(0xFFE8590C),
-  menu: Color(0xFFB197FC),
+  accuse: _cartoonDanger,
+  menu: Color(0xFFC3A9FD),
 );
 
-/// Clue-chip look shared by the three cartoon mockups (issue 26): a rounded
+/// Clue-chip look shared by the cartoon mockups (issue 26): a rounded
 /// light-gray pill behind each clue sentence. Token-driven so a skin can
 /// diverge later; classic keeps null (plain clue text).
-/// The candy/comic clue chip keeps the issue 26 mockup values.
+/// Since issue 87 only comic keeps these values — candy diverged to its
+/// own chip and sticker's padding divergence is issue 76.
 const SkinChip _cartoonChip = SkinChip(
   background: Color(0xFFF1F3F5),
   radius: 12,
@@ -314,14 +326,31 @@ const SkinChip _stickerChip = SkinChip(
   gap: 6,
 );
 
-const Color _cartoonDanger = Color(0xFFE8590C);
-
-/// Victim cell stripe pair shared by the three cartoon mockups.
+/// Victim-cell stripe pair; sticker and comic keep the mockup values, while
+/// candy diverges below (issue 87).
 const Color _victimFill = Color(0xFFFFC9C9);
 const Color _victimStripe = Color(0xFFF47C7C);
 
+/// The candy victim pair diverges from the shared mockup pair (issue 87):
+/// #FFC9C9/#F47C7C sat within ~1.3:1 of the page and the warm room tints.
+/// This pair keeps the same striped render and clears the issue's bars —
+/// fill 1.64:1 vs the page and stripe 3.0:1 vs its own fill.
+const Color _candyVictimFill = Color(0xFFFFB8B8);
+const Color _candyVictimStripe = Color(0xFFC2435A);
+
 /// Soft candy shadow tone: rgba(31,108,158,.14) per the issue.
 const Color _candyShadow = Color(0x241F6C9E);
+
+/// Candy's own clue chip (issue 87): the shared light-gray pill was nearly
+/// invisible as a shape on the white cards (1.11:1); the candy background
+/// clears the 1.3:1 bar. Radius/padding/gap stay the shared mockup values —
+/// the padding divergence question is issue 79's.
+const SkinChip _candyChip = SkinChip(
+  background: Color(0xFFD8E0EE),
+  radius: 12,
+  padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+  gap: 6,
+);
 
 /// True when every field-equality check in [checks] holds. The skin `==`
 /// helpers build their per-field comparisons eagerly: each check is a pure
@@ -337,12 +366,26 @@ bool _allEqual(List<bool> checks) {
 
 /// Карамель (style-a-candy.png): white fluffy cards on a fresh sky paper
 /// with soft shadows.
+///
+/// Issue 87 diverges the board tokens: `roomTints` are one shade deeper
+/// than the issue 23 mockup palette (every tint ≥ 1.5:1 vs the page; all
+/// 28 pairs CIE76 ΔE ≥ 15, ≥ 12 under both Machado-0.6 deuteranopia and
+/// protanopia simulation — lavender/sky pulled further apart than the
+/// issue's starting pair, which collapsed to ΔE ~8 under both
+/// simulations), the victim pair and the clue chip separate from the page
+/// and cards, and `inkSoft` reaches AA — on white it must measure ≥ 4.5:1,
+/// and it is also the chip clue text color (onSurfaceVariant), so it is
+/// darkened past the issue's starting #5A66A0 until it clears AA on the
+/// retuned chip too (#505D9A: 6.23:1 on white, 4.69:1 on #D8E0EE; the
+/// reviewer-noted start measured 4.12 on the chip). The white mortar,
+/// badge, card and sheet stay untouched — the deeper tints carry the
+/// board's visibility. Pinned by test/core/skins_contrast_test.dart.
 const candyTokens = SkinTokens(
   skin: SkinSetting.candy,
   isCartoon: true,
   appBackground: Color(0xFFFFFFFF),
   ink: Color(0xFF35406E),
-  inkSoft: Color(0xFF6B76A8),
+  inkSoft: Color(0xFF505D9A),
   card: SkinCard(
     background: Color(0xFFFFFFFF),
     borderColor: Color(0xFFFFFFFF),
@@ -351,22 +394,22 @@ const candyTokens = SkinTokens(
     shadow: BoxShadow(color: _candyShadow, offset: Offset(0, 6)),
   ),
   roomTints: [
-    Color(0xFFFF9EB5),
-    Color(0xFFFFC078),
-    Color(0xFFFFE999),
-    Color(0xFFD0BFFF),
-    Color(0xFF8FF2C8),
-    Color(0xFF9FD5FF),
-    Color(0xFFC7F284),
-    Color(0xFFFF9E80),
+    Color(0xFFFF8FA6),
+    Color(0xFFFFA94D),
+    Color(0xFFC99145),
+    Color(0xFF9C7FE8),
+    Color(0xFF3BB08C),
+    Color(0xFF74B6F2),
+    Color(0xFF9CCB62),
+    Color(0xFFD45D48),
   ],
   badge: SkinBadge(background: Color(0xFFFFFFFF), ink: Color(0xFF35406E)),
   mortarColor: Color(0xFFFFFFFF),
   solidRooms: true,
   roomRadius: 14,
   roomLineWidth: 4,
-  victimFill: _victimFill,
-  victimStripeColor: _victimStripe,
+  victimFill: _candyVictimFill,
+  victimStripeColor: _candyVictimStripe,
   actions: _cartoonActions,
   dangerColor: _cartoonDanger,
   buttonRadius: 14,
@@ -374,7 +417,7 @@ const candyTokens = SkinTokens(
   sheetBackground: Color(0xFFFFFFFF),
   sheetRadius: 24,
   menuIcons: false,
-  chip: _cartoonChip,
+  chip: _candyChip,
 );
 
 /// Стикеры (style-b-sticker.png): cream app background, white cards with

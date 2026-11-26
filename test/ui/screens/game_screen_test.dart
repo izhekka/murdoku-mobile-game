@@ -1118,6 +1118,84 @@ void main() {
     expect(pillColor(const Key('tool_menu')), stickerTokens.actions.menu);
   });
 
+  testWidgets('toolbar glyphs render skin ink on pastel pills, white on '
+      'danger (issue 87)', (tester) async {
+    for (final entry in {
+      SkinSetting.candy: candyTokens,
+      SkinSetting.sticker: stickerTokens,
+      SkinSetting.comic: comicTokens,
+    }.entries) {
+      await pumpGame(tester, skin: entry.key);
+      final tokens = entry.value;
+
+      Color? iconColor(Key key) => tester
+          .widget<Icon>(
+            find.descendant(of: find.byKey(key), matching: find.byType(Icon)),
+          )
+          .color;
+      Color? labelColor(Key key) => tester
+          .widget<Text>(
+            find.descendant(of: find.byKey(key), matching: find.byType(Text)),
+          )
+          .style!
+          .color;
+
+      for (final key in const [
+        'tool_place',
+        'tool_mark',
+        'tool_erase',
+        'tool_undo',
+        'tool_check',
+        'tool_hint',
+        'tool_menu',
+      ]) {
+        expect(
+          iconColor(Key(key)),
+          tokens.ink,
+          reason: '${tokens.skin} $key icon must be the skin ink (issue 87)',
+        );
+        expect(
+          labelColor(Key(key)),
+          tokens.ink,
+          reason: '${tokens.skin} $key label must be the skin ink (issue 87)',
+        );
+      }
+      expect(
+        iconColor(const Key('tool_accuse')),
+        Colors.white,
+        reason: '${tokens.skin} accuse icon stays white on the danger pill',
+      );
+      expect(
+        labelColor(const Key('tool_accuse')),
+        Colors.white,
+        reason: '${tokens.skin} accuse label stays white on the danger pill',
+      );
+    }
+  });
+
+  testWidgets('classic toolbar glyphs keep the theme default (issue 87)', (
+    tester,
+  ) async {
+    await pumpGame(tester, skin: SkinSetting.classic);
+
+    Color? iconColor(Key key) => tester
+        .widget<Icon>(
+          find.descendant(of: find.byKey(key), matching: find.byType(Icon)),
+        )
+        .color;
+    Color? labelColor(Key key) => tester
+        .widget<Text>(
+          find.descendant(of: find.byKey(key), matching: find.byType(Text)),
+        )
+        .style!
+        .color;
+
+    expect(iconColor(const Key('tool_place')), isNull);
+    expect(labelColor(const Key('tool_place')), isNull);
+    expect(iconColor(const Key('tool_accuse')), isNull);
+    expect(labelColor(const Key('tool_accuse')), isNull);
+  });
+
   group('interaction coverage pins (issue 35)', () {
     /// Pumps the app and lands on /game with NO active case (fresh prefs).
     Future<void> pumpWithoutCase(WidgetTester tester) async {

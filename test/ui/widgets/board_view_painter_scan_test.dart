@@ -269,9 +269,15 @@ void _assertClosedWorld(_Scan scan, SkinTokens tokens, {required bool strict}) {
   }
 }
 
-/// True when [v] is an α-lerp of some allowed pair, ±1 per 8-bit channel
-/// (Skia rounds each channel independently).
+/// True when [v] is an α-lerp of some allowed pair, ±2 per 8-bit channel.
+/// Issue 87: the candy retune shifted the palette so a donut AA pixel can
+/// stack two legs (tint ↔ mortar ↔ tile-edge arc over the plate), pushing
+/// the resulting channel up to ~2/255 off any single pair's lerp line.
+/// The closed-world guarantee is unchanged: every allowed color pair's
+/// lerp stays within a few hundredths of a channel of the two anchors, so
+/// foreign inks (the canary seed, any page leak) remain unreachable.
 bool _blendAllowed(int v, List<int> allowed) {
+  const channelSlack = 2;
   final r = (v >> 16) & 0xFF;
   final g = (v >> 8) & 0xFF;
   final b = v & 0xFF;
@@ -286,6 +292,7 @@ bool _blendAllowed(int v, List<int> allowed) {
       // Solve α on the widest channel (least quantization), verify the rest.
       final span = [dr.abs(), dg.abs(), db.abs()].reduce(math.max);
       if (span == 0) continue; // colors with identical widest channel
+      final tSlack = (channelSlack + 1) / span;
       var t = 0.0;
       if (dr.abs() == span) {
         t = (r - cr) / dr;
@@ -294,11 +301,13 @@ bool _blendAllowed(int v, List<int> allowed) {
       } else {
         t = (b - cb) / db;
       }
-      if (t < -2 / span || t > 1 + 2 / span) continue;
+      if (t < -tSlack || t > 1 + tSlack) continue;
       final lr = cr + t * dr;
       final lg = cg + t * dg;
       final lb = cb + t * db;
-      if ((lr - r).abs() <= 1 && (lg - g).abs() <= 1 && (lb - b).abs() <= 1) {
+      if ((lr - r).abs() <= channelSlack &&
+          (lg - g).abs() <= channelSlack &&
+          (lb - b).abs() <= channelSlack) {
         return true;
       }
     }

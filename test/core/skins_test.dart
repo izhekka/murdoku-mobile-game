@@ -41,7 +41,9 @@ void main() {
     expect(t.isCartoon, isTrue);
     expect(t.solidRooms, isTrue);
     expect(t.ink, c(0xFF35406E));
-    expect(t.inkSoft, c(0xFF6B76A8));
+    // Issue 87 retune; #505D9A clears AA both on white and on the retuned
+    // clue chip (the chip clue text color is onSurfaceVariant == inkSoft).
+    expect(t.inkSoft, c(0xFF505D9A));
     expect(t.appBackground, c(0xFFFFFFFF));
     expect(t.card.background, c(0xFFFFFFFF));
     expect(t.card.borderColor, c(0xFFFFFFFF));
@@ -50,14 +52,22 @@ void main() {
     expect(t.card.shadow.color, c(0x241F6C9E));
     expect(t.card.shadow.offset, const Offset(0, 6));
     expect(t.mortarColor, c(0xFFFFFFFF));
+    // Issue 87 retune: one shade deeper than the mockup palette, pinned to
+    // the contrast bars in test/core/skins_contrast_test.dart.
     expect(t.roomTints.take(6).toList(), [
-      c(0xFFFF9EB5),
-      c(0xFFFFC078),
-      c(0xFFFFE999),
-      c(0xFFD0BFFF),
-      c(0xFF8FF2C8),
-      c(0xFF9FD5FF),
+      c(0xFFFF8FA6),
+      c(0xFFFFA94D),
+      c(0xFFC99145),
+      c(0xFF9C7FE8),
+      c(0xFF3BB08C),
+      c(0xFF74B6F2),
     ]);
+    expect(t.victimFill, c(0xFFFFB8B8), reason: 'candy victim fill (issue 87)');
+    expect(
+      t.victimStripeColor,
+      c(0xFFC2435A),
+      reason: 'candy victim stripes (issue 87)',
+    );
     expect(t.victimStripeColor, isNot(t.victimFill));
     expect(t.menuIcons, isFalse);
   });
@@ -130,16 +140,35 @@ void main() {
     },
   );
 
-  test('shared toolbar action colors on every cartoon skin (issue 23)', () {
+  test('shared toolbar action colors on every cartoon skin (issue 23/87)', () {
     for (final t in [candyTokens, stickerTokens, comicTokens]) {
-      expect(t.actions.place, c(0xFFFF6B9D), reason: '${t.skin} place');
+      expect(t.actions.place, c(0xFFFF8FB3), reason: '${t.skin} place');
       expect(t.actions.mark, c(0xFFFFA94D), reason: '${t.skin} mark');
       expect(t.actions.erase, c(0xFF38D9A9), reason: '${t.skin} erase');
       expect(t.actions.undo, c(0xFF74C0FC), reason: '${t.skin} undo');
       expect(t.actions.hint, c(0xFFFFC078), reason: '${t.skin} hint');
       expect(t.actions.check, c(0xFF51CF66), reason: '${t.skin} check');
-      expect(t.actions.menu, c(0xFFB197FC), reason: '${t.skin} menu');
-      expect(t.dangerColor, c(0xFFE8590C), reason: '${t.skin} danger');
+      // Issue 87: place/menu lighten one step for the ink-glyph AA bars and
+      // the deepened danger accent is both the dangerColor and the accuse
+      // pill (white glyphs only there).
+      expect(t.actions.menu, c(0xFFC3A9FD), reason: '${t.skin} menu');
+      expect(t.dangerColor, c(0xFFC2410C), reason: '${t.skin} danger');
+      expect(t.actions.accuse, t.dangerColor, reason: '${t.skin} accuse');
+    }
+  });
+
+  test('sticker and comic boards stay byte-identical (issue 87)', () {
+    // The retune diverges only candy's board tokens; the shared toolbar
+    // pills and danger accent are the sticker/comic changes allowed by the
+    // issue. Their roomTints stay pinned by the issue 23 mockup tests.
+    for (final t in [stickerTokens, comicTokens]) {
+      expect(t.victimFill, c(0xFFFFC9C9), reason: '${t.skin} victim fill');
+      expect(
+        t.victimStripeColor,
+        c(0xFFF47C7C),
+        reason: '${t.skin} victim stripe',
+      );
+      expect(t.chip!.background, c(0xFFF1F3F5), reason: '${t.skin} chip');
     }
   });
 
@@ -155,19 +184,28 @@ void main() {
     }
   });
 
-  test('every cartoon skin exposes the mockup clue chip (issue 26)', () {
+  test('every cartoon skin exposes the mockup clue chip (issue 26/87)', () {
     // The default skin's chip diverges from the mockup token (issue 76):
     // its 10px horizontal padding left the 402x874 iPhone chip text box
     // ~70px wide and long ru words wrapped mid-word; sticker uses 6px per
-    // side so every clue word fits. candy/comic keep the mockup values.
+    // side so every clue word fits. Issue 87: candy diverges the background
+    // to clear 1.3:1 on the white cards; comic keeps the mockup values.
     expect(
       stickerTokens.chip!.padding,
       const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
       reason: 'sticker chip padding (issue 76)',
     );
-    for (final t in [candyTokens, comicTokens]) {
+    for (final entry in {
+      'candy': (t: candyTokens, background: 0xFFD8E0EE),
+      'comic': (t: comicTokens, background: 0xFFF1F3F5),
+    }.entries) {
+      final t = entry.value.t;
       expect(t.chip, isNotNull, reason: '${t.skin} chip token');
-      expect(t.chip!.background, c(0xFFF1F3F5), reason: '${t.skin} chip color');
+      expect(
+        t.chip!.background,
+        c(entry.value.background),
+        reason: '${t.skin} chip color (issue 87 diverged candy)',
+      );
       expect(t.chip!.radius, 12, reason: '${t.skin} chip radius');
       expect(
         t.chip!.padding,
