@@ -513,6 +513,46 @@ void main() {
   /// solidRooms: false and never uses the painter).
   const allSkins = [stickerTokens, comicTokens, candyTokens];
 
+  test('unit: roomTileInset — off-board lineWidth, same-room zero, boundary '
+      'half (issue 90 follow-up)', () {
+    final block = _roomsFor(4, {
+      'r0': [_p(0, 0), _p(0, 1), _p(1, 0), _p(1, 1)],
+    });
+    // Off-board: no opposite tile contributes the other half — full band.
+    expect(roomTileInset(block, 4, 0, 0, -1, 0, 3.5), 3.5);
+    expect(roomTileInset(block, 4, 0, 0, 0, -1, 3.5), 3.5);
+    // Same-room: tiles abut exactly, no seam.
+    expect(roomTileInset(block, 4, 0, 0, 1, 0, 3.5), 0.0);
+    expect(roomTileInset(block, 4, 0, 0, 0, 1, 3.5), 0.0);
+    // Room boundary: the two tiles build one wall from two halves.
+    expect(roomTileInset(block, 4, 1, 1, 1, 0, 3.5), 1.75);
+    // The tuple matches its per-side calls.
+    expect(roomTileInsets(block, 4, 1, 0, 3.5), (
+      roomTileInset(block, 4, 1, 0, 0, -1, 3.5),
+      roomTileInset(block, 4, 1, 0, -1, 0, 3.5),
+      roomTileInset(block, 4, 1, 0, 0, 1, 3.5),
+      roomTileInset(block, 4, 1, 0, 1, 0, 3.5),
+    ));
+  });
+
+  test('unit: roomTileCornerRounds — walls, interiors, off-board diagonal, '
+      'wrapper corner (issue 90 follow-up)', () {
+    final wrap = _fixtures['wrapCorner']!.$2;
+    // A wall side never rounds, whatever the diagonal room is.
+    expect(roomTileCornerRounds(wrap, 4, 1, 1, -1, 1, 3.5, 0.0), isFalse);
+    expect(roomTileCornerRounds(wrap, 4, 1, 1, -1, 1, 0.0, 3.5), isFalse);
+    // The wrapper's inner corner: both sides same-room, diagonal in
+    // another room.
+    expect(roomTileCornerRounds(wrap, 4, 1, 1, -1, -1, 0.0, 0.0), isTrue);
+    // Interior same-room corner of a room block: square.
+    final block = _roomsFor(4, {
+      'r0': [_p(0, 0), _p(0, 1), _p(1, 0), _p(1, 1)],
+    });
+    expect(roomTileCornerRounds(block, 4, 1, 1, -1, -1, 0.0, 0.0), isFalse);
+    // Off-board diagonal never rounds.
+    expect(roomTileCornerRounds(block, 4, 0, 0, -1, -1, 0.0, 0.0), isFalse);
+  });
+
   testWidgets('closed-world scan: 4-way X junction leaks nothing '
       '(sticker, comic, candy) (issue 83)', (tester) async {
     await tester.runAsync(() async {

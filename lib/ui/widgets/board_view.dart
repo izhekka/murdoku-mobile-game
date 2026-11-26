@@ -222,33 +222,78 @@ int? _roomBadgeNumber(Set<Pos> anchors, CaseData caseData, Pos pos) =>
   int col,
   double lineWidth,
 ) => (
-  _tileInsetFor(rooms, gridSize, row, col, 0, -1, lineWidth),
-  _tileInsetFor(rooms, gridSize, row, col, -1, 0, lineWidth),
-  _tileInsetFor(rooms, gridSize, row, col, 0, 1, lineWidth),
-  _tileInsetFor(rooms, gridSize, row, col, 1, 0, lineWidth),
+  roomTileInset(rooms, gridSize, row, col, 0, -1, lineWidth),
+  roomTileInset(rooms, gridSize, row, col, -1, 0, lineWidth),
+  roomTileInset(rooms, gridSize, row, col, 0, 1, lineWidth),
+  roomTileInset(rooms, gridSize, row, col, 1, 0, lineWidth),
 );
 
-/// The tile's inset on one side of (row, col): the full [lineWidth] when the
-/// neighbor is off the board, half a line across a room boundary, zero
-/// within the room.
-double _tileInsetFor(
+/// The tile's inset on the side of (row, col) facing (dRow, dCol): the full
+/// [lineWidth] when the neighbor is off the board, half a line across a room
+/// boundary, zero within the room.
+double roomTileInset(
   List<RoomDef> rooms,
   int gridSize,
   int row,
   int col,
-  int dr,
-  int dc,
+  int dRow,
+  int dCol,
   double lineWidth,
-) {
-  final (nRow, nCol) = (row + dr, col + dc);
-  if (nRow < 0 || nRow >= gridSize || nCol < 0 || nCol >= gridSize) {
-    return lineWidth;
-  }
-  return roomOf(rooms, (row: nRow, col: nCol)) ==
-          roomOf(rooms, (row: row, col: col))
-      ? 0.0
-      : lineWidth / 2;
-}
+) => _inBoard((row: row + dRow, col: col + dCol), gridSize)
+    ? _tileInsetInsideBoard(rooms, row, col, row + dRow, col + dCol, lineWidth)
+    : lineWidth;
+
+/// The on-board branch of [roomTileInset]: zero within the room, half a
+/// line across a room boundary.
+double _tileInsetInsideBoard(
+  List<RoomDef> rooms,
+  int row,
+  int col,
+  int nRow,
+  int nCol,
+  double lineWidth,
+) =>
+    roomOf(rooms, (row: nRow, col: nCol)) == roomOf(rooms, (row: row, col: col))
+    ? 0.0
+    : lineWidth / 2;
+
+/// True when the tile corner of the cell at (row, col) facing the diagonal
+/// (dRow, dCol) rounds (issue 90): both adjacent tile sides are same-room
+/// (zero insets — the room wraps the corner vertex) and the cell across the
+/// vertex diagonally belongs to another room. Corners with a wall side stay
+/// square — their stroke arcs cover them cleanly, and same-room butt joints
+/// must stay exactly flush.
+bool roomTileCornerRounds(
+  List<RoomDef> rooms,
+  int gridSize,
+  int row,
+  int col,
+  int dRow,
+  int dCol,
+  double insetA,
+  double insetB,
+) =>
+    _tileSidesInsideRoom(insetA, insetB) &&
+    _tileDiagonalDiffers(rooms, gridSize, row, col, dRow, dCol);
+
+/// True when a tile corner's two adjacent sides are same-room (both tile
+/// insets zero): the vertex is inside the room's tile union.
+bool _tileSidesInsideRoom(double insetA, double insetB) =>
+    insetA == 0.0 && insetB == 0.0;
+
+/// True when the diagonal cell across a corner vertex from (row, col) shifted
+/// by (dRow, dCol) is on-board and belongs to another room.
+bool _tileDiagonalDiffers(
+  List<RoomDef> rooms,
+  int gridSize,
+  int row,
+  int col,
+  int dRow,
+  int dCol,
+) =>
+    _inBoard((row: row + dRow, col: col + dCol), gridSize) &&
+    roomOf(rooms, (row: row + dRow, col: col + dCol)) !=
+        roomOf(rooms, (row: row, col: col));
 
 /// One cell-edge spec relative to a cell: the traced half-edge walks from
 /// the start vertex along [dir], and the edge is a boundary when the
@@ -1038,13 +1083,10 @@ class SkinRoomPainter extends CustomPainter {
   }
 
   /// The tile's outline at (row, col) with per-side [insets]: a plain rect,
-  /// plus a quadratic K-round at every corner where both adjacent sides are
-  /// same-room (zero inset) and the diagonal cell across the vertex belongs
-  /// to another room — the wrapper's inner corner (issue 90). The rounding
-  /// uses the same form and clamp as [_roomOutlinePath] so the tile's convex
-  /// corners align with the wall stroke's K-rounding. Corners with a wall
-  /// side keep their square corner: their stroke arcs cover them cleanly,
-  /// and same-room butt joints must stay exactly flush.
+  /// plus a quadratic K-round at every corner that rounds per the issue 90
+  /// predicate (see [roomTileCornerRounds]). The rounding uses the same form
+  /// and clamp as [_roomOutlinePath] so the tile's convex corners align with
+  /// the wall stroke's K-rounding.
   Path _tilePath(
     int row,
     int col,
@@ -1056,48 +1098,76 @@ class SkinRoomPainter extends CustomPainter {
     final top = row * cellSize + t;
     final right = (col + 1) * cellSize - r;
     final bottom = (row + 1) * cellSize - b;
-    bool rounds(int dRow, int dCol, double sideA, double sideB) {
-      if (sideA != 0.0 || sideB != 0.0) return false;
-      final (dRow2, dCol2) = (row + dRow, col + dCol);
-      if (dRow2 < 0 || dRow2 >= gridSize || dCol2 < 0 || dCol2 >= gridSize) {
-        return false;
-      }
-      return roomOf(rooms, (row: dRow2, col: dCol2)) !=
-          roomOf(rooms, (row: row, col: col));
-    }
-
-    final nw = rounds(-1, -1, l, t);
-    final ne = rounds(-1, 1, t, r);
-    final se = rounds(1, 1, r, b);
-    final sw = rounds(1, -1, b, l);
+    final (nw, ne, se, sw) = _tileCornerRounding(row, col, insets);
     final path = Path();
-    path.moveTo(left + (nw ? k : 0), top);
-    path.lineTo(right - (ne ? k : 0), top);
-    if (ne) {
-      path.quadraticBezierTo(right, top, right, top + k);
-    } else {
-      path.lineTo(right, top);
-    }
-    path.lineTo(right, bottom - (se ? k : 0));
-    if (se) {
-      path.quadraticBezierTo(right, bottom, right - k, bottom);
-    } else {
-      path.lineTo(right, bottom);
-    }
-    path.lineTo(left + (sw ? k : 0), bottom);
-    if (sw) {
-      path.quadraticBezierTo(left, bottom, left, bottom - k);
-    } else {
-      path.lineTo(left, bottom);
-    }
-    path.lineTo(left, top + (nw ? k : 0));
-    if (nw) {
-      path.quadraticBezierTo(left, top, left + k, top);
-    } else {
-      path.lineTo(left, top);
-    }
+    path.moveTo(left + _cornerOffset(nw, k), top);
+    _emitTileCorner(
+      path,
+      rounds: ne,
+      approaching: Offset(right - _cornerOffset(ne, k), top),
+      corner: Offset(right, top),
+      arcTo: Offset(right, top + k),
+    );
+    _emitTileCorner(
+      path,
+      rounds: se,
+      approaching: Offset(right, bottom - _cornerOffset(se, k)),
+      corner: Offset(right, bottom),
+      arcTo: Offset(right - k, bottom),
+    );
+    _emitTileCorner(
+      path,
+      rounds: sw,
+      approaching: Offset(left + _cornerOffset(sw, k), bottom),
+      corner: Offset(left, bottom),
+      arcTo: Offset(left, bottom - k),
+    );
+    _emitTileCorner(
+      path,
+      rounds: nw,
+      approaching: Offset(left, top + _cornerOffset(nw, k)),
+      corner: Offset(left, top),
+      arcTo: Offset(left + k, top),
+    );
     path.close();
     return path;
+  }
+
+  /// The tile's four corner-round flags at (row, col), clockwise from the
+  /// top-left (issue 90).
+  (bool, bool, bool, bool) _tileCornerRounding(
+    int row,
+    int col,
+    (double, double, double, double) insets,
+  ) {
+    final (l, t, r, b) = insets;
+    return (
+      roomTileCornerRounds(rooms, gridSize, row, col, -1, -1, l, t),
+      roomTileCornerRounds(rooms, gridSize, row, col, -1, 1, t, r),
+      roomTileCornerRounds(rooms, gridSize, row, col, 1, 1, r, b),
+      roomTileCornerRounds(rooms, gridSize, row, col, 1, -1, b, l),
+    );
+  }
+
+  /// The K-offset along an edge when a corner rounds, zero otherwise.
+  double _cornerOffset(bool rounds, double k) => rounds ? k : 0.0;
+
+  /// Emits one clockwise tile corner: `lineTo` the k-shortened approach
+  /// point, then the corner itself — a quadratic K-round to [arcTo] when
+  /// [rounds], a plain point in the exact corner otherwise.
+  void _emitTileCorner(
+    Path path, {
+    required bool rounds,
+    required Offset approaching,
+    required Offset corner,
+    required Offset arcTo,
+  }) {
+    path.lineTo(approaching.dx, approaching.dy);
+    if (rounds) {
+      path.quadraticBezierTo(corner.dx, corner.dy, arcTo.dx, arcTo.dy);
+    } else {
+      path.lineTo(corner.dx, corner.dy);
+    }
   }
 
   /// The tile's per-side wall insets (issue 90): delegated to the shared
