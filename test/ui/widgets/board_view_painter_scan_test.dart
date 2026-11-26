@@ -168,6 +168,121 @@ class _Scan {
 /// painted over is an uncovered gap (the artifact class issue 83 forbids).
 const Color _canary = Color(0xFFB400DC);
 
+/// The A/B variants of the wrapping tile's inner corner (issue 91): the
+/// pre-#90 square corner (tint over the junction pocket; main `aef0cac`)
+/// and the #90 quadratic K-round (commits `333868b`/`a832cc0`: the mortar
+/// spike). The fix leg renders through the real `SkinRoomPainter`.
+enum _TileVariant { square, spikeK }
+
+/// Renders the wrapCorner fixture's fill layer through a test-local
+/// reconstruction where the corner emission of the wrapping cell (1, 1)
+/// follows [variant]'s shape. Fidelity is scoped to the A/B's probed pixels:
+/// every assertion reads at vertex (1, 1) — the fixture's second rounding
+/// corner (cell (0, 2)'s SE at vertex (3, 1)) is NOT reconstructed and NOT
+/// probed. A/B differential evidence for issue 91; not a correctness gate
+/// (the painter's own probes are).
+Future<_Scan> _renderSpikedVariant(
+  SkinTokens tokens,
+  _TileVariant variant,
+) async {
+  final (g, rooms) = _fixtures['wrapCorner']!;
+  final side = g * _cell;
+  final s = _scaleFor(tokens);
+  final n = (side * s).round();
+  final recorder = ui.PictureRecorder();
+  final canvas = ui.Canvas(
+    recorder,
+    ui.Rect.fromLTWH(0, 0, n.toDouble(), n.toDouble()),
+  );
+  canvas.scale(s);
+  canvas.drawRRect(
+    ui.RRect.fromRectAndRadius(
+      ui.Rect.fromLTWH(0, 0, side, side),
+      ui.Radius.circular(tokens.roomRadius),
+    ),
+    Paint()..color = tokens.mortarColor,
+  );
+  expect(
+    roomTileInsets(rooms, g, 1, 1, tokens.roomLineWidth),
+    (0.0, 0.0, 0.0, 0.0),
+    reason:
+        'the wrapping cell (1, 1) has zero insets: the variant corner '
+        'is its NW corner',
+  );
+  final fill = Paint();
+  for (final (index, room) in rooms.indexed) {
+    final path = Path();
+    for (final cell in room.cells) {
+      final (l, t, r, b) = roomTileInsets(
+        rooms,
+        g,
+        cell.row,
+        cell.col,
+        tokens.roomLineWidth,
+      );
+      final Path tile;
+      if (cell.row == 1 && cell.col == 1) {
+        tile = _variantCornerPath(cell, tokens, variant, (l, t, r, b));
+      } else {
+        tile = Path()
+          ..addRect(
+            ui.Rect.fromLTRB(
+              cell.col * _cell + l,
+              cell.row * _cell + t,
+              (cell.col + 1) * _cell - r,
+              (cell.row + 1) * _cell - b,
+            ),
+          );
+      }
+      path.addPath(tile, Offset.zero);
+    }
+    fill.color = tokens.roomTints[index % tokens.roomTints.length];
+    canvas.drawPath(path, fill);
+  }
+  final image = await recorder.endRecording().toImage(n, n);
+  final bytes = (await image.toByteData())!.buffer.asUint8List();
+  image.dispose();
+  return _Scan(
+    bytes: bytes,
+    n: n,
+    s: s,
+    region: ui.RRect.fromRectAndRadius(
+      ui.Rect.fromLTWH(0, 0, side * s, side * s),
+      ui.Radius.circular(tokens.roomRadius * s),
+    ),
+  );
+}
+
+/// The wrapping cell's tile path at (1, 1) (insets `(l, t, r, b)` — all
+/// zero): [variant]'s NW-corner emission over an otherwise plain rect.
+Path _variantCornerPath(
+  Pos cell,
+  SkinTokens tokens,
+  _TileVariant variant,
+  (double, double, double, double) insets,
+) {
+  final (l, t, r, b) = insets;
+  final left = cell.col * _cell + l;
+  final top = cell.row * _cell + t;
+  final right = (cell.col + 1) * _cell - r;
+  final bottom = (cell.row + 1) * _cell - b;
+  final path = Path();
+  switch (variant) {
+    case _TileVariant.square:
+      return path..addRect(ui.Rect.fromLTRB(left, top, right, bottom));
+    case _TileVariant.spikeK:
+      final k = math.min(tokens.roomRadius, _cell / 2);
+      path
+        ..moveTo(left + k, top)
+        ..lineTo(right, top)
+        ..lineTo(right, bottom)
+        ..lineTo(left, bottom)
+        ..lineTo(left, top + k)
+        ..quadraticBezierTo(left, top, left + k, top);
+      return path..close();
+  }
+}
+
 /// Renders `SkinRoomPainter` headless over an optional [seed] background;
 /// [withStrokes] composes the #82 wall stroke overpass after it (the live
 /// stack's painters), for the tile↔stroke interaction composite. A [victim]
@@ -508,6 +623,70 @@ void _assertVictimEdgeMortar(
   }
 }
 
+/// The issue 91 pocket-recess probe at the wrapCorner vertex: the wrapper
+/// corner cell sits SE of [vertex] with its N and W sides same-room (zero
+/// insets). Recessed exactly to the junction pocket (lineWidth/2), the tile
+/// covers every pixel from the pocket edge outward and none inside it: the
+/// half×half device quarter at the vertex is mortar, and tint resumes within
+/// the first device pixel past the pocket edge on both seam rays — no spike
+/// or horn on either same-room butt seam.
+void _assertPocketRecess(
+  _Scan scan, {
+  required Pos vertex,
+  required SkinTokens tokens,
+  required int wrapperTint,
+}) {
+  final half = (tokens.roomLineWidth * scan.s / 2).round();
+  final cx = (vertex.col * _cell * scan.s).round();
+  final cy = (vertex.row * _cell * scan.s).round();
+  final mortar = tokens.mortarColor.toARGB32();
+  for (var dy = 0; dy < half; dy++) {
+    for (var dx = 0; dx < half; dx++) {
+      expect(
+        _pixelAt(scan, cx + dx, cy + dy),
+        mortar,
+        reason: 'pocket quarter pixel (+$dx, +$dy) is not mortar',
+      );
+    }
+    expect(
+      _pixelAt(scan, cx + half, cy + dy),
+      wrapperTint,
+      reason:
+          'no tint at the pocket edge on the north seam at depth +$dy '
+          '— the corner spike',
+    );
+    expect(
+      _pixelAt(scan, cx + half + 1, cy + dy),
+      wrapperTint,
+      reason:
+          'no tint 1 px past the pocket edge on the north seam at depth '
+          '+$dy — the corner spike',
+    );
+    expect(
+      _pixelAt(scan, cx + dy, cy + half),
+      wrapperTint,
+      reason:
+          'no tint at the pocket edge on the west seam at depth +$dy '
+          '— the corner spike',
+    );
+    expect(
+      _pixelAt(scan, cx + dy, cy + half + 1),
+      wrapperTint,
+      reason:
+          'no tint 1 px past the pocket edge on the west seam at depth '
+          '+$dy — the corner spike',
+    );
+  }
+  // The inner corner of the pocket: the tile resumes past it too.
+  expect(
+    _pixelAt(scan, cx + half + 1, cy + half + 1),
+    wrapperTint,
+    reason:
+        'no tint past the pocket inner corner — the corner spike '
+        'reaches the tile beyond the designed recess',
+  );
+}
+
 void main() {
   /// The three cartoon skins' token pairs from SkinsTokens (classic has
   /// solidRooms: false and never uses the painter).
@@ -727,8 +906,8 @@ void main() {
   });
 
   testWidgets('scan battery: interiors are exactly mortar or room tints; '
-      'the donut fallback and the corner-arc fixtures admit strict-color '
-      'blends only (issue 83)', (tester) async {
+      'only the donut legacy fallback admits strict-color blends '
+      '(issue 83, tightened by 91)', (tester) async {
     await tester.runAsync(() async {
       for (final tokens in allSkins) {
         for (final entry in _fixtures.entries) {
@@ -740,21 +919,16 @@ void main() {
             seed: null,
           );
           // The donut renders through the legacy per-cell fallback whose
-          // anti-aliased arcs blend allowed colors (tint↔mortar↔tint); since
-          // issue 90 the traced wrapper junctions round their tile corner
-          // with the stroke's K-rounding (lCrook, ring, wrapCorner), and
-          // those arcs blend the same allowed pairs. The blend classifier
-          // accepts exactly those 8-bit lerp pairs, never the page. Fixtures
-          // without arcs stay strictly exact.
+          // anti-aliased arcs blend allowed colors (tint↔mortar↔tint); the
+          // blend classifier accepts exactly those 8-bit lerp pairs, never
+          // the page. Every traced-room fixture — donut is the only
+          // legacy-fallback board — keeps tile edges axis-aligned on
+          // integer device pixels (issue 91 pocketed the wrapper corners,
+          // removing their quadratic arcs), so it stays strictly exact.
           _assertClosedWorld(
             scan,
             tokens,
-            strict: !const {
-              'donut',
-              'lCrook',
-              'ring',
-              'wrapCorner',
-            }.contains(entry.key),
+            strict: !const {'donut'}.contains(entry.key),
           );
         }
       }
@@ -1226,27 +1400,32 @@ void main() {
           // wrapper's inner corner once the tile recesses; the same rule
           // covers the older three-quadrant wrapper junctures.
           _assertJunctionMortar(scan, _p(1, 1), tokens);
-          // The silhouette is round: along the diagonal into the wrapper's
-          // inner corner, no room tint reaches within the recessed tile's
-          // cut zone — up to just inside the K-round arc's closest approach
-          // (the arc midpoint sits k/4 device px along each axis from the
-          // center; 2 px margin stays clear of its AA). The pre-fix step
-          // class pokes a square wedge in from the first pixel.
-          final k = math.min(tokens.roomRadius, 20.0);
+          // The corner silhouette (issue 91): the recess is exactly the
+          // pocket — along the SE diagonal into the wrapper's inner corner,
+          // no tint sits inside the pocket square and the tile resumes at
+          // the pocket's inner corner. The K-scale step class poked from
+          // the first pre-pocket pixel on (the pre-#90 battlement).
+          final half = (tokens.roomLineWidth * scan.s / 2).round();
           final cx = (1 * _cell * scan.s).round();
           final cy = (1 * _cell * scan.s).round();
-          final limit = math.max(1, (k / 4 * scan.s).round() - 2);
           final wrapperTint = _tintAt(tokens, rooms, _p(1, 1));
           final cornerTint = _tintAt(tokens, rooms, _p(0, 0));
-          for (var t = 1; t <= limit; t++) {
+          for (var t = 1; t < half; t++) {
             expect(
               _pixelAt(scan, cx + t, cy + t),
               isNot(anyOf(wrapperTint, cornerTint)),
               reason:
-                  'room tint pokes into the junction corner $t device px '
-                  'along the SE diagonal — the stepped notch',
+                  'room tint pokes into the junction pocket $t device px '
+                  'along the SE diagonal (issue 91)',
             );
           }
+          expect(
+            _pixelAt(scan, cx + half, cy + half),
+            wrapperTint,
+            reason:
+                'the tile resumes exactly at the pocket inner corner '
+                '(issue 91)',
+          );
         }
         // And lCrook + ring hold the same wrapper-junction squares.
         for (final key in ['lCrook', 'ring']) {
@@ -1260,6 +1439,138 @@ void main() {
           );
           _assertJunctionMortar(lscan, _p(1, 1), tokens);
         }
+      }
+    });
+  });
+
+  testWidgets('scan: wrapper junction recesses exactly to the pocket, four '
+      'exits clean on all skins (issue 91)', (tester) async {
+    await tester.runAsync(() async {
+      for (final tokens in allSkins) {
+        final (g, rooms) = _fixtures['wrapCorner']!;
+        final wrapperTint = _tintAt(tokens, rooms, _p(1, 1));
+        final fillOnly = await _render(
+          tokens: tokens,
+          g: g,
+          rooms: rooms,
+          seed: null,
+        );
+        final composite = await _render(
+          tokens: tokens,
+          g: g,
+          rooms: rooms,
+          seed: null,
+          withStrokes: true,
+        );
+        for (final scan in [fillOnly, composite]) {
+          // The designed pocket stays exactly mortar (the unchanged #83
+          // junction-square rule at the wrapper junction).
+          _assertJunctionMortar(scan, _p(1, 1), tokens);
+          // The seam exits: tint at and past the pocket edge on both
+          // same-room butt seams at every depth (no spike, issue 91).
+          _assertPocketRecess(
+            scan,
+            vertex: _p(1, 1),
+            tokens: tokens,
+            wrapperTint: wrapperTint,
+          );
+        }
+        // The boundary-edge exits (issue 91): both wall bands away from the
+        // vertex hold their designed widths on the fill layer — the same
+        // layer the #83 battery measures widths on. The composite carries
+        // the stroke's own K-arc band over the corner room's tile corner at
+        // the vertex (by design), which would blanket the run's first tile
+        // pixels; the stroke layer itself is battery-covered.
+        final half = (tokens.roomLineWidth * fillOnly.s / 2).round();
+        final cx = (1 * _cell * fillOnly.s).round();
+        final cy = (1 * _cell * fillOnly.s).round();
+        _assertMortarRun(
+          fillOnly,
+          alongX: true,
+          center: Offset(cx.toDouble(), (cy - half - 1).toDouble()),
+          tokens: tokens,
+          tintA: _tintAt(tokens, rooms, _p(0, 0)),
+          tintB: _tintAt(tokens, rooms, _p(0, 1)),
+        );
+        _assertMortarRun(
+          fillOnly,
+          alongX: false,
+          center: Offset((cx - half - 1).toDouble(), cy.toDouble()),
+          tokens: tokens,
+          tintA: _tintAt(tokens, rooms, _p(0, 0)),
+          tintB: _tintAt(tokens, rooms, _p(1, 0)),
+        );
+      }
+    });
+  });
+
+  testWidgets('scan A/B: square corner (aef0cac), K spike (333868b/a832cc0), '
+      'pocket recess (fix) at the wrapCorner junction (issue 91)', (
+    tester,
+  ) async {
+    await tester.runAsync(() async {
+      for (final tokens in allSkins) {
+        final (g, rooms) = _fixtures['wrapCorner']!;
+        final wrapperTint = _tintAt(tokens, rooms, _p(1, 1));
+        final mortar = tokens.mortarColor.toARGB32();
+        final square = await _renderSpikedVariant(tokens, _TileVariant.square);
+        final spike = await _renderSpikedVariant(tokens, _TileVariant.spikeK);
+        final fix = await _render(
+          tokens: tokens,
+          g: g,
+          rooms: rooms,
+          seed: null,
+        );
+        expect(square.n, spike.n, reason: 'same raster per variant');
+        expect(square.n, fix.n);
+        final s = _scaleFor(tokens);
+        final cx = (1 * _cell * s).round();
+        final cy = (1 * _cell * s).round();
+        final half = (tokens.roomLineWidth * s / 2).round();
+        // Pre-#90 (square corner): no pocket at all — wrapper tint sits
+        // over the junction (the aef0cac defect class; absent from the fix
+        // and from the spike variant, which both keep the pocket mortar).
+        expect(
+          _pixelAt(square, cx + 1, cy + 1),
+          wrapperTint,
+          reason: 'the square corner fills the junction pocket (aef0cac)',
+        );
+        // The K spike (333868b/a832cc0): the pocket exists, and recessing
+        // the tile corner by k (sticker/comic 10, candy 14) leaves mortar
+        // ≥ 2 device px beyond the pocket edge on both same-room seams —
+        // the owner's thorn, reproduced.
+        expect(
+          _pixelAt(spike, cx + 1, cy + 1),
+          mortar,
+          reason: 'the K spike keeps the pocket',
+        );
+        expect(
+          _pixelAt(spike, cx + half + 2, cy + 1),
+          mortar,
+          reason:
+              'the K spike: mortar beyond the pocket edge on the '
+              'north seam',
+        );
+        expect(
+          _pixelAt(spike, cx + 1, cy + half + 2),
+          mortar,
+          reason:
+              'the K spike: mortar beyond the pocket edge on the '
+              'west seam',
+        );
+        // The fix (the real painter): the pocket only — mortar inside,
+        // tint resuming at the pocket edge, no spike, no battlement.
+        expect(
+          _pixelAt(fix, cx + 1, cy + 1),
+          mortar,
+          reason: 'the fix keeps the designed pocket mortar',
+        );
+        _assertPocketRecess(
+          fix,
+          vertex: _p(1, 1),
+          tokens: tokens,
+          wrapperTint: wrapperTint,
+        );
       }
     });
   });

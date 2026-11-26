@@ -1066,16 +1066,23 @@ class SkinRoomPainter extends CustomPainter {
   /// zero-inset same-room edges are the same coordinate, so they cancel
   /// inside the union fill: same-color rects meet exactly, with no
   /// fractional AA fringe across a room in the live app, and the band edges
-  /// sit exactly on their insets. A tile corner at a wrapper junction rounds
-  /// with the stroke's K-rounding (issue 90) so the wall silhouette reads as
-  /// one continuous rounded corner instead of a stepped notch.
+  /// sit exactly on their insets. A tile corner at a wrapper junction
+  /// recesses exactly the junction pocket, `lineWidth / 2` (issue 91): the
+  /// vacated quarter is the pocket itself — within it the mortar plate
+  /// shows, beyond it the tile resumes flush along both same-room seams. A
+  /// deeper (K-scale) recess vacates tile along the seams where no stroke
+  /// runs and carves mortar spikes; the visible rounded corner is the wall
+  /// stroke's own K-arc above the tiles (issue 90).
   void _paintTiles(Canvas canvas, Paint tiles) {
-    final k = math.min(radius, cellSize / 2);
+    final recess = lineWidth / 2;
     for (final (index, room) in rooms.indexed) {
       final path = Path();
       for (final cell in room.cells) {
         final insets = _tileInsets(cell.row, cell.col);
-        path.addPath(_tilePath(cell.row, cell.col, insets, k), Offset.zero);
+        path.addPath(
+          _tilePath(cell.row, cell.col, insets, recess),
+          Offset.zero,
+        );
       }
       tiles.color = tints[index % tints.length];
       canvas.drawPath(path, tiles);
@@ -1083,15 +1090,15 @@ class SkinRoomPainter extends CustomPainter {
   }
 
   /// The tile's outline at (row, col) with per-side [insets]: a plain rect,
-  /// plus a quadratic K-round at every corner that rounds per the issue 90
-  /// predicate (see [roomTileCornerRounds]). The rounding uses the same form
-  /// and clamp as [_roomOutlinePath] so the tile's convex corners align with
-  /// the wall stroke's K-rounding.
+  /// plus a pocket-sized recess at every corner that rounds per the issue 90
+  /// predicate (see [roomTileCornerRounds]): [recess] (`lineWidth / 2`) in
+  /// along each edge, joined by an L-corner through the point recessed on
+  /// both edges — the pocket itself (issue 91).
   Path _tilePath(
     int row,
     int col,
     (double, double, double, double) insets,
-    double k,
+    double recess,
   ) {
     final (l, t, r, b) = insets;
     final left = col * cellSize + l;
@@ -1099,35 +1106,32 @@ class SkinRoomPainter extends CustomPainter {
     final right = (col + 1) * cellSize - r;
     final bottom = (row + 1) * cellSize - b;
     final (nw, ne, se, sw) = _tileCornerRounding(row, col, insets);
+    final (oNw, oNe, oSe, oSw) = _cornerOffsets((nw, ne, se, sw), recess);
     final path = Path();
-    path.moveTo(left + _cornerOffset(nw, k), top);
+    path.moveTo(left + oNw, top);
     _emitTileCorner(
       path,
-      rounds: ne,
-      approaching: Offset(right - _cornerOffset(ne, k), top),
-      corner: Offset(right, top),
-      arcTo: Offset(right, top + k),
+      edgeA: Offset(right - oNe, top),
+      inner: Offset(right - oNe, top + oNe),
+      edgeB: Offset(right, top + oNe),
     );
     _emitTileCorner(
       path,
-      rounds: se,
-      approaching: Offset(right, bottom - _cornerOffset(se, k)),
-      corner: Offset(right, bottom),
-      arcTo: Offset(right - k, bottom),
+      edgeA: Offset(right, bottom - oSe),
+      inner: Offset(right - oSe, bottom - oSe),
+      edgeB: Offset(right - oSe, bottom),
     );
     _emitTileCorner(
       path,
-      rounds: sw,
-      approaching: Offset(left + _cornerOffset(sw, k), bottom),
-      corner: Offset(left, bottom),
-      arcTo: Offset(left, bottom - k),
+      edgeA: Offset(left + oSw, bottom),
+      inner: Offset(left + oSw, bottom - oSw),
+      edgeB: Offset(left, bottom - oSw),
     );
     _emitTileCorner(
       path,
-      rounds: nw,
-      approaching: Offset(left, top + _cornerOffset(nw, k)),
-      corner: Offset(left, top),
-      arcTo: Offset(left + k, top),
+      edgeA: Offset(left, top + oNw),
+      inner: Offset(left + oNw, top + oNw),
+      edgeB: Offset(left + oNw, top),
     );
     path.close();
     return path;
@@ -1149,25 +1153,31 @@ class SkinRoomPainter extends CustomPainter {
     );
   }
 
-  /// The K-offset along an edge when a corner rounds, zero otherwise.
-  double _cornerOffset(bool rounds, double k) => rounds ? k : 0.0;
+  /// The pocket-recess offsets of the four corner flags (clockwise from
+  /// top-left, issue 91): `recess` where the corner rounds, zero otherwise.
+  (double, double, double, double) _cornerOffsets(
+    (bool, bool, bool, bool) rounds,
+    double recess,
+  ) => (
+    rounds.$1 ? recess : 0.0,
+    rounds.$2 ? recess : 0.0,
+    rounds.$3 ? recess : 0.0,
+    rounds.$4 ? recess : 0.0,
+  );
 
-  /// Emits one clockwise tile corner: `lineTo` the k-shortened approach
-  /// point, then the corner itself — a quadratic K-round to [arcTo] when
-  /// [rounds], a plain point in the exact corner otherwise.
+  /// Emits one clockwise tile corner: onto the recessed approach [edgeA],
+  /// the recessed [inner] corner point (equal to [edgeA]/[edgeB] for a
+  /// square corner), and back out along [edgeB] — the issue 91 pocket
+  /// recess, straight flush lines hugging the pocket.
   void _emitTileCorner(
     Path path, {
-    required bool rounds,
-    required Offset approaching,
-    required Offset corner,
-    required Offset arcTo,
+    required Offset edgeA,
+    required Offset inner,
+    required Offset edgeB,
   }) {
-    path.lineTo(approaching.dx, approaching.dy);
-    if (rounds) {
-      path.quadraticBezierTo(corner.dx, corner.dy, arcTo.dx, arcTo.dy);
-    } else {
-      path.lineTo(corner.dx, corner.dy);
-    }
+    path.lineTo(edgeA.dx, edgeA.dy);
+    path.lineTo(inner.dx, inner.dy);
+    path.lineTo(edgeB.dx, edgeB.dy);
   }
 
   /// The tile's per-side wall insets (issue 90): delegated to the shared
