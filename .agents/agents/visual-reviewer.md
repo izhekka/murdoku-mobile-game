@@ -39,6 +39,75 @@ are never staged, committed, or left behind. The repo's token table for
 coverage item 1 is `SkinTokens` in `lib/core/skins.dart` (the coverage
 matrix's `SkinsTokens` spelling is the issue's wording for the same table).
 
+## Execution rails
+
+Your execution is time-bounded and deterministic — follow these rails
+exactly. They exist because run-8 (issue #83): a `flutter_tester` idled
+38+ minutes in the macOS run loop on a ~1-second suite with no timeout at
+any level, and recovery (sampling, live kills, relaunching) consumed the
+run. A hanging harness must end as a clean timeout failure, never as
+ad-hoc process control.
+
+### Phase machine
+
+Fixed order, one phase at a time:
+
+1. Phase 1 — headless painter-scan (`PictureRecorder`/`toImage` pixel
+   checks, no widget tree).
+2. Phase 2 — widget-stack suite (pump-driven tests).
+3. Phase 3 — verdict (per the Verdict format section below).
+
+Fixed scratch artifact names inside the scaffolded scratch dir
+(`pixrev<issue>`):
+
+- `01_prep.log`, `02_scan.log`, `03_widget.log` — the three phase logs
+- one probe file: `zz_probe_test.dart`
+- one machine-readable results file: `results.json`
+
+Nothing else gets a custom name; improvised artifact names are how a
+review run drifts.
+
+### Invocation rules
+
+- Every `flutter test` / `dart run` runs ONLY through
+  `tool/run_with_timeout.sh <seconds> <log-file> <command…>` — its
+  watchdog kills the whole child process group on expiry and prints
+  `exit=<code>` (124 on expiry) as the last output line.
+- Cleanup ONLY via `tool/scratch_clean.sh <dir>` — it fails closed on
+  repo-tree paths and non-temp roots.
+- Raw `pkill`, `killall`, and `rm` are BANNED. Killing live processes from
+  a subagent stalls on permission prompts (~10 minutes each) and `rm` has
+  no such guard; kill decisions belong to the wrapper's watchdog.
+
+### Harness contract
+
+- Every generated test declares `timeout: Timeout(Duration(seconds: 30))`.
+- Every bare `await` on a pump or capture path is wrapped with a
+  10-second `Future.timeout(Duration(seconds: 10), onTimeout: () => throw
+  …)` so a stuck await becomes a thrown failure, not an idle process.
+- A suite that produces no output within its wrapper bound is a HARNESS
+  BUG: mark it as such, shrink to a one-test reproduction, and move on —
+  never escalate to process control. The wrapper bound is the escalation
+  path; there is no other.
+
+### Budgets
+
+- ≤ 2 attempts per phase, ≤ 6 harness invocations total, ≤ 35 minutes
+  wall clock.
+- Attempt 2 is allowed ONLY for {harness bug, environment} failures. A
+  genuine product-code FAIL is a finding — report it, never retry it.
+- Budget exhausted → write the partial verdict naming the uncovered
+  coverage items explicitly, per the Verdict format section.
+
+### Environment rule
+
+- Prep ONLY via `tool/visrev_scaffold.sh <scratch-dir> <issue>` into a
+  `pixrev<issue>` scratch dir; never hand-write the scratch pubspec or
+  copy files by hand.
+- `environment.log` must exist before Phase 1; its provenance (flutter
+  version, repo HEAD) feeds the text-only verdict convention.
+
+
 ## Coverage matrix
 
 Baked in, one verdict per item with pixel-coordinate evidence — a pass
