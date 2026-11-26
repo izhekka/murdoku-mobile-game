@@ -43,8 +43,6 @@ void main() {
     expect(t.ink, c(0xFF35406E));
     expect(t.inkSoft, c(0xFF6B76A8));
     expect(t.appBackground, c(0xFFFFFFFF));
-    expect(t.pageColor, c(0xFF6FCBFF));
-    expect(t.pageGradient, [c(0xFF6FCBFF), c(0xFFA9EBFF), c(0xFFC6F6FF)]);
     expect(t.card.background, c(0xFFFFFFFF));
     expect(t.card.borderColor, c(0xFFFFFFFF));
     expect(t.card.borderWidth, 4);
@@ -72,8 +70,6 @@ void main() {
     expect(t.ink, c(0xFF1D3557));
     expect(t.inkSoft, c(0xFF457B9D));
     expect(t.appBackground, c(0xFFFFF8EF));
-    expect(t.pageColor, c(0xFF45C4B0));
-    expect(t.pageDotColor, isNotNull);
     expect(t.card.background, c(0xFFFFFFFF));
     expect(t.card.borderColor, c(0xFF1D3557));
     expect(t.card.borderWidth, 3);
@@ -99,8 +95,6 @@ void main() {
     expect(t.ink, c(0xFF111111));
     expect(t.inkSoft, c(0xFF444444));
     expect(t.appBackground, c(0xFFFFFFFF));
-    expect(t.pageColor, c(0xFFFFD43B));
-    expect(t.pageDotColor, isNotNull);
     expect(t.card.borderColor, c(0xFF111111));
     expect(t.card.borderWidth, 3.5);
     expect(t.card.shadow.color, c(0xFF111111));
@@ -202,7 +196,6 @@ void main() {
     expect(t.victimFill, c(0xFFF3F3F3));
     expect(t.dangerColor, c(0xFFF4F4F4));
     expect(t.menuIcons, isTrue);
-    expect(t.frame, isNull, reason: 'classic has no cartoon page frame');
   });
 
   testWidgets('SkinScope exposes tokens; maybeOf is null without a scope', (

@@ -407,7 +407,7 @@ void main() {
           tokens: tokens,
           g: 2,
           rooms: _x4Rooms,
-          seed: tokens.pageColor,
+          seed: tokens.appBackground,
         );
         final canary = await _render(
           tokens: tokens,
@@ -558,7 +558,7 @@ void main() {
             tokens: tokens,
             g: g,
             rooms: rooms,
-            seed: tokens.pageColor,
+            seed: tokens.appBackground,
           );
           final canary = await _render(
             tokens: tokens,
@@ -755,7 +755,7 @@ void main() {
           tokens: tokens,
           g: 2,
           rooms: _t3Rooms,
-          seed: tokens.pageColor,
+          seed: tokens.appBackground,
         );
         final canary = await _render(
           tokens: tokens,
@@ -783,7 +783,7 @@ void main() {
         final n = ring.n;
         // March the whole border ring, skipping the rounded corner notches
         // (outside the plate by design): every pixel of the four outer
-        // bands is exactly mortar; no page dot inside the border band.
+        // bands is exactly mortar; no leak color inside the border band.
         final notch = (tokens.roomRadius * ring.s).ceil();
         for (var i = notch; i < n - notch; i++) {
           for (final (x, y) in [(i, 0), (i, n - 1), (0, i), (n - 1, i)]) {
@@ -799,12 +799,16 @@ void main() {
             (n ~/ 3, i),
             (2 * n ~/ 3, i),
           ]) {
+            // Canary sentinel: the board paints nothing canary. The old
+            // sentinel was the page color (issue 86 removed it); its
+            // substitute appBackground works for sticker/comic, but candy
+            // paints its paper white as its mortar — the board DOES paint
+            // it — so the never-painted sentinel is the canary.
             expect(
               _pixelAt(ring, x, y),
-              isNot(tokens.pageColor.toARGB32()),
+              isNot(_canary.toARGB32()),
               reason:
-                  'no page-colored dot may sit inside the border band '
-                  'at ($x, $y)',
+                  'no leak color may sit inside the border band at ($x, $y)',
             );
           }
         }
@@ -826,7 +830,7 @@ void main() {
           tokens: tokens,
           g: g,
           rooms: rooms,
-          seed: tokens.pageColor,
+          seed: tokens.appBackground,
         );
         final canary = await _render(
           tokens: tokens,
@@ -879,7 +883,7 @@ void main() {
           tokens: candyTokens,
           g: g,
           rooms: rooms,
-          seed: candyTokens.pageColor,
+          seed: candyTokens.appBackground,
         );
         final canary = await _render(
           tokens: candyTokens,
@@ -910,7 +914,7 @@ void main() {
             tokens: tokens,
             g: g,
             rooms: rooms,
-            seed: tokens.pageColor,
+            seed: tokens.appBackground,
             withStrokes: true,
           );
           final canary = await _render(

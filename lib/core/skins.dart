@@ -13,10 +13,6 @@ class SkinTokens {
   const SkinTokens({
     required this.skin,
     required this.isCartoon,
-    required this.pageColor,
-    this.pageGradient = const [],
-    this.pageDotColor,
-    this.pageBlobColor,
     required this.appBackground,
     required this.ink,
     required this.inkSoft,
@@ -38,10 +34,6 @@ class SkinTokens {
     required this.menuIcons,
     this.panelHeaderUppercase = false,
     this.chip,
-    this.frame,
-    this.frameMargin = 0,
-    this.frameRingWidth = 0,
-    this.frameRingColor = const Color(0x00000000),
   });
 
   final SkinSetting skin;
@@ -50,16 +42,8 @@ class SkinTokens {
   /// rendering wherever the skins differ.
   final bool isCartoon;
 
-  /// The page behind the app frame (sky gradient for candy, mint with white
-  /// polka dots for sticker, yellow halftone for comic). [pageGradient]
-  /// empty = flat [pageColor]; [pageDotColor] paints a polka-dot grid;
-  /// [pageBlobColor] paints soft cloud blobs (candy).
-  final Color pageColor;
-  final List<Color> pageGradient;
-  final Color? pageDotColor;
-  final Color? pageBlobColor;
-
-  /// The app frame's inner background (Scaffold color inside the frame).
+  /// The app's paper background: the Scaffold canvas color that reaches
+  /// every screen edge (`theme.dart` seeds it as scaffoldBackgroundColor).
   final Color appBackground;
 
   /// Primary text/icon ink and its softened variant.
@@ -115,23 +99,12 @@ class SkinTokens {
   /// rendering.
   final SkinChip? chip;
 
-  /// The rounded app card sitting on the page background; null for classic,
-  /// which has no frame.
-  final SkinCard? frame;
-  final double frameMargin;
-  final double frameRingWidth;
-  final Color frameRingColor;
-
   @override
   bool operator ==(Object other) {
     if (other is! SkinTokens) return false;
     return _allEqual([
       other.skin == skin,
       other.isCartoon == isCartoon,
-      other.pageColor == pageColor,
-      other.pageGradient == pageGradient,
-      other.pageDotColor == pageDotColor,
-      other.pageBlobColor == pageBlobColor,
       other.appBackground == appBackground,
       other.ink == ink,
       other.inkSoft == inkSoft,
@@ -153,10 +126,6 @@ class SkinTokens {
       other.menuIcons == menuIcons,
       other.panelHeaderUppercase == panelHeaderUppercase,
       other.chip == chip,
-      other.frame == frame,
-      other.frameMargin == frameMargin,
-      other.frameRingWidth == frameRingWidth,
-      other.frameRingColor == frameRingColor,
     ]);
   }
 
@@ -164,10 +133,6 @@ class SkinTokens {
   int get hashCode => Object.hashAll([
     skin,
     isCartoon,
-    pageColor,
-    pageGradient,
-    pageDotColor,
-    pageBlobColor,
     appBackground,
     ink,
     inkSoft,
@@ -189,10 +154,6 @@ class SkinTokens {
     menuIcons,
     panelHeaderUppercase,
     chip,
-    frame,
-    frameMargin,
-    frameRingWidth,
-    frameRingColor,
   ]);
 }
 
@@ -366,7 +327,7 @@ const Color _candyShadow = Color(0x241F6C9E);
 /// helpers build their per-field comparisons eagerly: each check is a pure
 /// predicate, so evaluating all of them is observably identical to the old
 /// short-circuit `&&` chain (issue 35). List fields keep the identity
-/// comparison they always had (`pageGradient`, `roomTints`).
+/// comparison they always had (`roomTints`).
 bool _allEqual(List<bool> checks) {
   for (final check in checks) {
     if (!check) return false;
@@ -374,14 +335,11 @@ bool _allEqual(List<bool> checks) {
   return true;
 }
 
-/// Карамель (style-a-candy.png): sky-gradient page with soft cloud blobs,
-/// white fluffy cards with soft shadows.
+/// Карамель (style-a-candy.png): white fluffy cards on a fresh sky paper
+/// with soft shadows.
 const candyTokens = SkinTokens(
   skin: SkinSetting.candy,
   isCartoon: true,
-  pageColor: Color(0xFF6FCBFF),
-  pageGradient: [Color(0xFF6FCBFF), Color(0xFFA9EBFF), Color(0xFFC6F6FF)],
-  pageBlobColor: Color(0x8CFFFFFF),
   appBackground: Color(0xFFFFFFFF),
   ink: Color(0xFF35406E),
   inkSoft: Color(0xFF6B76A8),
@@ -417,23 +375,13 @@ const candyTokens = SkinTokens(
   sheetRadius: 24,
   menuIcons: false,
   chip: _cartoonChip,
-  frame: SkinCard(
-    background: Color(0xFFFFFFFF),
-    borderColor: Color(0xFFFFFFFF),
-    borderWidth: 4,
-    radius: 28,
-    shadow: BoxShadow(color: _candyShadow, offset: Offset(0, 12)),
-  ),
-  frameMargin: 12,
 );
 
-/// Стикеры (style-b-sticker.png): flat mint polka-dot page, cream app
-/// background, white cards with navy outlines and hard offset shadows.
+/// Стикеры (style-b-sticker.png): cream app background, white cards with
+/// navy outlines and hard offset shadows.
 const stickerTokens = SkinTokens(
   skin: SkinSetting.sticker,
   isCartoon: true,
-  pageColor: Color(0xFF45C4B0),
-  pageDotColor: Color(0x73FFFFFF),
   appBackground: Color(0xFFFFF8EF),
   ink: Color(0xFF1D3557),
   inkSoft: Color(0xFF457B9D),
@@ -469,19 +417,10 @@ const stickerTokens = SkinTokens(
   sheetRadius: 20,
   menuIcons: false,
   chip: _stickerChip,
-  frame: SkinCard(
-    background: Color(0xFFFFF8EF),
-    borderColor: Color(0xFF1D3557),
-    borderWidth: 3,
-    radius: 28,
-    shadow: BoxShadow(color: Color(0xFF1D3557), offset: Offset(6, 6)),
-  ),
-  frameMargin: 12,
 );
 
-/// Комикс (style-d-comic.png): yellow halftone page, white app card with a
-/// black outline and a white ring, hard black offset shadows, uppercase
-/// chrome ink.
+/// Комикс (style-d-comic.png): white app with a black outline, hard black
+/// offset shadows, uppercase chrome ink.
 ///
 /// Radius/lineWidth pairing (issue 82): comic's 14/4 puts the wall corner
 /// rounding K ≈ 3.5× the stroke half-width — right at the ~3.4 threshold
@@ -491,8 +430,6 @@ const stickerTokens = SkinTokens(
 const comicTokens = SkinTokens(
   skin: SkinSetting.comic,
   isCartoon: true,
-  pageColor: Color(0xFFFFD43B),
-  pageDotColor: Color(0x8CFFFFFF),
   appBackground: Color(0xFFFFFFFF),
   ink: Color(0xFF111111),
   inkSoft: Color(0xFF444444),
@@ -529,16 +466,6 @@ const comicTokens = SkinTokens(
   menuIcons: false,
   panelHeaderUppercase: true,
   chip: _cartoonChip,
-  frame: SkinCard(
-    background: Color(0xFFFFFFFF),
-    borderColor: Color(0xFF111111),
-    borderWidth: 4,
-    radius: 24,
-    shadow: BoxShadow(color: Color(0xFF111111), offset: Offset(8, 8)),
-  ),
-  frameMargin: 12,
-  frameRingWidth: 8,
-  frameRingColor: Color(0xFFFFFFFF),
 );
 
 /// Classic noir tokens, derived from the resolved [ColorScheme] so the
@@ -552,7 +479,6 @@ SkinTokens skinTokensFor(SkinSetting skin, ColorScheme scheme) =>
       SkinSetting.classic => SkinTokens(
         skin: SkinSetting.classic,
         isCartoon: false,
-        pageColor: scheme.surface,
         appBackground: scheme.surface,
         ink: scheme.onSurface,
         inkSoft: scheme.onSurfaceVariant,
