@@ -154,8 +154,9 @@ spec-completeness follow-up.
 3. Compose the issue body in the exact six-section format of submit-task §5
    (Description, User story, Context, Acceptance criteria, Testing strategy,
    Out Of scope), grounded in the reported fact: the `evidence` goes into
-   Context verbatim; when the fix touches code, include the gate
-   (`flutter analyze` reports 0 issues and `flutter test` passes) in the
+   Context verbatim; when the fix touches code, include the gate (full
+   `make quality` when it touches `lib/**`; otherwise `flutter analyze`
+   reports 0 issues and `flutter test` passes) in the
    acceptance criteria and testing strategy.
 4. File it. Ensure the follow-up labels exist first (idempotent — a fresh
    clone files labeled follow-ups without pre-setup):

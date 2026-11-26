@@ -18,8 +18,9 @@ is no other plan file to check against.
   out-of-scope observation is at most one non-actionable note line in the
   review output — never a finding, and it never routes to fixes or filings.
 - Check the change against that spec: acceptance-criteria coverage, TDD
-  order, per-task gates (`flutter analyze` 0 issues, `flutter test` all
-  pass), the runtime-dependency allowlist, `AppLocalizations` for
+  order, per-task gates (full `make quality` when `lib/**` changed;
+  `flutter analyze` 0 issues + `flutter test` all pass for docs-only), the
+  runtime-dependency allowlist, `AppLocalizations` for
   user-facing strings, and no edits to generated output.
 - Run `git diff` / `git log` and the verification commands yourself; judge
   evidence, not claims.

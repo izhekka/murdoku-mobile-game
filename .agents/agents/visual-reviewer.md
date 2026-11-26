@@ -126,6 +126,24 @@ without a behind-it self-render is invalid:
 7. #76 rubric fold-in: safe areas (notch/home indicator), no clipped text
    (ru/en), light+dark legibility, sprites render, ≥44pt targets.
 
+### Geometry-probing rails (#92 — blind-spot closure)
+
+1. **Four-exit junction probing** — every junction/silhouette check walks all
+   four exit directions from the pocket edge, not the fixture author's chosen
+   diagonal.
+2. **Silhouette ≠ color-set** — a closed-world color scan (matrix item 4) may
+   never be the sole judge of geometry; silhouette claims need
+   position/continuity probes (tint resumption, straight-run, or tangent
+   continuity) on their own.
+3. **Owner-crop A/B mandate** — when an issue arrives with owner
+   crops/screenshots, render the crop's arrangement yourself and A/B against
+   (i) the pre-fix base and (ii) the post-fix branch before any PASS on the
+   related matrix item — verdicts cite the arrangement, not the fixture's
+   assertions.
+4. **Independent probe geometry** — for geometry fixes, derive the probe
+   layout from the fix's claimed geometry (all affected directions/effects),
+   not from the executor's fixture assertions.
+
 ## Verdict format (text-only)
 
 Per the owner's 2026-11-25 evidence convention, issue comments and reports

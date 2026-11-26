@@ -22,8 +22,12 @@ labeled `task` whose dependencies (if any) are already closed.
    off-screen, rasterize it to an image, assert on raw pixels) proving the
    fix before the review round: prose or screenshot claims do not prove a
    painter fix.
-5. Gate after every task: `flutter analyze` (0 issues) and `flutter test`
-   (all pass) — then commit on the branch per the git workflow.
+5. Gate after every task: when `lib/**` changes, the task gate is the FULL
+   `make quality` (format + analyze + locked coverage + CRAP ratchet), not
+   analyze+test — a failing leg on any of `make quality`'s steps fails the
+   task; analyze+test alone remains valid only for docs-only changes
+   (`flutter analyze` 0 issues, `flutter test` all pass). Then commit on the
+   branch per the git workflow.
 6. Review round between the gates and the squash. When the last task's gates
    have passed and all work is committed on the branch (pre-squash), run one
    review round:
@@ -134,7 +138,7 @@ labeled `task` whose dependencies (if any) are already closed.
      "branch": "fix/legend-text-overflow",
      "commit": "abc1234",
      "branch_deleted": true,
-     "gates": {"analyze_issues": 0, "tests_passed": 126, "tests_total": 126},
+     "gates": {"analyze_issues": 0, "tests_passed": 126, "tests_total": 126, "make_quality_rc": 0},
      "files_changed": ["lib/features/board/widgets/legend.dart"],
      "deviations": [],
      "gaps": [
@@ -163,7 +167,9 @@ labeled `task` whose dependencies (if any) are already closed.
    - `issue`: number; `branch`: name or null; `commit`: squashed hash on
      `completed`, on `ready_for_review` `commit` is `null` and
      `branch_deleted` is `false` (pre-squash); `branch_deleted`: bool.
-     `gates`: analyze/test counts. `files_changed`: repo-relative paths.
+     `gates`: analyze/test counts, plus `make_quality_rc` — the `make quality`
+     exit code (0 required) whenever the branch touched `lib/**`.
+     `files_changed`: repo-relative paths.
      `deviations`: one line each. `notes`: one line or empty; `note_only`
      sweep facts (the step 6b materiality gate) are recorded here, one line
      each, as `note_only: <title> — <evidence>`; low+mechanical sweep facts
