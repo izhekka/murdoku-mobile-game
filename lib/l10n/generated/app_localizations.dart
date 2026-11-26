@@ -317,74 +317,74 @@ abstract class AppLocalizations {
   /// No description provided for @clueInRoom.
   ///
   /// In en, this message translates to:
-  /// **'{name} was in the {room}.'**
-  String clueInRoom(String name, String room);
+  /// **'— in the {room}.'**
+  String clueInRoom(String room);
 
   /// No description provided for @clueInRoomNot.
   ///
   /// In en, this message translates to:
-  /// **'{name} was not in the {room}.'**
-  String clueInRoomNot(String name, String room);
+  /// **'— not in the {room}.'**
+  String clueInRoomNot(String room);
 
   /// No description provided for @clueSameRow.
   ///
   /// In en, this message translates to:
-  /// **'{name} was on the same floor as {target}.'**
-  String clueSameRow(String name, String target);
+  /// **'— on the same floor as {target}.'**
+  String clueSameRow(String target);
 
   /// No description provided for @clueSameRowNot.
   ///
   /// In en, this message translates to:
-  /// **'{name} was not on the same floor as {target}.'**
-  String clueSameRowNot(String name, String target);
+  /// **'— not on the same floor as {target}.'**
+  String clueSameRowNot(String target);
 
   /// No description provided for @clueSameCol.
   ///
   /// In en, this message translates to:
-  /// **'{name} was in the same corridor as {target}.'**
-  String clueSameCol(String name, String target);
+  /// **'— in the same corridor as {target}.'**
+  String clueSameCol(String target);
 
   /// No description provided for @clueSameColNot.
   ///
   /// In en, this message translates to:
-  /// **'{name} was not in the same corridor as {target}.'**
-  String clueSameColNot(String name, String target);
+  /// **'— not in the same corridor as {target}.'**
+  String clueSameColNot(String target);
 
   /// No description provided for @clueDirection.
   ///
   /// In en, this message translates to:
-  /// **'{name} was {direction} of {target}.'**
-  String clueDirection(String name, String direction, String target);
+  /// **'— {direction} of {target}.'**
+  String clueDirection(String direction, String target);
 
   /// No description provided for @clueDirectionNot.
   ///
   /// In en, this message translates to:
-  /// **'{name} was not {direction} of {target}.'**
-  String clueDirectionNot(String name, String direction, String target);
+  /// **'— not {direction} of {target}.'**
+  String clueDirectionNot(String direction, String target);
 
   /// No description provided for @clueBeside.
   ///
   /// In en, this message translates to:
-  /// **'{name} was beside {target}.'**
-  String clueBeside(String name, String target);
+  /// **'— beside {target}.'**
+  String clueBeside(String target);
 
   /// No description provided for @clueBesideNot.
   ///
   /// In en, this message translates to:
-  /// **'{name} was not beside {target}.'**
-  String clueBesideNot(String name, String target);
+  /// **'— not beside {target}.'**
+  String clueBesideNot(String target);
 
   /// No description provided for @clueBesideObject.
   ///
   /// In en, this message translates to:
-  /// **'{name} was in the same room as the {object}.'**
-  String clueBesideObject(String name, String object);
+  /// **'— in the same room as the {object}.'**
+  String clueBesideObject(String object);
 
   /// No description provided for @clueBesideObjectNot.
   ///
   /// In en, this message translates to:
-  /// **'{name} was not in the same room as the {object}.'**
-  String clueBesideObjectNot(String name, String object);
+  /// **'— not in the same room as the {object}.'**
+  String clueBesideObjectNot(String object);
 
   /// No description provided for @accuse.
   ///

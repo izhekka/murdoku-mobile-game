@@ -41,21 +41,22 @@ String _dirName(Direction d, AppLocalizations l10n) => switch (d) {
 
 /// Pure clue -> sentence rendering per the spec's wording table (positive and
 /// negated forms). [names] resolves locale- and grammar-appropriate forms:
-/// nominative for subjects, genitive for direction/beside targets, full
-/// prepositional room phrases in ru.
+/// genitive for direction/beside targets, nominative for same-row/col
+/// targets, full prepositional room phrases in ru. The card owner's name is
+/// never in the sentence (issue 89) — the card header and the Semantics
+/// label carry it.
 String describeClue(
   Clue clue,
   CaseData c,
   AppLocalizations l10n,
   NameForms names,
 ) {
-  final name = _nameOf(clue.suspectId, names);
   if (clue is InRoom) {
     final room = names.roomPrep(clue.roomId);
     return _either(
       clue.negated,
-      l10n.clueInRoom(name, room),
-      l10n.clueInRoomNot(name, room),
+      l10n.clueInRoom(room),
+      l10n.clueInRoomNot(room),
     );
   }
   if (clue is BesideObject) {
@@ -64,39 +65,33 @@ String describeClue(
     );
     return _either(
       clue.negated,
-      l10n.clueBesideObject(name, objectName),
-      l10n.clueBesideObjectNot(name, objectName),
+      l10n.clueBesideObject(objectName),
+      l10n.clueBesideObjectNot(objectName),
     );
   }
-  return _targetClueSentence(clue, name, l10n, names);
+  return _targetClueSentence(clue, l10n, names);
 }
 
 /// Sentences for the four target-bearing clue kinds; same-row/col targets
 /// take the nominative form, direction/beside targets the genitive.
-String _targetClueSentence(
-  Clue clue,
-  String name,
-  AppLocalizations l10n,
-  NameForms names,
-) {
+String _targetClueSentence(Clue clue, AppLocalizations l10n, NameForms names) {
   if (clue is Beside) {
     final target = _targetOf(clue.targetId, names);
     return _either(
       clue.negated,
-      l10n.clueBeside(name, target),
-      l10n.clueBesideNot(name, target),
+      l10n.clueBeside(target),
+      l10n.clueBesideNot(target),
     );
   }
   if (clue is DirectionClue) {
-    return _directionSentence(clue, name, l10n, names);
+    return _directionSentence(clue, l10n, names);
   }
-  return _sameRowColSentence(clue, name, l10n, names);
+  return _sameRowColSentence(clue, l10n, names);
 }
 
 /// Direction sentences; targets take the genitive form.
 String _directionSentence(
   DirectionClue clue,
-  String name,
   AppLocalizations l10n,
   NameForms names,
 ) {
@@ -104,30 +99,26 @@ String _directionSentence(
   final target = _targetOf(clue.targetId, names);
   return _either(
     clue.negated,
-    l10n.clueDirection(name, dir, target),
-    l10n.clueDirectionNot(name, dir, target),
+    l10n.clueDirection(dir, target),
+    l10n.clueDirectionNot(dir, target),
   );
 }
 
 /// Same-row and same-col sentences; targets take the nominative form.
-String _sameRowColSentence(
-  Clue clue,
-  String name,
-  AppLocalizations l10n,
-  NameForms names,
-) => switch (clue) {
-  SameRow(:final targetId) => _either(
-    clue.negated,
-    l10n.clueSameRow(name, _nameOf(targetId, names)),
-    l10n.clueSameRowNot(name, _nameOf(targetId, names)),
-  ),
-  SameCol(:final targetId) => _either(
-    clue.negated,
-    l10n.clueSameCol(name, _nameOf(targetId, names)),
-    l10n.clueSameColNot(name, _nameOf(targetId, names)),
-  ),
-  _ => throw ArgumentError('no sentence template for: $clue'),
-};
+String _sameRowColSentence(Clue clue, AppLocalizations l10n, NameForms names) =>
+    switch (clue) {
+      SameRow(:final targetId) => _either(
+        clue.negated,
+        l10n.clueSameRow(_nameOf(targetId, names)),
+        l10n.clueSameRowNot(_nameOf(targetId, names)),
+      ),
+      SameCol(:final targetId) => _either(
+        clue.negated,
+        l10n.clueSameCol(_nameOf(targetId, names)),
+        l10n.clueSameColNot(_nameOf(targetId, names)),
+      ),
+      _ => throw ArgumentError('no sentence template for: $clue'),
+    };
 
 /// Debug-mode guard (issue 59): the panel derives every card size from the
 /// incoming width, so an unbounded-width host has no defined layout. Reject
@@ -438,9 +429,9 @@ class SuspectPanel extends StatelessWidget {
   /// all clue lines at the card's text width), measured with the same style
   /// and text scale the cards render with. Used when the host leaves the
   /// height loose: cards grow instead of clipping text (UX-9). [chip] is the
-  /// skin's clue-chip token (issue 26); when non-null each clue measures at
-  /// the chip's inner width plus the chip's vertical padding and gaps, so
-  /// the grown rows fit the rendered chips exactly.
+  /// skin's clue-sentence gap token (issue 26; the pill is gone since issue
+  /// 89), so each sentence measures at the card's full text width and only
+  /// the token's gap joins them — exactly the structure the card renders.
   double _contentRowHeight(
     BuildContext context,
     double cardWidth,
@@ -455,11 +446,6 @@ class SuspectPanel extends StatelessWidget {
     final direction = Directionality.of(context);
     // Card insets: 4 outer padding + 8 container padding + border per side.
     final textWidth = math.max(cardWidth - 2 * (4 + 8 + borderWidth), 1.0);
-    // Chip inner width (issue 26): each clue sentence wraps inside the
-    // chip's horizontal padding.
-    final chipInnerWidth = chip == null
-        ? textWidth
-        : math.max(textWidth - chip.padding.horizontal, 1.0);
     // The name row's text width: avatar (24) plus its 6px gap. The placed
     // check icon is a badge on the avatar's corner (issue 18), so placed and
     // unplaced rows share this width; scale-down names grow *smaller* in a
@@ -484,7 +470,6 @@ class SuspectPanel extends StatelessWidget {
         base,
         scaler,
         direction,
-        chipInnerWidth,
         textWidth,
       );
       // 2 * (4 outer padding + 8 container padding + border) + name row
@@ -497,8 +482,9 @@ class SuspectPanel extends StatelessWidget {
   }
 
   /// The clue text block's height at the card's text width: joined
-  /// paragraph for classic, per-chip padding/gap arithmetic in chip mode
-  /// (issue 26) — exactly the structure the card renders.
+  /// paragraph for classic, per-sentence gap arithmetic in chip mode
+  /// (issue 26; sentences are bare Texts since issue 89) — exactly the
+  /// structure the card renders.
   double _clueBlockHeight(
     List<String> texts,
     SkinChip? chip,
@@ -506,7 +492,6 @@ class SuspectPanel extends StatelessWidget {
     TextStyle base,
     TextScaler scaler,
     TextDirection direction,
-    double chipInnerWidth,
     double textWidth,
   ) {
     if (texts.isEmpty) return 0.0;
@@ -523,16 +508,14 @@ class SuspectPanel extends StatelessWidget {
     var clueHeight = 0.0;
     for (var i = 0; i < texts.length; i++) {
       if (i > 0) clueHeight += chip.gap;
-      clueHeight +=
-          _measureText(
-            texts[i],
-            theme.textTheme.bodySmall,
-            base,
-            scaler,
-            direction,
-            chipInnerWidth,
-          ) +
-          chip.padding.vertical;
+      clueHeight += _measureText(
+        texts[i],
+        theme.textTheme.bodySmall,
+        base,
+        scaler,
+        direction,
+        textWidth,
+      );
     }
     return clueHeight;
   }
@@ -633,9 +616,9 @@ class _SuspectCard extends StatelessWidget {
     // scheme styling.
     final tokens = SkinScope.maybeOf(context);
     final cartoon = tokens != null && tokens.isCartoon;
-    // Clue chip (issue 26): a non-null chip token renders every clue
-    // sentence in its own rounded chip (mockups); null — classic and bare
-    // harnesses — keeps the pre-existing plain clue rendering below.
+    // Clue sentences (issues 26/89): a non-null chip token renders every
+    // clue sentence as a bare gap-separated Text; null — classic and bare
+    // harnesses — keeps the pre-existing joined paragraph rendering below.
     final chip = cartoon ? tokens.chip : null;
     final a11yLabel = clueTexts.isEmpty
         ? '$displayName.'
@@ -747,17 +730,18 @@ class _SuspectCard extends StatelessWidget {
     );
   }
 
-  /// The clue area: chip column in chip mode (issue 26), scrollable plain
-  /// column on the expanded (selected) card, joined paragraph otherwise.
+  /// The clue area: bare gap-separated sentence column in chip mode
+  /// (issues 26/89), scrollable plain column on the expanded (selected)
+  /// card, joined paragraph otherwise.
   Widget _clueArea(BuildContext context, SkinChip? chip) {
     if (chip != null) {
-      // Each clue sentence in its own rounded token chip (issue 26),
-      // selected and unselected alike. The scroll view is the same escape
-      // hatch the selected card already had: when the host pins a slot
-      // shorter than the content (narrow layout), the chips scroll instead
-      // of throwing a RenderFlex overflow; the row-height math grows the
-      // rows wherever the host leaves the height loose, so this scrolls
-      // only when there is genuinely no room (UX-9).
+      // Each clue sentence as a bare gap-separated Text (issue 89), selected
+      // and unselected alike. The scroll view is the same escape hatch the
+      // selected card already had: when the host pins a slot shorter than
+      // the content (narrow layout), the sentences scroll instead of
+      // throwing a RenderFlex overflow; the row-height math grows the rows
+      // wherever the host leaves the height loose, so this scrolls only
+      // when there is genuinely no room (UX-9).
       return Expanded(
         child: SingleChildScrollView(child: _chipColumn(context, chip)),
       );
@@ -775,18 +759,15 @@ class _SuspectCard extends StatelessWidget {
     );
   }
 
-  /// One rounded chip per clue sentence (issue 26).
+  /// One bare clue sentence per line (issue 89): the rounded pill is gone,
+  /// the token's gap separates the sentences, and the texts left-align with
+  /// the name row.
   Widget _chipColumn(BuildContext context, SkinChip chip) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       for (final (i, text) in clueTexts.indexed)
-        Container(
-          margin: EdgeInsets.only(top: i == 0 ? 0 : chip.gap),
-          padding: chip.padding,
-          decoration: BoxDecoration(
-            color: chip.background,
-            borderRadius: BorderRadius.circular(chip.radius),
-          ),
+        Padding(
+          padding: EdgeInsets.only(top: i == 0 ? 0 : chip.gap),
           child: Text(text, style: Theme.of(context).textTheme.bodySmall),
         ),
     ],

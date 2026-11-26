@@ -8,6 +8,7 @@ import 'package:murdoku/domain/generator/case_factory.dart';
 import 'package:murdoku/domain/localized_names.dart';
 import 'package:murdoku/domain/models.dart';
 import 'package:murdoku/l10n/generated/app_localizations.dart';
+import 'package:murdoku/ui/widgets/avatar.dart';
 import 'package:murdoku/ui/widgets/suspect_panel.dart';
 
 import '../../support/localized_test_app.dart';
@@ -120,6 +121,20 @@ final CaseData overflowFixture = buildFixture([
     negated: true,
   ),
   BesideObject(suspectId: 's4', objectId: 'o1', negated: false),
+  // Issue 89: the name-less dash sentences shortened every card, so this
+  // row-2 content alone no longer exceeds the 600px slot the overflow tests
+  // are premised on — these extra sentences grow Drew's and Ellis's cards
+  // back past the fold (issue 30's scroll-reachability premise).
+  SameCol(suspectId: 's3', targetId: 's1', negated: false),
+  SameCol(suspectId: 's3', targetId: 's2', negated: false),
+  SameCol(suspectId: 's4', targetId: 's0', negated: false),
+  DirectionClue(
+    suspectId: 's4',
+    targetId: 's0',
+    direction: Direction.east,
+    negated: false,
+  ),
+  Beside(suspectId: 's4', targetId: 'V', negated: false),
 ]);
 
 /// Standard-difficulty stand-in: the fixture board gains a sixth guest, so
@@ -393,6 +408,24 @@ double idealParagraphHeight(RenderParagraph paragraph) {
   return height;
 }
 
+/// The fixture suspects' display names, keyed by id.
+const Map<String, String> fixtureSuspectNames = {
+  's0': 'Ash',
+  's1': 'Blair',
+  's2': 'Casey',
+  's3': 'Drew',
+  's4': 'Ellis',
+};
+
+/// The suspect card of [suspectId] in the current tree: the card's name row
+/// is one unique Text per card, so scoping a sentence find to this card
+/// disambiguates repeated name-less fragments across cards (issue 89 — two
+/// suspects can carry literally identical dash sentences).
+Finder suspectCardOf(String suspectId) => find.ancestor(
+  of: find.text(fixtureSuspectNames[suspectId]!),
+  matching: find.byType(InkWell),
+);
+
 void main() {
   testWidgets('every suspect card shows its name and its clue sentences', (
     tester,
@@ -403,24 +436,15 @@ void main() {
 
     // The grid shows all cards at once; assert each name and exact en wording.
     expect(find.text('Ash'), findsOneWidget);
-    expect(find.text('Ash was in the Hall.'), findsOneWidget);
+    expect(find.text('— in the Hall.'), findsOneWidget);
     expect(find.text('Blair'), findsOneWidget);
-    expect(
-      find.text('Blair was not on the same floor as the victim.'),
-      findsOneWidget,
-    );
+    expect(find.text('— not on the same floor as the victim.'), findsOneWidget);
     expect(find.text('Casey'), findsOneWidget);
-    expect(
-      find.text('Casey was in the same corridor as Ellis.'),
-      findsOneWidget,
-    );
+    expect(find.text('— in the same corridor as Ellis.'), findsOneWidget);
     expect(find.text('Drew'), findsOneWidget);
-    expect(find.text('Drew was not south of the victim.'), findsOneWidget);
+    expect(find.text('— not south of the victim.'), findsOneWidget);
     expect(find.text('Ellis'), findsOneWidget);
-    expect(
-      find.text('Ellis was in the same room as the Clock.'),
-      findsOneWidget,
-    );
+    expect(find.text('— in the same room as the Clock.'), findsOneWidget);
 
     // Placed suspect is marked.
     expect(find.byIcon(Icons.check_circle), findsOneWidget);
@@ -482,13 +506,13 @@ void main() {
     await tester.pump();
 
     // Initially Ash (s0) is selected: uncapped clue text.
-    final ashSelected = tester.widget<Text>(find.text('Ash was in the Hall.'));
+    final ashSelected = tester.widget<Text>(find.text('— in the Hall.'));
     expect(ashSelected.maxLines, isNull);
 
     // Unselected cards are uncapped too: the (taller) card height bounds
     // the text instead of a 2-line ellipsis (UX-9).
     final blair = tester.widget<Text>(
-      find.text('Blair was not on the same floor as the victim.'),
+      find.text('— not on the same floor as the victim.'),
     );
     expect(blair.maxLines, isNull);
     expect(blair.overflow, isNull);
@@ -498,10 +522,10 @@ void main() {
     await tester.pump();
 
     final blairSelected = tester.widget<Text>(
-      find.text('Blair was not on the same floor as the victim.'),
+      find.text('— not on the same floor as the victim.'),
     );
     expect(blairSelected.maxLines, isNull);
-    final ash = tester.widget<Text>(find.text('Ash was in the Hall.'));
+    final ash = tester.widget<Text>(find.text('— in the Hall.'));
     expect(ash.maxLines, isNull);
   });
 
@@ -566,7 +590,10 @@ void main() {
 
       final node = tester.getSemantics(find.text('Ash'));
       expect(node.flagsCollection.isButton, isTrue);
-      expect(node.label, contains('Ash was in the Hall.'));
+      expect(node.label, contains('— in the Hall.'));
+      // The sentence no longer carries the guest's name (issue 89), so the
+      // name prefix is pinned directly: the label must still start with it.
+      expect(node.label, startsWith('Ash.'));
       semantics.dispose();
     },
   );
@@ -770,64 +797,130 @@ void main() {
   /// The exact en clue sentences the [fixture] cards render (see the first
   /// test's wording asserts).
   const clueSentences = {
-    'Ash was in the Hall.',
-    'Blair was not on the same floor as the victim.',
-    'Casey was in the same corridor as Ellis.',
-    'Drew was not south of the victim.',
-    'Ellis was in the same room as the Clock.',
+    '— in the Hall.',
+    '— not on the same floor as the victim.',
+    '— in the same corridor as Ellis.',
+    '— not south of the victim.',
+    '— in the same room as the Clock.',
   };
 
-  Iterable<Container> chipContainers(WidgetTester tester, SkinTokens tokens) =>
-      tester.widgetList<Container>(
-        find.byWidgetPredicate(
-          (w) =>
-              w is Container &&
-              w.decoration is BoxDecoration &&
-              (w.decoration as BoxDecoration).color == tokens.chip!.background,
-        ),
+  /// The exact sentence each [fixture] card renders, keyed by suspect id
+  /// (the fixture gives every suspect exactly one clue).
+  Map<String, String> fixtureSentencesById(WidgetTester tester) {
+    final context = tester.element(find.byType(SuspectPanel));
+    final l10n = AppLocalizations.of(context)!;
+    final names = NameForms.forLocale(l10n.localeName, fixture);
+    return {
+      for (final clue in fixture.clues)
+        clue.suspectId: describeClue(clue, fixture, l10n, names),
+    };
+  }
+
+  /// Describes [multiClueFixture]'s clues as (suspectId, sentence) pairs in
+  /// clue order; s0's four clue sentences come first (the fixture lists them
+  /// first). Name-less sentences can repeat literally across cards (issue
+  /// 89), so callers scope each find to its owning card via [suspectCardOf].
+  List<(String, String)> describeMultiClueSentences(WidgetTester tester) {
+    final context = tester.element(find.byType(SuspectPanel));
+    final l10n = AppLocalizations.of(context)!;
+    final names = NameForms.forLocale(l10n.localeName, multiClueFixture);
+    return [
+      for (final clue in multiClueFixture.clues)
+        (clue.suspectId, describeClue(clue, multiClueFixture, l10n, names)),
+    ];
+  }
+
+  /// The retired pill colors (issues 26/76/87); no container may carry any
+  /// of them once the pill is gone (issue 89).
+  const oldChipBackgrounds = {0xFFD8E0EE, 0xFFF1F3F5};
+
+  bool isChipPillContainer(Widget w) =>
+      w is Container &&
+      w.decoration is BoxDecoration &&
+      oldChipBackgrounds.contains(
+        (w.decoration as BoxDecoration).color?.toARGB32(),
       );
 
-  testWidgets('every clue sentence sits in the skin chip on selected and '
-      'unselected cards (issue 26)', (tester) async {
+  testWidgets('cartoon skins render clue sentences bare, aligned with the '
+      'name row and separated by the 6px gap (issue 89)', (tester) async {
     for (final tokens in [candyTokens, stickerTokens, comicTokens]) {
-      // Selected s0 (expanded card) and unselected cards both chip their
-      // clues, exactly like the mockups' expanded card.
+      // Selected s0 (expanded card) and unselected cards render bare
+      // sentences alike — the pill is gone on either.
       await tester.pumpWidget(skinWrap(tokens, selectedId: 's0'));
       await tester.pumpAndSettle();
 
-      var chips = chipContainers(tester, tokens).toList();
       expect(
-        chips.length,
-        fixture.clues.length,
-        reason: '${tokens.skin}: every clue gets its own chip',
+        tester.widgetList(find.byWidgetPredicate(isChipPillContainer)),
+        isEmpty,
+        reason: '${tokens.skin}: no chip pill container anywhere',
       );
-      expect(
-        chips.map((c) => (c.child! as Text).data!).toSet(),
-        clueSentences,
-        reason: '${tokens.skin}: the chips carry the clue sentences',
-      );
-      for (final chip in chips) {
-        expect(
-          chip.padding,
-          tokens.chip!.padding,
-          reason: '${tokens.skin}: chip padding comes from the token',
+      final sentences = fixtureSentencesById(tester);
+      // Premise: the exact name-less wording pins.
+      expect(sentences.values.toSet(), clueSentences);
+      for (final entry in sentences.entries) {
+        final card = suspectCardOf(entry.key);
+        final sentence = find.descendant(
+          of: card,
+          matching: find.text(entry.value),
         );
+        expect(sentence, findsOneWidget);
+        // No leftover indent: the sentence's left edge is the name row's
+        // left edge (the avatar leads the row in the same card).
         expect(
-          (chip.decoration as BoxDecoration).borderRadius,
-          BorderRadius.circular(tokens.chip!.radius),
-          reason: '${tokens.skin}: chip radius comes from the token',
+          tester.getRect(sentence).left,
+          closeTo(
+            tester
+                .getRect(
+                  find.descendant(of: card, matching: find.byType(Avatar)),
+                )
+                .left,
+            0.5,
+          ),
+          reason: '${tokens.skin}: "${entry.value}" aligns with the name row',
         );
       }
 
-      // Unselected rendering chips its clue too.
+      // Unselected rendering is bare too.
       await tester.pumpWidget(skinWrap(tokens));
       await tester.pumpAndSettle();
-      chips = chipContainers(tester, tokens).toList();
       expect(
-        chips.length,
-        fixture.clues.length,
-        reason: '${tokens.skin}: unselected cards chip their clues too',
+        tester.widgetList(find.byWidgetPredicate(isChipPillContainer)),
+        isEmpty,
+        reason: '${tokens.skin}: unselected cards render bare sentences too',
       );
+    }
+
+    // The 6px inter-sentence gap: s0 carries 4 sentences in multiClueFixture
+    // under sticker; every sentence after the first sits in a top-only 6px
+    // Padding, and none padding carries any horizontal inset.
+    await tester.pumpWidget(skinSidePanelWrap(stickerTokens, multiClueFixture));
+    await tester.pump();
+    final s0Clues = describeMultiClueSentences(tester)
+        .where((clue) => clue.$1 == 's0')
+        .toList();
+    expect(s0Clues.length, 4, reason: 'premise: s0 carries 4 sentences');
+    for (final (i, (id, text)) in s0Clues.indexed) {
+      final paddings = tester
+          .widgetList<Padding>(
+            find.descendant(
+              of: suspectCardOf(id),
+              matching: find.byWidgetPredicate(
+                (w) =>
+                    w is Padding &&
+                    w.child is Text &&
+                    (w.child as Text).data == text,
+              ),
+            ),
+          )
+          .toList();
+      expect(paddings, isNotEmpty, reason: 'sentence "$text" was wrapped');
+      for (final padding in paddings) {
+        expect(
+          padding.padding,
+          EdgeInsets.only(top: i == 0 ? 0 : 6),
+          reason: 's0 sentence #$i carries only the top-only 6px gap',
+        );
+      }
     }
   });
 
@@ -838,26 +931,14 @@ void main() {
       await tester.pump();
 
       expect(
-        chipContainers(tester, stickerTokens),
+        tester.widgetList(find.byWidgetPredicate(isChipPillContainer)),
         isEmpty,
-        reason: 'no chip containers without a cartoon skin scope',
+        reason: 'no chip-pill containers without a cartoon skin scope',
       );
       // The clue sentences still render (joined plain text, as shipped).
-      expect(find.text('Ash was in the Hall.'), findsOneWidget);
+      expect(find.text('— in the Hall.'), findsOneWidget);
     },
   );
-
-  /// Describes [multiClueFixture]'s clues in the panel under test: s0's four
-  /// clue sentences come first (the fixture lists them first).
-  List<String> describeMultiClueSentences(WidgetTester tester) {
-    final context = tester.element(find.byType(SuspectPanel));
-    final l10n = AppLocalizations.of(context)!;
-    final names = NameForms.forLocale(l10n.localeName, multiClueFixture);
-    return [
-      for (final clue in multiClueFixture.clues)
-        describeClue(clue, multiClueFixture, l10n, names),
-    ];
-  }
 
   testWidgets(
     'side panel at 300px: chip clues render in full and rows grow to the '
@@ -874,11 +955,14 @@ void main() {
       );
       await tester.pump();
 
-      final clueTexts = describeMultiClueSentences(tester);
+      final clues = describeMultiClueSentences(tester);
       // Every chip's paragraph box is at least the text's ideal height —
-      // anything shorter means the card clipped the sentence.
-      for (final text in clueTexts) {
-        final paragraph = tester.renderObject<RenderParagraph>(find.text(text));
+      // anything shorter means the card clipped the sentence. Scoped to the
+      // owning card: identical name-less fragments repeat across cards.
+      for (final (id, text) in clues) {
+        final paragraph = tester.renderObject<RenderParagraph>(
+          find.descendant(of: suspectCardOf(id), matching: find.text(text)),
+        );
         expect(
           paragraph.size.height,
           greaterThanOrEqualTo(idealParagraphHeight(paragraph) - 0.5),
@@ -890,8 +974,8 @@ void main() {
       // (per-chip padding + gaps + the narrower chip wrap width), so the
       // scroll viewport shows the whole chip column — nothing hidden below
       // the fold, no scrolling needed (UX-9).
-      final scrollView = find.ancestor(
-        of: find.text(clueTexts.first),
+      final scrollView = find.descendant(
+        of: suspectCardOf('s0'),
         matching: find.byType(SingleChildScrollView),
       );
       final viewportHeight = tester.getSize(scrollView).height;
@@ -947,11 +1031,13 @@ void main() {
           'overflow, classic pinned behavior preserved',
     );
 
-    final clueTexts = describeMultiClueSentences(tester);
+    final clues = describeMultiClueSentences(tester);
     // Rows 1's chips (s0's four sentences, Blair's and Casey's cards) are
     // built at the initial offset: they lay out in full on the grown rows.
-    for (final text in clueTexts.sublist(0, 6)) {
-      final paragraph = tester.renderObject<RenderParagraph>(find.text(text));
+    for (final (id, text) in clues.sublist(0, 6)) {
+      final paragraph = tester.renderObject<RenderParagraph>(
+        find.descendant(of: suspectCardOf(id), matching: find.text(text)),
+      );
       expect(
         paragraph.size.height,
         greaterThanOrEqualTo(idealParagraphHeight(paragraph) - 0.5),
@@ -970,8 +1056,10 @@ void main() {
     );
     await tester.drag(find.text('Ash'), const Offset(0, -2000));
     await tester.pumpAndSettle();
-    for (final text in clueTexts.sublist(6)) {
-      final paragraph = tester.renderObject<RenderParagraph>(find.text(text));
+    for (final (id, text) in clues.sublist(6)) {
+      final paragraph = tester.renderObject<RenderParagraph>(
+        find.descendant(of: suspectCardOf(id), matching: find.text(text)),
+      );
       expect(
         paragraph.size.height,
         greaterThanOrEqualTo(idealParagraphHeight(paragraph) - 0.5),
@@ -994,9 +1082,11 @@ void main() {
       await tester.pumpWidget(skinWideWrap(candyTokens, multiClueFixture));
       await tester.pump();
 
-      final clueTexts = describeMultiClueSentences(tester);
-      for (final text in clueTexts) {
-        final paragraph = tester.renderObject<RenderParagraph>(find.text(text));
+      final clues = describeMultiClueSentences(tester);
+      for (final (id, text) in clues) {
+        final paragraph = tester.renderObject<RenderParagraph>(
+          find.descendant(of: suspectCardOf(id), matching: find.text(text)),
+        );
         expect(
           paragraph.size.height,
           greaterThanOrEqualTo(idealParagraphHeight(paragraph) - 0.5),
@@ -1108,10 +1198,7 @@ void main() {
       reason: 'grown rows exceeding the slot make the grid scrollable',
     );
     expect(find.text('Ellis'), findsOneWidget);
-    expect(
-      find.text('Ellis was in the same room as the Clock.'),
-      findsOneWidget,
-    );
+    expect(find.text('— in the same room as the Clock.'), findsOneWidget);
     expect(
       tester.getRect(ellisCard).bottom,
       lessThanOrEqualTo(600),
@@ -1146,8 +1233,11 @@ void main() {
       reason: 'grown rows exceeding the slot make the grid scrollable',
     );
     expect(find.text('Ellis'), findsOneWidget);
+    // Classic joins each card's sentences into one Text, so the sentence is
+    // asserted as contained text (Ellis's card grew extra sentences when the
+    // issue-89 shortening required fixture growth).
     expect(
-      find.text('Ellis was in the same room as the Clock.'),
+      find.textContaining('— in the same room as the Clock.'),
       findsOneWidget,
     );
     expect(
@@ -1563,19 +1653,26 @@ void main() {
       // grown row while two still overflow it — then scroll-to-visible can
       // fully show a bottom-row card AND the scrolling physics stays on
       // (issue 39's mechanism AC3 relies on). Grown tile heights at these
-      // test metrics (measured: ~1467px classic, ~2182px sticker chip at the
-      // 360px pinned card width, scale 2.0; header ~60px) give 1700 classic
-      // and 2400 chip: ~170/158px headroom above one grown row either way.
-      // A failure here means the premise drifted — re-measure the grown tile
-      // heights against the current test-font metrics before suspecting a
-      // layout regression.
+      // test metrics (measured after issue 89: nameless bare sentences, no
+      // chip padding, full-width text box: ~1339px classic and ~1358px
+      // sticker per grown row at the 360px pinned card width, scale 2.0;
+      // header ~60px) give 1700 classic and 2000 sticker: the slot fits one
+      // grown row while two still overflow it. A failure here means the
+      // premise drifted — re-measure the grown tile heights against the
+      // current test-font metrics before suspecting a layout regression.
       final surfaces = <(SkinTokens?, double)>[
         (null, 1700),
-        (stickerTokens, 2400),
+        (stickerTokens, 2000),
       ];
 
       for (final (tokens, height) in surfaces) {
         tester.view.physicalSize = Size(800, height + 100);
+        // Fresh tree per iteration (like the issue-58 test): pumpWidget
+        // preserves matching elements in place, so the second iteration's
+        // grid would otherwise inherit the classic grid's scroll position —
+        // scrolled to center Drew by the ensureVisible loop below — and the
+        // below-the-fold premise would read scrolled-on-screen rects.
+        await tester.pumpWidget(const SizedBox.shrink());
         await tester.pumpWidget(
           pinnedWrap(multiClueFixture, tokens: tokens, height: height),
         );
@@ -1608,20 +1705,22 @@ void main() {
           );
         }
         String joinedById(String id) => sentencesById[id]!.join('\n');
-        final expectedTexts = tokens == null
-            // Classic: one joined Text per card.
-            ? [joinedById('s0'), joinedById('s3'), joinedById('s4')]
-            // Chip: one Text per clue sentence.
-            : [
-                for (final id in ['s0', 's3', 's4']) ...sentencesById[id]!,
-              ];
+        final expected = <(String, String)>[
+          // Classic: one joined Text per card; chip: one Text per sentence.
+          for (final id in ['s0', 's3', 's4'])
+            for (final text
+                in tokens == null ? [joinedById(id)] : sentencesById[id]!)
+              (id, text),
+        ];
 
         // The grown (multi-clue) card's and the bottom row's clue text lays
         // out in full at scale 2.0: each paragraph box is at least its ideal
-        // height — anything shorter means the card clipped the text.
-        for (final text in expectedTexts) {
+        // height — anything shorter means the card clipped the text. Scoped
+        // to the owning card: identical name-less fragments repeat across
+        // cards (issue 89).
+        for (final (id, text) in expected) {
           final paragraph = tester.renderObject<RenderParagraph>(
-            find.text(text),
+            find.descendant(of: suspectCardOf(id), matching: find.text(text)),
           );
           expect(
             paragraph.size.height,
@@ -1667,16 +1766,19 @@ void main() {
           );
 
           // Its clue text is inside the shown card: fully visible and never
-          // clipped by the card.
+          // clipped by the card. Scoped to the card: s0 and s4 can carry
+          // literally identical name-less sentences (issue 89).
           final paragraph = tester.renderObject<RenderParagraph>(
-            find.text(clue),
+            find.descendant(of: card, matching: find.text(clue)),
           );
           expect(
             paragraph.size.height,
             greaterThanOrEqualTo(idealParagraphHeight(paragraph) - 0.5),
             reason: '$name clue renders in full after scroll-to-visible',
           );
-          final textRect = tester.getRect(find.text(clue));
+          final textRect = tester.getRect(
+            find.descendant(of: card, matching: find.text(clue)),
+          );
           expect(
             textRect.top,
             greaterThanOrEqualTo(gridRect.top - 0.5),
@@ -1716,7 +1818,7 @@ void main() {
           l10n,
           names,
         ),
-        'Casey was not in the same corridor as Ellis.',
+        '— not in the same corridor as Ellis.',
       );
     });
 
@@ -1731,7 +1833,7 @@ void main() {
           l10n,
           names,
         ),
-        'Ellis was not in the same room as the Clock.',
+        '— not in the same room as the Clock.',
       );
     });
   });

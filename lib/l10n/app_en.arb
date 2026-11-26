@@ -52,78 +52,57 @@
   "dirSouth": "south",
   "dirEast": "east",
   "dirWest": "west",
-  "clueInRoom": "{name} was in the {room}.",
+  "clueInRoom": "— in the {room}.",
   "@clueInRoom": {
     "placeholders": {
-      "name": {
-        "type": "String"
-      },
       "room": {
         "type": "String"
       }
     }
   },
-  "clueInRoomNot": "{name} was not in the {room}.",
+  "clueInRoomNot": "— not in the {room}.",
   "@clueInRoomNot": {
     "placeholders": {
-      "name": {
-        "type": "String"
-      },
       "room": {
         "type": "String"
       }
     }
   },
-  "clueSameRow": "{name} was on the same floor as {target}.",
+  "clueSameRow": "— on the same floor as {target}.",
   "@clueSameRow": {
     "placeholders": {
-      "name": {
-        "type": "String"
-      },
       "target": {
         "type": "String"
       }
     }
   },
-  "clueSameRowNot": "{name} was not on the same floor as {target}.",
+  "clueSameRowNot": "— not on the same floor as {target}.",
   "@clueSameRowNot": {
     "placeholders": {
-      "name": {
-        "type": "String"
-      },
       "target": {
         "type": "String"
       }
     }
   },
-  "clueSameCol": "{name} was in the same corridor as {target}.",
+  "clueSameCol": "— in the same corridor as {target}.",
   "@clueSameCol": {
     "placeholders": {
-      "name": {
-        "type": "String"
-      },
       "target": {
         "type": "String"
       }
     }
   },
-  "clueSameColNot": "{name} was not in the same corridor as {target}.",
+  "clueSameColNot": "— not in the same corridor as {target}.",
   "@clueSameColNot": {
     "placeholders": {
-      "name": {
-        "type": "String"
-      },
       "target": {
         "type": "String"
       }
     }
   },
-  "clueDirection": "{name} was {direction} of {target}.",
+  "clueDirection": "— {direction} of {target}.",
   "@clueDirection": {
     "placeholders": {
-      "name": {
-        "type": "String"
-      },
       "direction": {
         "type": "String"
       },
@@ -132,12 +111,9 @@
       }
     }
   },
-  "clueDirectionNot": "{name} was not {direction} of {target}.",
+  "clueDirectionNot": "— not {direction} of {target}.",
   "@clueDirectionNot": {
     "placeholders": {
-      "name": {
-        "type": "String"
-      },
       "direction": {
         "type": "String"
       },
@@ -146,45 +122,33 @@
       }
     }
   },
-  "clueBeside": "{name} was beside {target}.",
+  "clueBeside": "— beside {target}.",
   "@clueBeside": {
     "placeholders": {
-      "name": {
-        "type": "String"
-      },
       "target": {
         "type": "String"
       }
     }
   },
-  "clueBesideNot": "{name} was not beside {target}.",
+  "clueBesideNot": "— not beside {target}.",
   "@clueBesideNot": {
     "placeholders": {
-      "name": {
-        "type": "String"
-      },
       "target": {
         "type": "String"
       }
     }
   },
-  "clueBesideObject": "{name} was in the same room as the {object}.",
+  "clueBesideObject": "— in the same room as the {object}.",
   "@clueBesideObject": {
     "placeholders": {
-      "name": {
-        "type": "String"
-      },
       "object": {
         "type": "String"
       }
     }
   },
-  "clueBesideObjectNot": "{name} was not in the same room as the {object}.",
+  "clueBesideObjectNot": "— not in the same room as the {object}.",
   "@clueBesideObjectNot": {
     "placeholders": {
-      "name": {
-        "type": "String"
-      },
       "object": {
         "type": "String"
       }

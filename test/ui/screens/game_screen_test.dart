@@ -156,8 +156,8 @@ void expectNameParagraphInFull(
 }
 
 void main() {
-  testWidgets('ru library clue chip does not wrap mid-word at the phone '
-      'viewport (issue 76)', (tester) async {
+  testWidgets('ru library clue sentence wraps without mid-word fragments at '
+      'the phone viewport (issue 76, bare text since 89)', (tester) async {
     await pumpGame(tester, size: const Size(402, 874), tutorialSeen: true);
     final paragraph = tester.renderObject<RenderParagraph>(
       find.descendant(
@@ -168,12 +168,13 @@ void main() {
     // Issue 76 run-1 evidence (per-PNG verdicts travel with the issue's run
     // report): the sticker chip's ~70px text
     // box broke «библиотеке.» mid-word and wrapped the sentence into FOUR
-    // lines (~80px). The chip-padding token fix widens the text box to
-    // ~79px, so the sentence wraps in at most three lines (one per word
-    // group; ~64px) with no mid-word fragments — pixel-verified on the
-    // real device fonts by the issue 76 closing re-capture, pump-asserted
-    // here by the line count (the test font renders glyphs at fontSize
-    // width, so exact word-width comparisons are not faithful here).
+    // lines (~80px); the chip-padding token fix widened the box to ~79px.
+    // Since issue 89 the sentences render as bare full-width texts (no chip
+    // padding), which only widens the wrap box further — the assertion (at
+    // most three lines per word group, no mid-word fragments, pixel-verified
+    // by the issue 76 closing re-capture) is pump-checked here by the line
+    // count (the test font renders glyphs at fontSize width, so exact
+    // word-width comparisons are not faithful here).
     expect(paragraph.size.height, lessThan(72));
     expect(tester.takeException(), isNull);
   });
@@ -638,8 +639,8 @@ void main() {
 
     final l10n = l10nOf(tester);
     final names = NameForms.forLocale(l10n.localeName, fixedCase);
-    // Per clue, the exact sentence its card renders inside its own chip
-    // (issue 26): every clue is its own Text now, not a joined paragraph.
+    // Per clue, the exact sentence its card renders (issue 26/89): every
+    // clue is its own bare Text, not a joined paragraph.
     final renderedClues = [
       for (final clue in fixedCase.clues)
         (

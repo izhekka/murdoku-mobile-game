@@ -161,7 +161,10 @@ void main() {
     },
   );
 
-  test('candy inkSoft meets AA on white and on the clue chip (issue 87)', () {
+  test('candy inkSoft meets AA on white (issue 87)', () {
+    // The clue text paints onSurfaceVariant == inkSoft (suspect_panel.dart)
+    // and renders directly on the white cards since issue 89 removed the
+    // chip surface — the on-white bar is the binding one.
     final onWhite = _contrastRatio(candyTokens.inkSoft, _white);
     expect(
       onWhite,
@@ -169,21 +172,6 @@ void main() {
       reason:
           'candy inkSoft ${_hexOf(candyTokens.inkSoft)} on white '
           'must reach AA 4.5:1, measured $onWhite',
-    );
-    // The chip's clue text paints onSurfaceVariant == inkSoft
-    // (suspect_panel.dart); the retuned chip background must not strand it
-    // below AA (bounce finding: #5A66A0 measured 4.116 on #D8E0EE).
-    final onChip = _contrastRatio(
-      candyTokens.inkSoft,
-      candyTokens.chip!.background,
-    );
-    expect(
-      onChip,
-      greaterThanOrEqualTo(4.5),
-      reason:
-          'candy inkSoft ${_hexOf(candyTokens.inkSoft)} on the clue chip '
-          '${_hexOf(candyTokens.chip!.background)} must reach AA 4.5:1, '
-          'measured $onChip',
     );
   });
 
@@ -243,7 +231,7 @@ void main() {
     }
   });
 
-  test('candy victim cell and clue chip separate (issue 87)', () {
+  test('candy victim cell separates (issue 87)', () {
     final page = candyTokens.appBackground;
     final fill = _contrastRatio(candyTokens.victimFill, page);
     expect(
@@ -266,17 +254,7 @@ void main() {
           '${_hexOf(candyTokens.victimFill)} must reach 2.5:1, '
           'measured $stripe',
     );
-    final chip = _contrastRatio(
-      candyTokens.chip!.background,
-      candyTokens.card.background,
-    );
-    expect(
-      chip,
-      greaterThanOrEqualTo(1.3),
-      reason:
-          'candy clue chip ${_hexOf(candyTokens.chip!.background)} vs '
-          'card ${_hexOf(candyTokens.card.background)} must reach '
-          '1.3:1, measured $chip',
-    );
+    // The clue chip's surface-vs-card bar (issue 87) is gone with the pill
+    // (issue 89): the sentences paint directly on the card.
   });
 }

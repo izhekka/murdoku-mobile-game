@@ -121,63 +121,63 @@ class AppLocalizationsRu extends AppLocalizations {
   String get dirWest => 'западнее';
 
   @override
-  String clueInRoom(String name, String room) {
-    return '$name — $room.';
+  String clueInRoom(String room) {
+    return '— $room.';
   }
 
   @override
-  String clueInRoomNot(String name, String room) {
-    return '$name — не $room.';
+  String clueInRoomNot(String room) {
+    return '— не $room.';
   }
 
   @override
-  String clueSameRow(String name, String target) {
-    return '$name — на том же этаже, что и $target.';
+  String clueSameRow(String target) {
+    return '— на том же этаже, что и $target.';
   }
 
   @override
-  String clueSameRowNot(String name, String target) {
-    return '$name — не на том же этаже, что и $target.';
+  String clueSameRowNot(String target) {
+    return '— не на том же этаже, что и $target.';
   }
 
   @override
-  String clueSameCol(String name, String target) {
-    return '$name — в том же коридоре, что и $target.';
+  String clueSameCol(String target) {
+    return '— в том же коридоре, что и $target.';
   }
 
   @override
-  String clueSameColNot(String name, String target) {
-    return '$name — не в том же коридоре, что и $target.';
+  String clueSameColNot(String target) {
+    return '— не в том же коридоре, что и $target.';
   }
 
   @override
-  String clueDirection(String name, String direction, String target) {
-    return '$name — $direction $target.';
+  String clueDirection(String direction, String target) {
+    return '— $direction $target.';
   }
 
   @override
-  String clueDirectionNot(String name, String direction, String target) {
-    return '$name — не $direction $target.';
+  String clueDirectionNot(String direction, String target) {
+    return '— не $direction $target.';
   }
 
   @override
-  String clueBeside(String name, String target) {
-    return '$name — около $target.';
+  String clueBeside(String target) {
+    return '— около $target.';
   }
 
   @override
-  String clueBesideNot(String name, String target) {
-    return '$name — не около $target.';
+  String clueBesideNot(String target) {
+    return '— не около $target.';
   }
 
   @override
-  String clueBesideObject(String name, String object) {
-    return '$name — в комнате $object.';
+  String clueBesideObject(String object) {
+    return '— в комнате $object.';
   }
 
   @override
-  String clueBesideObjectNot(String name, String object) {
-    return '$name — не в комнате $object.';
+  String clueBesideObjectNot(String object) {
+    return '— не в комнате $object.';
   }
 
   @override

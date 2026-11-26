@@ -94,9 +94,10 @@ class SkinTokens {
   /// comic only; the other mockups show the title-case header.
   final bool panelHeaderUppercase;
 
-  /// The rounded chip behind each clue sentence on the suspect cards
-  /// (issue 26); null for classic, which keeps the pre-existing plain clue
-  /// rendering.
+  /// The clue-sentence gap on the suspect cards (issue 26, shrunk by issue
+  /// 89): the per-sentence pill is gone, so the token keeps only the
+  /// vertical gap between consecutive sentences. Null for classic, which
+  /// keeps the pre-existing joined paragraph rendering.
   final SkinChip? chip;
 
   @override
@@ -190,34 +191,22 @@ class SkinCard {
       Object.hash(background, borderColor, borderWidth, radius, shadow);
 }
 
-/// A clue chip on the suspect cards (issue 26): each clue sentence sits in
-/// its own rounded pill per the approved mockups. Null on classic tokens —
-/// widgets keep the pre-existing plain clue rendering there.
+/// A clue-sentence gap on the suspect cards (issue 26, shrunk by issue 89):
+/// each clue sentence is a bare Text and the token carries only the vertical
+/// gap between consecutive sentences. Kept per-skin for future divergence,
+/// matching how the padding diverged in issue 76. Null on classic tokens —
+/// widgets keep the pre-existing joined paragraph rendering there.
 class SkinChip {
-  const SkinChip({
-    required this.background,
-    required this.radius,
-    required this.padding,
-    required this.gap,
-  });
+  const SkinChip({required this.gap});
 
-  final Color background;
-  final double radius;
-  final EdgeInsets padding;
-
-  /// Vertical spacing between consecutive chips.
+  /// Vertical spacing between consecutive sentences.
   final double gap;
 
   @override
-  bool operator ==(Object other) =>
-      other is SkinChip &&
-      other.background == background &&
-      other.radius == radius &&
-      other.padding == padding &&
-      other.gap == gap;
+  bool operator ==(Object other) => other is SkinChip && other.gap == gap;
 
   @override
-  int get hashCode => Object.hash(background, radius, padding, gap);
+  int get hashCode => gap.hashCode;
 }
 
 /// Room number badge: circle fill with the room number in [ink].
@@ -301,30 +290,16 @@ const SkinActions _cartoonActions = SkinActions(
   menu: Color(0xFFC3A9FD),
 );
 
-/// Clue-chip look shared by the cartoon mockups (issue 26): a rounded
-/// light-gray pill behind each clue sentence. Token-driven so a skin can
-/// diverge later; classic keeps null (plain clue text).
-/// Since issue 87 only comic keeps these values — candy diverged to its
-/// own chip and sticker's padding divergence is issue 76.
-const SkinChip _cartoonChip = SkinChip(
-  background: Color(0xFFF1F3F5),
-  radius: 12,
-  padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-  gap: 6,
-);
+/// Clue-sentence gap shared by the cartoon mockups (issue 26, shrunk by
+/// issue 89): sentences render bare, separated by this vertical gap. Kept
+/// per-skin so a skin can diverge later; classic keeps null (joined plain
+/// clue paragraph).
+const SkinChip _cartoonChip = SkinChip(gap: 6);
 
-/// The default skin's clue chip (issue 76): the shared mockup token's 10px
-/// horizontal padding left the 402x874 iPhone chip text box ~70px wide and
-/// long ru words («библиотеке.», ~75px) wrapped mid-word into orphan
-/// fragments. Sticker diverges to 6px per side (the token is explicitly
-/// per-skin), widening the text box to ~79px so every clue word fits its
-/// line; the pill look is unchanged.
-const SkinChip _stickerChip = SkinChip(
-  background: Color(0xFFF1F3F5),
-  radius: 12,
-  padding: EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-  gap: 6,
-);
+/// The default skin's clue-sentence gap (issue 76/89): issue 76 diverged the
+/// token's padding to fit the phone text box; issue 89 removed the pill, so
+/// sticker keeps its own token carrying the shared gap.
+const SkinChip _stickerChip = SkinChip(gap: 6);
 
 /// Victim-cell stripe pair; sticker and comic keep the mockup values, while
 /// candy diverges below (issue 87).
@@ -341,16 +316,10 @@ const Color _candyVictimStripe = Color(0xFFC2435A);
 /// Soft candy shadow tone: rgba(31,108,158,.14) per the issue.
 const Color _candyShadow = Color(0x241F6C9E);
 
-/// Candy's own clue chip (issue 87): the shared light-gray pill was nearly
-/// invisible as a shape on the white cards (1.11:1); the candy background
-/// clears the 1.3:1 bar. Radius/padding/gap stay the shared mockup values —
-/// the padding divergence question is issue 79's.
-const SkinChip _candyChip = SkinChip(
-  background: Color(0xFFD8E0EE),
-  radius: 12,
-  padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-  gap: 6,
-);
+/// Candy's own clue-sentence gap (issue 87/89): issue 87 diverged the chip
+/// background to clear 1.3:1 on the white cards; issue 89 removed the pill
+/// surface, so candy keeps its own token carrying the shared gap.
+const SkinChip _candyChip = SkinChip(gap: 6);
 
 /// True when every field-equality check in [checks] holds. The skin `==`
 /// helpers build their per-field comparisons eagerly: each check is a pure
@@ -372,14 +341,13 @@ bool _allEqual(List<bool> checks) {
 /// 28 pairs CIE76 ΔE ≥ 15, ≥ 12 under both Machado-0.6 deuteranopia and
 /// protanopia simulation — lavender/sky pulled further apart than the
 /// issue's starting pair, which collapsed to ΔE ~8 under both
-/// simulations), the victim pair and the clue chip separate from the page
-/// and cards, and `inkSoft` reaches AA — on white it must measure ≥ 4.5:1,
-/// and it is also the chip clue text color (onSurfaceVariant), so it is
-/// darkened past the issue's starting #5A66A0 until it clears AA on the
-/// retuned chip too (#505D9A: 6.23:1 on white, 4.69:1 on #D8E0EE; the
-/// reviewer-noted start measured 4.12 on the chip). The white mortar,
-/// badge, card and sheet stay untouched — the deeper tints carry the
-/// board's visibility. Pinned by test/core/skins_contrast_test.dart.
+/// simulations), the victim pair separates from the page and cards, and
+/// `inkSoft` reaches AA — on white it must measure ≥ 4.5:1, and it is also
+/// the clue text color (onSurfaceVariant), so it is darkened past the
+/// issue's starting #5A66A0 until it clears AA on white (#505D9A: 6.23:1;
+/// the issue-87 chip it used to paint on was removed in issue 89). The
+/// white mortar, badge, card and sheet stay untouched — the deeper tints
+/// carry the board's visibility. Pinned by test/core/skins_contrast_test.dart.
 const candyTokens = SkinTokens(
   skin: SkinSetting.candy,
   isCartoon: true,

@@ -157,37 +157,37 @@ void main() {
 
       expect(
         describeClue(c.clues[0], c, l10n, names),
-        'Джек — в библиотеке.',
+        '— в библиотеке.',
         reason: 'InRoom uses the room prep phrase',
       );
       expect(
         describeClue(c.clues[1], c, l10n, names),
-        'Вера — на том же этаже, что и Джек.',
+        '— на том же этаже, что и Джек.',
         reason: 'SameRow keeps both names nominative',
       );
       expect(
         describeClue(c.clues[2], c, l10n, names),
-        'Эллис — в том же коридоре, что и жертва.',
+        '— в том же коридоре, что и жертва.',
         reason: 'victim nominative',
       );
       expect(
         describeClue(c.clues[3], c, l10n, names),
-        'Эллис — западнее Джека.',
+        '— западнее Джека.',
         reason: 'Direction uses genitive target',
       );
       expect(
         describeClue(c.clues[4], c, l10n, names),
-        'Джек — около жертвы.',
+        '— около жертвы.',
         reason: 'Beside uses genitive victim',
       );
       expect(
         describeClue(c.clues[5], c, l10n, names),
-        'Эллис — не на чердаке.',
+        '— не на чердаке.',
         reason: 'negated InRoom with prep phrase',
       );
       expect(
         describeClue(c.clues[6], c, l10n, names),
-        'Джек — в комнате со столом.',
+        '— в комнате со столом.',
         reason: 'BesideObject uses the euphonic prep + lowercase instrumental',
       );
       expect(
@@ -197,7 +197,7 @@ void main() {
           l10n,
           names,
         ),
-        'Джек — не в комнате со столом.',
+        '— не в комнате со столом.',
         reason: 'negated BesideObject',
       );
     },
@@ -266,61 +266,55 @@ void main() {
       final l10n = lookupAppLocalizations(const Locale('ru'));
       const expected = <ObjectKind, (String, String)>{
         ObjectKind.piano: (
-          'Джек — в комнате с пианино.',
-          'Джек — не в комнате с пианино.',
+          '— в комнате с пианино.',
+          '— не в комнате с пианино.',
         ),
         ObjectKind.plant: (
-          'Джек — в комнате с растением.',
-          'Джек — не в комнате с растением.',
+          '— в комнате с растением.',
+          '— не в комнате с растением.',
         ),
         ObjectKind.armor: (
-          'Джек — в комнате с доспехами.',
-          'Джек — не в комнате с доспехами.',
+          '— в комнате с доспехами.',
+          '— не в комнате с доспехами.',
         ),
         ObjectKind.chest: (
-          'Джек — в комнате с сундуком.',
-          'Джек — не в комнате с сундуком.',
+          '— в комнате с сундуком.',
+          '— не в комнате с сундуком.',
         ),
-        ObjectKind.clock: (
-          'Джек — в комнате с часами.',
-          'Джек — не в комнате с часами.',
-        ),
+        ObjectKind.clock: ('— в комнате с часами.', '— не в комнате с часами.'),
         ObjectKind.globe: (
-          'Джек — в комнате с глобусом.',
-          'Джек — не в комнате с глобусом.',
+          '— в комнате с глобусом.',
+          '— не в комнате с глобусом.',
         ),
         ObjectKind.portrait: (
-          'Джек — в комнате с портретом.',
-          'Джек — не в комнате с портретом.',
+          '— в комнате с портретом.',
+          '— не в комнате с портретом.',
         ),
         ObjectKind.fireplace: (
-          'Джек — в комнате с камином.',
-          'Джек — не в комнате с камином.',
+          '— в комнате с камином.',
+          '— не в комнате с камином.',
         ),
         ObjectKind.table: (
-          'Джек — в комнате со столом.',
-          'Джек — не в комнате со столом.',
+          '— в комнате со столом.',
+          '— не в комнате со столом.',
         ),
         ObjectKind.chair: (
-          'Джек — в комнате со стулом.',
-          'Джек — не в комнате со стулом.',
+          '— в комнате со стулом.',
+          '— не в комнате со стулом.',
         ),
         ObjectKind.flowers: (
-          'Джек — в комнате с цветами.',
-          'Джек — не в комнате с цветами.',
+          '— в комнате с цветами.',
+          '— не в комнате с цветами.',
         ),
         ObjectKind.sofa: (
-          'Джек — в комнате с диваном.',
-          'Джек — не в комнате с диваном.',
+          '— в комнате с диваном.',
+          '— не в комнате с диваном.',
         ),
         ObjectKind.bookshelf: (
-          'Джек — в комнате со стеллажом.',
-          'Джек — не в комнате со стеллажом.',
+          '— в комнате со стеллажом.',
+          '— не в комнате со стеллажом.',
         ),
-        ObjectKind.lamp: (
-          'Джек — в комнате с лампой.',
-          'Джек — не в комнате с лампой.',
-        ),
+        ObjectKind.lamp: ('— в комнате с лампой.', '— не в комнате с лампой.'),
       };
       expect(
         expected.keys.toSet(),
@@ -353,23 +347,17 @@ void main() {
     },
   );
 
-  test('en clue grammar unchanged; names resolve from case data', () {
+  test('en clue grammar stays dash-prefixed; names resolve from case data', () {
     final c = poolFixture();
     final names = NameForms.forLocale('en', c);
     final l10n = lookupAppLocalizations(const Locale('en'));
 
-    expect(
-      describeClue(c.clues[0], c, l10n, names),
-      'Jack was in the Library.',
-    );
-    expect(describeClue(c.clues[3], c, l10n, names), 'Ellis was west of Jack.');
-    expect(
-      describeClue(c.clues[4], c, l10n, names),
-      'Jack was beside the victim.',
-    );
+    expect(describeClue(c.clues[0], c, l10n, names), '— in the Library.');
+    expect(describeClue(c.clues[3], c, l10n, names), '— west of Jack.');
+    expect(describeClue(c.clues[4], c, l10n, names), '— beside the victim.');
     expect(
       describeClue(c.clues[6], c, l10n, names),
-      'Jack was in the same room as the Table.',
+      '— in the same room as the Table.',
     );
     expect(
       describeClue(
@@ -378,7 +366,7 @@ void main() {
         l10n,
         names,
       ),
-      'Jack was not in the same room as the Table.',
+      '— not in the same room as the Table.',
     );
   });
 

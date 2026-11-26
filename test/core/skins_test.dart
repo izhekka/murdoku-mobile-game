@@ -168,7 +168,6 @@ void main() {
         c(0xFFF47C7C),
         reason: '${t.skin} victim stripe',
       );
-      expect(t.chip!.background, c(0xFFF1F3F5), reason: '${t.skin} chip');
     }
   });
 
@@ -184,36 +183,27 @@ void main() {
     }
   });
 
-  test('every cartoon skin exposes the mockup clue chip (issue 26/87)', () {
-    // The default skin's chip diverges from the mockup token (issue 76):
-    // its 10px horizontal padding left the 402x874 iPhone chip text box
-    // ~70px wide and long ru words wrapped mid-word; sticker uses 6px per
-    // side so every clue word fits. Issue 87: candy diverges the background
-    // to clear 1.3:1 on the white cards; comic keeps the mockup values.
+  test('every cartoon skin keeps a per-skin chip gap; no chip surface left '
+      '(issue 89)', () {
+    // The pill is gone (issue 89): the chip token shrinks from
+    // {background, radius, padding, gap} to {gap}, kept per-skin matching
+    // the issue-76 divergence pattern, and the three skins carry the shared
+    // 6px sentence gap.
     expect(
-      stickerTokens.chip!.padding,
-      const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-      reason: 'sticker chip padding (issue 76)',
+      candyTokens.chip,
+      const SkinChip(gap: 6),
+      reason: 'candy: the chip shrinks to its gap (issue 89)',
     );
-    for (final entry in {
-      'candy': (t: candyTokens, background: 0xFFD8E0EE),
-      'comic': (t: comicTokens, background: 0xFFF1F3F5),
-    }.entries) {
-      final t = entry.value.t;
-      expect(t.chip, isNotNull, reason: '${t.skin} chip token');
-      expect(
-        t.chip!.background,
-        c(entry.value.background),
-        reason: '${t.skin} chip color (issue 87 diverged candy)',
-      );
-      expect(t.chip!.radius, 12, reason: '${t.skin} chip radius');
-      expect(
-        t.chip!.padding,
-        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        reason: '${t.skin} chip padding',
-      );
-      expect(t.chip!.gap, 6, reason: '${t.skin} chip gap');
-    }
+    expect(
+      stickerTokens.chip,
+      const SkinChip(gap: 6),
+      reason: 'sticker: the chip shrinks to its gap (issue 89)',
+    );
+    expect(
+      comicTokens.chip,
+      const SkinChip(gap: 6),
+      reason: 'comic: the chip shrinks to its gap (issue 89)',
+    );
   });
 
   test('classic keeps the pre-existing plain clue look (issue 26)', () {

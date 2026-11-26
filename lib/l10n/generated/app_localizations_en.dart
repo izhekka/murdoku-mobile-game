@@ -122,63 +122,63 @@ class AppLocalizationsEn extends AppLocalizations {
   String get dirWest => 'west';
 
   @override
-  String clueInRoom(String name, String room) {
-    return '$name was in the $room.';
+  String clueInRoom(String room) {
+    return '— in the $room.';
   }
 
   @override
-  String clueInRoomNot(String name, String room) {
-    return '$name was not in the $room.';
+  String clueInRoomNot(String room) {
+    return '— not in the $room.';
   }
 
   @override
-  String clueSameRow(String name, String target) {
-    return '$name was on the same floor as $target.';
+  String clueSameRow(String target) {
+    return '— on the same floor as $target.';
   }
 
   @override
-  String clueSameRowNot(String name, String target) {
-    return '$name was not on the same floor as $target.';
+  String clueSameRowNot(String target) {
+    return '— not on the same floor as $target.';
   }
 
   @override
-  String clueSameCol(String name, String target) {
-    return '$name was in the same corridor as $target.';
+  String clueSameCol(String target) {
+    return '— in the same corridor as $target.';
   }
 
   @override
-  String clueSameColNot(String name, String target) {
-    return '$name was not in the same corridor as $target.';
+  String clueSameColNot(String target) {
+    return '— not in the same corridor as $target.';
   }
 
   @override
-  String clueDirection(String name, String direction, String target) {
-    return '$name was $direction of $target.';
+  String clueDirection(String direction, String target) {
+    return '— $direction of $target.';
   }
 
   @override
-  String clueDirectionNot(String name, String direction, String target) {
-    return '$name was not $direction of $target.';
+  String clueDirectionNot(String direction, String target) {
+    return '— not $direction of $target.';
   }
 
   @override
-  String clueBeside(String name, String target) {
-    return '$name was beside $target.';
+  String clueBeside(String target) {
+    return '— beside $target.';
   }
 
   @override
-  String clueBesideNot(String name, String target) {
-    return '$name was not beside $target.';
+  String clueBesideNot(String target) {
+    return '— not beside $target.';
   }
 
   @override
-  String clueBesideObject(String name, String object) {
-    return '$name was in the same room as the $object.';
+  String clueBesideObject(String object) {
+    return '— in the same room as the $object.';
   }
 
   @override
-  String clueBesideObjectNot(String name, String object) {
-    return '$name was not in the same room as the $object.';
+  String clueBesideObjectNot(String object) {
+    return '— not in the same room as the $object.';
   }
 
   @override
