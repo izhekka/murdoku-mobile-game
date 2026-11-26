@@ -65,6 +65,7 @@ class _BoardViewState extends State<BoardView> {
           final side = math.min(constraints.maxWidth, constraints.maxHeight);
           final cell = side / g;
           final anchors = _roomAnchors(widget.caseData);
+          final scheme = Theme.of(context).colorScheme;
 
           return GestureDetector(
             behavior: HitTestBehavior.opaque,
@@ -94,11 +95,6 @@ class _BoardViewState extends State<BoardView> {
                           caseData: widget.caseData,
                           cellSize: cell,
                           pos: (row: row, col: col),
-                          roomNumber: _roomBadgeNumber(
-                            anchors,
-                            widget.caseData,
-                            (row: row, col: col),
-                          ),
                           placed: widget.placed,
                           xMarks: widget.xMarks,
                           selectedSuspectId: widget.selectedSuspectId,
@@ -107,6 +103,30 @@ class _BoardViewState extends State<BoardView> {
                       ),
                   // The wall pass strokes over the cell content (issue 82).
                   ?_wallLayer(tokens: tokens, g: g, side: side, cell: cell),
+                  // The room number badges top the stack (issue 90): moving
+                  // them out of the guest content keeps every badge above
+                  // furniture sprites and wall strokes on every skin; they
+                  // are static per case, so there is no repaint churn.
+                  for (final anchor in anchors)
+                    Positioned(
+                      key: Key('room_badge_${anchor.row}_${anchor.col}'),
+                      left: anchor.col * cell,
+                      top: anchor.row * cell,
+                      width: cell,
+                      height: cell,
+                      child: IgnorePointer(
+                        child: _RoomBadge(
+                          roomNumber: _roomBadgeNumber(
+                            anchors,
+                            widget.caseData,
+                            anchor,
+                          ),
+                          tokens: tokens,
+                          scheme: scheme,
+                          cartoon: tokens != null && tokens.solidRooms,
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -190,6 +210,45 @@ int? _roomBadgeNumber(Set<Pos> anchors, CaseData caseData, Pos pos) =>
     anchors.contains(pos)
     ? caseData.rooms.indexWhere((r) => r.contains(pos)) + 1
     : null;
+
+/// The per-side wall insets of one room tile at (row, col): (left, top,
+/// right, bottom) — the full [lineWidth] on the board's outer edge, half a
+/// line across a room boundary, zero within the room. Single source for the
+/// room painter's tiles and the cartoon victim's inset backdrop (issue 90).
+(double, double, double, double) roomTileInsets(
+  List<RoomDef> rooms,
+  int gridSize,
+  int row,
+  int col,
+  double lineWidth,
+) => (
+  _tileInsetFor(rooms, gridSize, row, col, 0, -1, lineWidth),
+  _tileInsetFor(rooms, gridSize, row, col, -1, 0, lineWidth),
+  _tileInsetFor(rooms, gridSize, row, col, 0, 1, lineWidth),
+  _tileInsetFor(rooms, gridSize, row, col, 1, 0, lineWidth),
+);
+
+/// The tile's inset on one side of (row, col): the full [lineWidth] when the
+/// neighbor is off the board, half a line across a room boundary, zero
+/// within the room.
+double _tileInsetFor(
+  List<RoomDef> rooms,
+  int gridSize,
+  int row,
+  int col,
+  int dr,
+  int dc,
+  double lineWidth,
+) {
+  final (nRow, nCol) = (row + dr, col + dc);
+  if (nRow < 0 || nRow >= gridSize || nCol < 0 || nCol >= gridSize) {
+    return lineWidth;
+  }
+  return roomOf(rooms, (row: nRow, col: nCol)) ==
+          roomOf(rooms, (row: row, col: col))
+      ? 0.0
+      : lineWidth / 2;
+}
 
 /// One cell-edge spec relative to a cell: the traced half-edge walks from
 /// the start vertex along [dir], and the edge is a boundary when the
@@ -380,7 +439,6 @@ class _Cell extends StatelessWidget {
     required this.xMarks,
     required this.selectedSuspectId,
     required this.onCellTap,
-    this.roomNumber,
   });
 
   final CaseData caseData;
@@ -390,7 +448,6 @@ class _Cell extends StatelessWidget {
   final Set<Pos> xMarks;
   final String? selectedSuspectId;
   final void Function(Pos) onCellTap;
-  final int? roomNumber;
 
   @override
   Widget build(BuildContext context) {
@@ -447,6 +504,8 @@ class _Cell extends StatelessWidget {
             scheme,
             tokens,
             cartoon,
+            c,
+            pos,
             spritePad: spritePad,
             cellSize: cellSize,
           )
@@ -456,7 +515,6 @@ class _Cell extends StatelessWidget {
             hasX: hasX,
             objectHere: objectHere,
             selectedSuspectId: selectedSuspectId,
-            roomNumber: roomNumber,
             scheme: scheme,
             tokens: tokens,
             cartoon: cartoon,
@@ -516,15 +574,17 @@ class _Cell extends StatelessWidget {
     );
   }
 
-  /// Solid-room overlay fill: victim tint or the row/column occupancy
-  /// overlay; null keeps the cell undecorated (the painter carries the tint).
+  /// Solid-room overlay fill: the row/column occupancy overlay; null keeps
+  /// the cell undecorated (the painter carries the tint). The victim's fill
+  /// paints inside the cell content, inset by the tile insets (issue 90) —
+  /// never edge-to-edge over the wall band.
   Color? _cartoonFill(
     SkinTokens tokens,
     bool isVictim,
     bool rowBlocked,
     bool colBlocked,
   ) {
-    if (isVictim) return tokens.victimFill;
+    if (isVictim) return null;
     if (rowBlocked || colBlocked) return tokens.ink.withValues(alpha: 0.10);
     return null;
   }
@@ -636,27 +696,48 @@ class _Cell extends StatelessWidget {
       ? math.min(28, math.max(0, (cellSize - spritePad * 2) / 1.35))
       : 28;
 
-  /// The victim cell: striped cartoon backdrop under the chalk-outline image.
+  /// The victim cell: striped cartoon backdrop under the chalk-outline
+  /// image. The backdrop's flat fill + stripes stop at the tile insets
+  /// (issue 90): no victim color paints over the wall band, at any edge.
   Widget _victimContent(
     AppLocalizations l10n,
     String label,
     ColorScheme scheme,
     SkinTokens? tokens,
-    bool cartoon, {
+    bool cartoon,
+    CaseData c,
+    Pos pos, {
     required double spritePad,
     required double cellSize,
   }) {
+    final (l, t, r, b) = cartoon && tokens != null
+        ? roomTileInsets(
+            c.rooms,
+            c.gridSize,
+            pos.row,
+            pos.col,
+            tokens.roomLineWidth,
+          )
+        : (0.0, 0.0, 0.0, 0.0);
     return Semantics(
       label: '${l10n.victimLabel}: $label',
       child: Stack(
         children: [
           if (cartoon)
-            // Striped victim cell per the cartoon mockups (issue 23).
-            Positioned.fill(
+            // Striped victim cell per the cartoon mockups (issue 23),
+            // inset by the room tile's wall band (issue 90).
+            Positioned(
+              left: l,
+              top: t,
+              right: r,
+              bottom: b,
               child: ClipRect(
-                child: CustomPaint(
-                  painter: SkinVictimStripePainter(
-                    color: tokens!.victimStripeColor,
+                child: ColoredBox(
+                  color: tokens!.victimFill,
+                  child: CustomPaint(
+                    painter: SkinVictimStripePainter(
+                      color: tokens.victimStripeColor,
+                    ),
                   ),
                 ),
               ),
@@ -688,14 +769,14 @@ class _Cell extends StatelessWidget {
     );
   }
 
-  /// A non-victim cell: room badge, furniture underlay and the occupant.
+  /// A non-victim cell: furniture underlay and the occupant. The room
+  /// number badge is a board-level layer above the walls (issue 90).
   Widget _guestContent(
     CaseData c, {
     required String? suspectIdHere,
     required bool hasX,
     required List<ObjectDef> objectHere,
     required String? selectedSuspectId,
-    required int? roomNumber,
     required ColorScheme scheme,
     required SkinTokens? tokens,
     required bool cartoon,
@@ -717,12 +798,6 @@ class _Cell extends StatelessWidget {
     );
     return Stack(
       children: [
-        _RoomBadge(
-          roomNumber: roomNumber,
-          tokens: tokens,
-          scheme: scheme,
-          cartoon: cartoon,
-        ),
         // Furniture renders under everything in the cell.
         ?underlay,
         // The occupant layer is inset and clipped so sprites never cross
@@ -941,56 +1016,94 @@ class SkinRoomPainter extends CustomPainter {
     );
   }
 
-  /// The room-tint tiles (issue 83, layer 2): the union of per-cell rects,
+  /// The room-tint tiles (issue 83, layer 2): the union of per-cell shapes,
   /// each side inset by the wall band, drawn as one path per room. Abutting
   /// zero-inset same-room edges are the same coordinate, so they cancel
   /// inside the union fill: same-color rects meet exactly, with no
   /// fractional AA fringe across a room in the live app, and the band edges
-  /// sit exactly on their insets.
+  /// sit exactly on their insets. A tile corner at a wrapper junction rounds
+  /// with the stroke's K-rounding (issue 90) so the wall silhouette reads as
+  /// one continuous rounded corner instead of a stepped notch.
   void _paintTiles(Canvas canvas, Paint tiles) {
+    final k = math.min(radius, cellSize / 2);
     for (final (index, room) in rooms.indexed) {
       final path = Path();
       for (final cell in room.cells) {
-        final (l, t, r, b) = _tileInsets(cell.row, cell.col);
-        path.addRect(
-          Rect.fromLTRB(
-            cell.col * cellSize + l,
-            cell.row * cellSize + t,
-            (cell.col + 1) * cellSize - r,
-            (cell.row + 1) * cellSize - b,
-          ),
-        );
+        final insets = _tileInsets(cell.row, cell.col);
+        path.addPath(_tilePath(cell.row, cell.col, insets, k), Offset.zero);
       }
       tiles.color = tints[index % tints.length];
       canvas.drawPath(path, tiles);
     }
   }
 
-  /// The tile's per-side wall insets: (left, top, right, bottom).
-  (double, double, double, double) _tileInsets(int row, int col) => (
-    _insetFor(row, col, 0, -1),
-    _insetFor(row, col, -1, 0),
-    _insetFor(row, col, 0, 1),
-    _insetFor(row, col, 1, 0),
-  );
-
-  /// The tile's inset on one side: the full [lineWidth] on the board's outer
-  /// edge (no opposite tile contributes the other half), half a line across a
-  /// room boundary (the two tiles combine into one full wall), zero within a
-  /// room (exactly abutting, no AA fringe).
-  double _insetFor(int row, int col, int dr, int dc) {
-    final (nRow, nCol) = (row + dr, col + dc);
-    if (_offBoard(nRow, nCol)) {
-      return lineWidth;
+  /// The tile's outline at (row, col) with per-side [insets]: a plain rect,
+  /// plus a quadratic K-round at every corner where both adjacent sides are
+  /// same-room (zero inset) and the diagonal cell across the vertex belongs
+  /// to another room — the wrapper's inner corner (issue 90). The rounding
+  /// uses the same form and clamp as [_roomOutlinePath] so the tile's convex
+  /// corners align with the wall stroke's K-rounding. Corners with a wall
+  /// side keep their square corner: their stroke arcs cover them cleanly,
+  /// and same-room butt joints must stay exactly flush.
+  Path _tilePath(
+    int row,
+    int col,
+    (double, double, double, double) insets,
+    double k,
+  ) {
+    final (l, t, r, b) = insets;
+    final left = col * cellSize + l;
+    final top = row * cellSize + t;
+    final right = (col + 1) * cellSize - r;
+    final bottom = (row + 1) * cellSize - b;
+    bool rounds(int dRow, int dCol, double sideA, double sideB) {
+      if (sideA != 0.0 || sideB != 0.0) return false;
+      final (dRow2, dCol2) = (row + dRow, col + dCol);
+      if (dRow2 < 0 || dRow2 >= gridSize || dCol2 < 0 || dCol2 >= gridSize) {
+        return false;
+      }
+      return roomOf(rooms, (row: dRow2, col: dCol2)) !=
+          roomOf(rooms, (row: row, col: col));
     }
-    return _roomIndexAt((nRow, nCol)) == _roomIndexAt((row, col))
-        ? 0.0
-        : lineWidth / 2;
+
+    final nw = rounds(-1, -1, l, t);
+    final ne = rounds(-1, 1, t, r);
+    final se = rounds(1, 1, r, b);
+    final sw = rounds(1, -1, b, l);
+    final path = Path();
+    path.moveTo(left + (nw ? k : 0), top);
+    path.lineTo(right - (ne ? k : 0), top);
+    if (ne) {
+      path.quadraticBezierTo(right, top, right, top + k);
+    } else {
+      path.lineTo(right, top);
+    }
+    path.lineTo(right, bottom - (se ? k : 0));
+    if (se) {
+      path.quadraticBezierTo(right, bottom, right - k, bottom);
+    } else {
+      path.lineTo(right, bottom);
+    }
+    path.lineTo(left + (sw ? k : 0), bottom);
+    if (sw) {
+      path.quadraticBezierTo(left, bottom, left, bottom - k);
+    } else {
+      path.lineTo(left, bottom);
+    }
+    path.lineTo(left, top + (nw ? k : 0));
+    if (nw) {
+      path.quadraticBezierTo(left, top, left + k, top);
+    } else {
+      path.lineTo(left, top);
+    }
+    path.close();
+    return path;
   }
 
-  /// True when the cell at (row, col) is off the board.
-  bool _offBoard(int row, int col) =>
-      row < 0 || row >= gridSize || col < 0 || col >= gridSize;
+  /// The tile's per-side wall insets (issue 90): delegated to the shared
+  /// top-level helper — the same math the cartoon victim's backdrop uses.
+  (double, double, double, double) _tileInsets(int row, int col) =>
+      roomTileInsets(rooms, gridSize, row, col, lineWidth);
 
   /// The legacy per-cell render for a room whose trace failed: today's
   /// rounded fill, boundary lines and corner arcs (issue 82 fallback).

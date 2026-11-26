@@ -73,6 +73,48 @@ Offset cellCenter(WidgetTester tester, int row, int col) {
 /// Grid position shorthand for the tracer fixtures.
 Pos _p(int row, int col) => (row: row, col: col);
 
+/// The badge anchor cell of the [i]-th fixture room: the board's own rule
+/// (top-left-most cell that is not the victim).
+Pos roomAnchor(int i) {
+  final cells = [...fixture.rooms[i].cells]
+    ..sort((a, b) => a.row != b.row ? a.row - b.row : a.col - b.col);
+  return cells.firstWhere((c) => c != fixture.victimPos);
+}
+
+/// A minimal classic case: a real-shaped partition with an unoccupiable item
+/// sitting on room r0's badge anchor cell, so the badge-vs-item stacking is
+/// exercised.
+CaseData _badgeAnchorCase() {
+  const g = 5;
+  final rooms = _roomsFor(g, {
+    'r0': [_p(0, 0), _p(0, 1), _p(0, 2), _p(1, 0), _p(1, 1)],
+    'r1': [_p(0, 3), _p(0, 4), _p(1, 2), _p(1, 3), _p(1, 4)],
+    'r2': [_p(2, 0), _p(2, 1), _p(2, 2), _p(2, 3), _p(2, 4)],
+    'r3': [_p(3, 0), _p(3, 1), _p(3, 2)],
+    // The victim's room always keeps a non-victim cell for the badge anchors.
+    'rv': [
+      _p(3, 3),
+      _p(3, 4),
+      _p(4, 0),
+      _p(4, 1),
+      _p(4, 2),
+      _p(4, 3),
+      _p(4, 4),
+    ],
+  });
+  return CaseData(
+    seed: 90,
+    difficulty: Difficulty.easy,
+    rooms: rooms,
+    objects: [ObjectDef(id: 'o0', kind: ObjectKind.piano, pos: _p(0, 0))],
+    suspects: [for (var i = 0; i < g; i++) Suspect(id: 's$i', name: 'S$i')],
+    victimPos: _p(4, 4),
+    murdererId: 's0',
+    clues: const [],
+    solution: {'s0': _p(1, 0)},
+  );
+}
+
 /// Board room tiling: [layout]'s rooms plus a singleton filler room for
 /// every other cell of the G×G board, so same-room/boundary logic sees a
 /// fully tiled board like the generator produces.
@@ -429,19 +471,104 @@ void main() {
   ) async {
     await pumpBoard(tester, placed: {}, xMarks: {});
     for (var i = 0; i < fixture.rooms.length; i++) {
-      final cells = [...fixture.rooms[i].cells]
-        ..sort((a, b) => a.row != b.row ? a.row - b.row : a.col - b.col);
-      // The victim cell can never carry a badge; skip it.
-      final anchor = cells.firstWhere((c) => c != fixture.victimPos);
+      // Issue 90: the badge layer renders at board level, one positioned
+      // slot per anchor cell, no longer inside the cell's own stack.
+      final anchor = roomAnchor(i);
       expect(
         find.descendant(
-          of: find.byKey(Key('cell_${anchor.row}_${anchor.col}')),
+          of: find.byKey(Key('room_badge_${anchor.row}_${anchor.col}')),
           matching: find.text('${i + 1}'),
         ),
         findsOneWidget,
         reason: 'room ${fixture.rooms[i].id} badge ${i + 1} on its anchor cell',
       );
+      expect(
+        find.descendant(
+          of: find.byKey(Key('cell_${anchor.row}_${anchor.col}')),
+          matching: find.text('${i + 1}'),
+        ),
+        findsNothing,
+        reason: 'the badge no longer hides inside the guest content stack',
+      );
     }
+  });
+
+  testWidgets('an item in a badge anchor cell leaves the number visible on '
+      'classic (issue 90)', (tester) async {
+    await pumpBoard(
+      tester,
+      boardCase: _badgeAnchorCase(),
+      placed: {},
+      xMarks: {},
+    );
+
+    // The number is rendered at board level, above the cell that carries the
+    // item sprite (the badge layer is a later child of the board Stack).
+    expect(
+      find.byKey(const Key('room_badge_0_0')),
+      findsOneWidget,
+      reason: 'room r0 badge slot on its anchor cell (0, 0)',
+    );
+    expect(find.text('1'), findsOneWidget);
+    final stack = tester.widget<Stack>(
+      find.byWidgetPredicate(
+        (w) =>
+            w is Stack &&
+            w.children.any((c) => c is Positioned && c.child.key != null),
+      ),
+    );
+    final cellIndex = stack.children.indexWhere(
+      (c) => c is Positioned && c.child.key != null,
+    );
+    final badgeIndex = stack.children.indexWhere(
+      (c) => c is Positioned && c.key == const Key('room_badge_0_0'),
+    );
+    expect(badgeIndex, greaterThanOrEqualTo(0));
+    expect(
+      badgeIndex,
+      greaterThan(cellIndex),
+      reason: 'the badge paints OVER the cell and its item sprite',
+    );
+  });
+
+  testWidgets('classic room number badge paints the theme scheme colors '
+      '(issue 90)', (tester) async {
+    await pumpBoard(
+      tester,
+      boardCase: _badgeAnchorCase(),
+      placed: {},
+      xMarks: {},
+    );
+
+    // The classic badge resolves its colors through the app's own theme
+    // (scheme param of the badge widget), never a hardcoded fill: probe the
+    // scheme from the badge layer's own context and compare.
+    final badgeContext = tester.element(
+      find.byKey(const Key('room_badge_0_0')),
+    );
+    final scheme = Theme.of(badgeContext).colorScheme;
+    final container = tester.widget<Container>(
+      find.descendant(
+        of: find.byKey(const Key('room_badge_0_0')),
+        matching: find.byType(Container),
+      ),
+    );
+    expect(
+      (container.decoration! as BoxDecoration).color,
+      scheme.primaryContainer,
+      reason: 'the badge circle is the scheme primary container color',
+    );
+    final number = tester.widget<Text>(
+      find.descendant(
+        of: find.byKey(const Key('room_badge_0_0')),
+        matching: find.text('1'),
+      ),
+    );
+    expect(
+      number.style!.color,
+      scheme.onPrimaryContainer,
+      reason: 'the badge number ink is the scheme onPrimaryContainer color',
+    );
   });
 
   testWidgets('blocking furniture appears in semantics as unoccupiable', (
@@ -567,6 +694,21 @@ void main() {
       wallIndex,
       greaterThan(cellIndex),
       reason: 'walls stroke OVER cell content (sprites under the wall)',
+    );
+
+    // Issue 90: the badge layer is the board's topmost layer — a badge that
+    // overlaps a wall stroke renders on top of it, on every skin.
+    final anchor = roomAnchor(0);
+    final badgeIndex = stack.children.indexWhere(
+      (c) =>
+          c is Positioned &&
+          c.key == Key('room_badge_${anchor.row}_${anchor.col}'),
+    );
+    expect(badgeIndex, greaterThanOrEqualTo(0));
+    expect(
+      badgeIndex,
+      greaterThan(wallIndex),
+      reason: 'room number badges render above the wall pass',
     );
   });
 

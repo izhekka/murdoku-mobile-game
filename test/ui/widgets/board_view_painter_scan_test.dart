@@ -2,10 +2,12 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:murdoku/core/skins.dart';
 import 'package:murdoku/domain/models.dart';
+import 'package:murdoku/l10n/generated/app_localizations.dart';
 import 'package:murdoku/ui/widgets/board_view.dart';
 
 /// Headless painter-pixel scans for the layered wall plate (issue 83).
@@ -106,7 +108,36 @@ final Map<String, (int, List<RoomDef>)> _fixtures = {
       'r0': [_p(0, 0), _p(0, 1), _p(1, 0), _p(1, 1)],
     }),
   ),
+  // Issue 90 D3 regression fixture: the screenshot's arrangement — a large
+  // room wrapping an L around a corner room. At the junction vertex (1, 1)
+  // the wrapper r0 occupies the NE/SW/SE quadrants while r1 (the corner
+  // room) holds the NW one: the wrapper's inner corner tile must recess
+  // with the stroke's K-rounding or a square stepped notch (battlement)
+  // juts into the junction.
+  'wrapCorner': (
+    4,
+    _roomsFor(4, {
+      'r0': [
+        _p(0, 1), _p(0, 2), _p(0, 3), //
+        _p(1, 0), _p(1, 1), _p(1, 2), //
+        _p(2, 0), _p(2, 1),
+      ],
+      'r1': [_p(0, 0)],
+    }),
+  ),
 };
+
+/// The issue 90 victim fixture: a 5x5 board (the smallest real gridSize)
+/// whose victim sits in a two-cell room pinned to the board's top-left
+/// corner — two outer edges (full lineWidth band), one shared boundary (the
+/// stroke's inner half) and one same-room edge (no band, by design). The
+/// victim tile's edges must show mortar + stroke, never victim colors
+/// (issue 90 D2). The victim keeps a non-victim room cell in its room so the
+/// badge anchor resolves.
+final List<RoomDef> _victimRooms = _roomsFor(5, {
+  'rv0': [_p(0, 0), _p(1, 0)],
+  'rv1': [_p(0, 1), _p(0, 2), _p(0, 3), _p(0, 4)],
+});
 
 /// The positional room index for [p] (drives the tint palette index).
 int _roomIndexOf(List<RoomDef> rooms, Pos p) =>
@@ -139,13 +170,18 @@ const Color _canary = Color(0xFFB400DC);
 
 /// Renders `SkinRoomPainter` headless over an optional [seed] background;
 /// [withStrokes] composes the #82 wall stroke overpass after it (the live
-/// stack's painters), for the tile↔stroke interaction composite.
+/// stack's painters), for the tile↔stroke interaction composite. A [victim]
+/// cell paints the live victim backdrop between the fill layer and the
+/// strokes: one flat [SkinTokens.victimFill] rect, inset by
+/// `roomTileInsets`, striped by `SkinVictimStripePainter` clipped to the
+/// inset rect — exactly the `_Cell` composition under test (issue 90 D2).
 Future<_Scan> _render({
   required SkinTokens tokens,
   required int g,
   required List<RoomDef> rooms,
   required Color? seed,
   bool withStrokes = false,
+  Pos? victim,
 }) async {
   final side = g * _cell;
   final s = _scaleFor(tokens);
@@ -170,6 +206,28 @@ Future<_Scan> _render({
     lineWidth: tokens.roomLineWidth,
     radius: tokens.roomRadius,
   ).paint(canvas, ui.Size(side, side));
+  if (victim != null) {
+    final (l, t, r, b) = roomTileInsets(
+      rooms,
+      g,
+      victim.row,
+      victim.col,
+      tokens.roomLineWidth,
+    );
+    final rect = ui.Rect.fromLTRB(
+      victim.col * _cell + l,
+      victim.row * _cell + t,
+      (victim.col + 1) * _cell - r,
+      (victim.row + 1) * _cell - b,
+    );
+    canvas.drawRect(rect, Paint()..color = tokens.victimFill);
+    canvas.save();
+    canvas.clipRect(rect);
+    canvas.translate(rect.left, rect.top);
+    SkinVictimStripePainter(color: tokens.victimStripeColor)
+        .paint(canvas, rect.size);
+    canvas.restore();
+  }
   if (withStrokes) {
     SkinRoomWallPainter(
       rooms: rooms,
@@ -403,6 +461,53 @@ void _assertOuterBand(
   );
 }
 
+/// Asserts the victim tile's edge bands for the `_victimRooms` fixture are
+/// exactly `mortarColor` (marching [depth] device px inward from each cell
+/// edge: the full lineWidth band on the outer N/W edges, the stroke's inner
+/// half on the E shared boundary), skipping the plate's rounded corner
+/// notches at the board corner. The S side is same-room (zero inset, no
+/// wall) and carries no band by design. `origin` is the victim cell's
+/// top-left corner in device pixels (board-local for painter scans, board
+/// offset for widget rasters).
+void _assertVictimEdgeMortar(
+  _Scan scan, {
+  required SkinTokens tokens,
+  required int cellS,
+  required (int, int) origin,
+}) {
+  final full = (tokens.roomLineWidth * scan.s).round();
+  final half = (tokens.roomLineWidth * scan.s / 2).round();
+  final notch = (tokens.roomRadius * scan.s).ceil();
+  final mortar = tokens.mortarColor.toARGB32();
+  final (ox, oy) = origin;
+  void expectMortar(int x, int y, String side) => expect(
+    _pixelAt(scan, ox + x, oy + y),
+    mortar,
+    reason:
+        'victim cell edge pixel ($x, $y) on $side is not mortar — '
+        'victim colors reach into the wall band',
+  );
+  // North: the full outer band (stroke half + mortar plate).
+  for (var y = 0; y < full; y++) {
+    for (var x = notch; x < cellS - notch; x++) {
+      expectMortar(x, y, 'N');
+    }
+  }
+  // West: the full outer band.
+  for (var x = 0; x < full; x++) {
+    for (var y = notch; y < cellS - notch; y++) {
+      expectMortar(x, y, 'W');
+    }
+  }
+  // East: the shared rv0|rv1 boundary — the stroke covers the victim's
+  // inner half exactly.
+  for (var x = cellS - half; x < cellS; x++) {
+    for (var y = notch; y < cellS - notch; y++) {
+      expectMortar(x, y, 'E');
+    }
+  }
+}
+
 void main() {
   /// The three cartoon skins' token pairs from SkinsTokens (classic has
   /// solidRooms: false and never uses the painter).
@@ -582,9 +687,8 @@ void main() {
   });
 
   testWidgets('scan battery: interiors are exactly mortar or room tints; '
-      'the donut fallback admits strict-color blends only (issue 83)', (
-    tester,
-  ) async {
+      'the donut fallback and the corner-arc fixtures admit strict-color '
+      'blends only (issue 83)', (tester) async {
     await tester.runAsync(() async {
       for (final tokens in allSkins) {
         for (final entry in _fixtures.entries) {
@@ -596,10 +700,22 @@ void main() {
             seed: null,
           );
           // The donut renders through the legacy per-cell fallback whose
-          // anti-aliased arcs blend allowed colors (tint↔mortar↔tint); the
-          // blend classifier accepts exactly those 8-bit lerp pairs, never
-          // the page. Traced fixtures stay strictly exact.
-          _assertClosedWorld(scan, tokens, strict: entry.key != 'donut');
+          // anti-aliased arcs blend allowed colors (tint↔mortar↔tint); since
+          // issue 90 the traced wrapper junctions round their tile corner
+          // with the stroke's K-rounding (lCrook, ring, wrapCorner), and
+          // those arcs blend the same allowed pairs. The blend classifier
+          // accepts exactly those 8-bit lerp pairs, never the page. Fixtures
+          // without arcs stay strictly exact.
+          _assertClosedWorld(
+            scan,
+            tokens,
+            strict: !const {
+              'donut',
+              'lCrook',
+              'ring',
+              'wrapCorner',
+            }.contains(entry.key),
+          );
         }
       }
     });
@@ -934,6 +1050,175 @@ void main() {
             withStrokes: true,
           );
           _assertLeakFree(page, canary);
+        }
+      }
+    });
+  });
+
+  testWidgets('scan: the victim tile edges show mortar + stroke, never '
+      'victim colors, on all cartoon skins (issue 90)', (tester) async {
+    await tester.runAsync(() async {
+      for (final tokens in allSkins) {
+        final scan = await _render(
+          tokens: tokens,
+          g: 5,
+          rooms: _victimRooms,
+          seed: null,
+          withStrokes: true,
+          victim: _p(0, 0),
+        );
+        _assertVictimEdgeMortar(
+          scan,
+          tokens: tokens,
+          cellS: (5 * _cell * scan.s).round(),
+          origin: (0, 0),
+        );
+      }
+    });
+  });
+
+  testWidgets('widget-pumped victim cell matches the tile insets in raster '
+      'on all cartoon skins (issue 90)', (tester) async {
+    const dpr = 4.0;
+    tester.view.physicalSize = const Size(1280, 2276);
+    tester.view.devicePixelRatio = dpr;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    for (final tokens in allSkins) {
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(
+            body: Center(
+              child: SkinScope(
+                tokens: tokens,
+                child: RepaintBoundary(
+                  key: const Key('victim_scan_boundary'),
+                  child: BoardView(
+                    caseData: CaseData(
+                      seed: 90,
+                      difficulty: Difficulty.easy,
+                      rooms: _victimRooms,
+                      objects: const [],
+                      suspects: [
+                        for (var i = 0; i < 5; i++)
+                          Suspect(id: 's$i', name: 'S$i'),
+                      ],
+                      victimPos: _p(0, 0),
+                      murdererId: 's0',
+                      clues: const [],
+                      solution: {'s0': _p(1, 0)},
+                    ),
+                    placed: const {},
+                    xMarks: const {},
+                    selectedSuspectId: null,
+                    onCellTap: (_) {},
+                    onCellDrag: (_) {},
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // The boundary wraps the board: the raster's origin is the victim
+      // cell's top-left corner, at one device pixel per pixelRatio 1/dpr.
+      final boundary = tester.renderObject<RenderRepaintBoundary>(
+        find.byKey(const Key('victim_scan_boundary')),
+      );
+      final image = (await tester.runAsync(
+        () => boundary.toImage(pixelRatio: dpr),
+      ))!;
+      final data = await tester.runAsync(image.toByteData);
+      final bytes = data!.buffer.asUint8List();
+      image.dispose();
+      final scan = _Scan(
+        bytes: bytes,
+        n: image.width,
+        s: dpr,
+        region: ui.RRect.fromRectAndRadius(
+          ui.Rect.fromLTWH(
+            0,
+            0,
+            image.width.toDouble(),
+            image.height.toDouble(),
+          ),
+          ui.Radius.circular(tokens.roomRadius * dpr),
+        ),
+      );
+      _assertVictimEdgeMortar(
+        scan,
+        tokens: tokens,
+        cellS: (320.0 * dpr / 5).round(),
+        origin: (0, 0),
+      );
+    }
+  });
+
+  testWidgets('scan: the wrapping-room corner junction is full mortar and '
+      'the silhouette has no stepped notch (issue 90)', (tester) async {
+    await tester.runAsync(() async {
+      // Differential decompose (issue 90 D3): the battlement step is a
+      // fill-layer artifact — the junction square shows the same tint wedge
+      // in the fill-only raster and in the composite raster, and the wall
+      // stroke covers the arcs around the corner, never the wedge at its
+      // center. Both rasters must be asserted.
+      for (final tokens in allSkins) {
+        final (g, rooms) = _fixtures['wrapCorner']!;
+        final fillOnly = await _render(
+          tokens: tokens,
+          g: g,
+          rooms: rooms,
+          seed: null,
+        );
+        final composite = await _render(
+          tokens: tokens,
+          g: g,
+          rooms: rooms,
+          seed: null,
+          withStrokes: true,
+        );
+        for (final scan in [fillOnly, composite]) {
+          // The junction-center mortar square (by design) holds at the
+          // wrapper's inner corner once the tile recesses; the same rule
+          // covers the older three-quadrant wrapper junctures.
+          _assertJunctionMortar(scan, _p(1, 1), tokens);
+          // The silhouette is round: along the diagonal into the wrapper's
+          // inner corner, no room tint reaches within the recessed tile's
+          // cut zone — up to just inside the K-round arc's closest approach
+          // (the arc midpoint sits k/4 device px along each axis from the
+          // center; 2 px margin stays clear of its AA). The pre-fix step
+          // class pokes a square wedge in from the first pixel.
+          final k = math.min(tokens.roomRadius, 20.0);
+          final cx = (1 * _cell * scan.s).round();
+          final cy = (1 * _cell * scan.s).round();
+          final limit = math.max(1, (k / 4 * scan.s).round() - 2);
+          final wrapperTint = _tintAt(tokens, rooms, _p(1, 1));
+          final cornerTint = _tintAt(tokens, rooms, _p(0, 0));
+          for (var t = 1; t <= limit; t++) {
+            expect(
+              _pixelAt(scan, cx + t, cy + t),
+              isNot(anyOf(wrapperTint, cornerTint)),
+              reason:
+                  'room tint pokes into the junction corner $t device px '
+                  'along the SE diagonal — the stepped notch',
+            );
+          }
+        }
+        // And lCrook + ring hold the same wrapper-junction squares.
+        for (final key in ['lCrook', 'ring']) {
+          final (lg, lrooms) = _fixtures[key]!;
+          final lscan = await _render(
+            tokens: tokens,
+            g: lg,
+            rooms: lrooms,
+            seed: null,
+            withStrokes: true,
+          );
+          _assertJunctionMortar(lscan, _p(1, 1), tokens);
         }
       }
     });
