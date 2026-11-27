@@ -64,8 +64,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       body: ListView(
         padding: const EdgeInsets.all(12),
         children: [
-          if (savedGame != null) _continueCard(l10n, savedGame),
+          if (savedGame != null) ...[
+            _continueCard(l10n, savedGame),
+            // Issue 96: the explicit spacer joins every block pair, so the
+            // drawn gap = the skin's card margins + 8 uniformly (16 on the
+            // cartoon skins, 24 on classic) instead of spacing the menu card
+            // off from a margins-only rhythm.
+            const SizedBox(height: 8),
+          ],
           _newCaseCard(l10n),
+          const SizedBox(height: 8),
           _dailyCard(l10n, dailyDone, today),
           const SizedBox(height: 8),
           _menuCard(l10n),

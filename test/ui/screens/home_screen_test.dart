@@ -10,9 +10,11 @@ import 'package:murdoku/l10n/generated/app_localizations.dart';
 import 'package:murdoku/state/clock.dart';
 import 'package:murdoku/state/game_controller.dart';
 import 'package:murdoku/state/providers.dart';
+import 'package:murdoku/state/settings_controller.dart';
 import 'package:murdoku/storage/prefs_repository.dart';
 import 'package:murdoku/ui/screens/game_screen.dart';
 import 'package:murdoku/ui/screens/home_screen.dart';
+import 'package:murdoku/ui/widgets/skin_card.dart' as skin_widgets;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../support/seeded_overrides.dart';
@@ -75,6 +77,61 @@ void main() {
       if (finder.evaluate().isNotEmpty) return;
     }
     fail('pumpUntil gave up after $maxPumps pumps: $finder');
+  }
+
+  /// Margin-inclusive rect of every home [SkinCard], top-sorted, as the
+  /// consecutive outer gaps between neighbors. Both skin implementations
+  /// keep the card margin inside this render box (cartoon: SkinCard's own
+  /// default `Padding(4)`; classic: the Card theme margin's inline
+  /// `Padding`), so the drawn cream separator between two card surfaces
+  /// equals `outerGap + 2 * skinMargin` (issue 96).
+  List<double> homeCardGaps(WidgetTester tester) {
+    final boxes = <Rect>[];
+    for (final element in find.byType(skin_widgets.SkinCard).evaluate()) {
+      final box = element.findRenderObject()! as RenderBox;
+      boxes.add(box.localToGlobal(Offset.zero) & box.size);
+    }
+    boxes.sort((a, b) => a.top.compareTo(b.top));
+    return [
+      for (var i = 0; i < boxes.length - 1; i++)
+        boxes[i + 1].top - boxes[i].bottom,
+    ];
+  }
+
+  /// Pin the surface to the issue's 402×874 logical phone frame.
+  Future<void> usePhoneSurface(WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1206, 2622); // 402x874 @ dpr 3
+    tester.view.devicePixelRatio = 3.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+  }
+
+  /// The issue's acceptance shape: every drawn separator identical within
+  /// 1 logical px, and each one on the skin's uniform value (sticker: 16 =
+  /// 2×4 margin + 8 spacer; classic: 24 = 2×8 + 8).
+  void expectUniformRhythm(
+    WidgetTester tester, {
+    required double skinMargin,
+    required double separator,
+    required int gapCount,
+  }) {
+    final gaps = homeCardGaps(tester);
+    expect(gaps, hasLength(gapCount));
+    final separators = gaps.map((g) => g + 2 * skinMargin).toList();
+    for (final s in separators.skip(1)) {
+      expect(
+        s,
+        closeTo(separators.first, 1),
+        reason: 'separators must be equal within 1 px: $separators',
+      );
+    }
+    for (final s in separators) {
+      expect(
+        s,
+        closeTo(separator, 1),
+        reason: 'separator must hold the skin rhythm: $separators',
+      );
+    }
   }
 
   testWidgets('no save: Continue button absent; nav rows present', (
@@ -275,6 +332,80 @@ void main() {
       await tester.tap(find.text(l10n.settingsTitle));
       await tester.pumpAndSettle();
       expect(find.text(l10n.settingsTitle), findsOneWidget);
+    });
+  });
+
+  group('home block gaps keep one rhythm (issue 96)', () {
+    testWidgets('no save: both separators land on the 16 px rhythm', (
+      tester,
+    ) async {
+      await usePhoneSurface(tester);
+      await pumpHome(tester);
+
+      expectUniformRhythm(tester, skinMargin: 4, separator: 16, gapCount: 2);
+    });
+
+    testWidgets('saved game: the continue card joins the same rhythm', (
+      tester,
+    ) async {
+      await usePhoneSurface(tester);
+      await pumpHome(tester);
+      container
+          .read(gameControllerProvider.notifier)
+          .startNewCase(Difficulty.easy, seed: 3);
+      await tester.pumpAndSettle();
+
+      expectUniformRhythm(tester, skinMargin: 4, separator: 16, gapCount: 3);
+    });
+
+    testWidgets('no save, classic light: one uniform 24 px rhythm', (
+      tester,
+    ) async {
+      await usePhoneSurface(tester);
+      await pumpHome(tester);
+      container
+          .read(settingsControllerProvider.notifier)
+          .setSkin(SkinSetting.classic);
+      await tester.pumpAndSettle();
+
+      expectUniformRhythm(tester, skinMargin: 8, separator: 24, gapCount: 2);
+    });
+
+    testWidgets('saved game, classic dark: continue card joins the rhythm', (
+      tester,
+    ) async {
+      await usePhoneSurface(tester);
+      await pumpHome(tester);
+      container
+          .read(settingsControllerProvider.notifier)
+          .setSkin(SkinSetting.classic);
+      container
+          .read(settingsControllerProvider.notifier)
+          .setThemeMode(ThemeMode.dark);
+      await tester.pumpAndSettle();
+      container
+          .read(gameControllerProvider.notifier)
+          .startNewCase(Difficulty.easy, seed: 3);
+      await tester.pumpAndSettle();
+
+      final homeContext = tester.element(find.byType(HomeScreen));
+      expect(Theme.of(homeContext).brightness, Brightness.dark);
+      expectUniformRhythm(tester, skinMargin: 8, separator: 24, gapCount: 3);
+    });
+
+    testWidgets('cartoon is light-only: dark request keeps the 16 px rhythm', (
+      tester,
+    ) async {
+      await usePhoneSurface(tester);
+      await pumpHome(tester);
+      container
+          .read(settingsControllerProvider.notifier)
+          .setThemeMode(ThemeMode.dark);
+      await tester.pumpAndSettle();
+
+      final homeContext = tester.element(find.byType(HomeScreen));
+      expect(Theme.of(homeContext).brightness, Brightness.light);
+      expectUniformRhythm(tester, skinMargin: 4, separator: 16, gapCount: 2);
     });
   });
 }
