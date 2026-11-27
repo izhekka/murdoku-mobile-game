@@ -41,6 +41,241 @@ String _dirName(Direction d, AppLocalizations l10n) => switch (d) {
   Direction.west => l10n.dirWest,
 };
 
+/// The clue dash's font-size scale relative to the sentence style (issue
+/// 104): every clue sentence's leading dash renders at ~0.75x the sentence
+/// font size, in both locales and all four skins.
+const double clueDashFontScale = 0.75;
+
+/// The leading dash every clue-sentence template starts with (em-dash +
+/// space, pinned by the arb files).
+const String _clueDash = '— ';
+
+/// One inline piece of a rendered clue sentence (issue 104): the leading
+/// dash, plain words, or the room phrase that renders as a chip. [text]
+/// pieces join back to the plain `describeClue` string losslessly — the
+/// plain string stays the Semantics label.
+sealed class ClueSegment {
+  final String text;
+
+  const ClueSegment(this.text);
+}
+
+/// The sentence's leading «— »; renders at [clueDashFontScale].
+final class DashClueSegment extends ClueSegment {
+  const DashClueSegment(super.text);
+}
+
+/// Plain sentence words at the sentence style.
+final class PlainClueSegment extends ClueSegment {
+  const PlainClueSegment(super.text);
+}
+
+/// The room phrase of an InRoom sentence; renders as a rounded chip filled
+/// with the room's board tint. [roomIndex] is the room's index in
+/// `caseData.rooms` — the same order the legend sheet and the board index
+/// their tints by.
+final class RoomClueSegment extends ClueSegment {
+  final int roomIndex;
+
+  const RoomClueSegment(super.text, this.roomIndex);
+}
+
+/// The InRoom sentence split: dash, optional plain prefix, the room segment
+/// at [roomIndex], optional trailing plain — or null when [room] does not
+/// occur in [plain] (defensive fallback to the plain segments).
+List<ClueSegment>? _roomSentenceSegments(
+  String plain,
+  int dashLen,
+  String room,
+  int roomIndex,
+) {
+  final i = plain.indexOf(room, dashLen);
+  if (i < 0) return null;
+  return [
+    if (dashLen > 0) DashClueSegment(_clueDash),
+    if (i > dashLen) PlainClueSegment(plain.substring(dashLen, i)),
+    RoomClueSegment(room, roomIndex),
+    if (i + room.length < plain.length)
+      PlainClueSegment(plain.substring(i + room.length)),
+  ];
+}
+
+/// The clue sentence as inline segments (issue 104): [DashClueSegment] first
+/// (every template starts with the dash), then — for InRoom sentences only —
+/// the plain prefix (ru '' / en 'in the ' / negated 'не '/'not in the '), the
+/// [RoomClueSegment] (full prepositional phrase in ru, bare name in en) and
+/// the trailing plain segment; every other clue kind is dash + one plain
+/// segment. Derived from the `describeClue` template result by locating the
+/// room phrase — no arb wording is duplicated here, so template edits keep
+/// the split correct.
+List<ClueSegment> describeClueSegments(
+  Clue clue,
+  CaseData c,
+  AppLocalizations l10n,
+  NameForms names,
+) {
+  final plain = describeClue(clue, c, l10n, names);
+  final dashLen = plain.startsWith(_clueDash) ? _clueDash.length : 0;
+  if (clue is InRoom) {
+    final room = names.roomPrep(clue.roomId);
+    final segments = _roomSentenceSegments(
+      plain,
+      dashLen,
+      room,
+      c.rooms.indexWhere((r) => r.id == clue.roomId),
+    );
+    if (segments != null) return segments;
+  }
+  return [
+    if (dashLen > 0) DashClueSegment(_clueDash),
+    PlainClueSegment(plain.substring(dashLen)),
+  ];
+}
+
+/// The room chip's painted background (issue 104): cartoon skins fill with
+/// the room's board tint (the board's own room color, indexed like the
+/// legend sheet and the board); classic composites the legend-swatch alpha
+/// 0.55 ([classicRoomTints] at `withValues(alpha: 0.55)`).
+Color clueChipBackground(SkinTokens? tokens, int roomIndex) {
+  final cartoon = tokens != null && tokens.isCartoon;
+  final tints = cartoon ? tokens.roomTints : classicRoomTints;
+  final tint = tints[roomIndex % tints.length];
+  return cartoon ? tint : tint.withValues(alpha: 0.55);
+}
+
+/// The opaque color the chip effectively paints as: cartoon skins paint the
+/// tint itself; classic's alpha swatch composites over the [cardSurface]
+/// (the classic card decoration color), which is what the chip text must
+/// contrast against.
+Color clueChipEffectiveBackground(
+  SkinTokens? tokens,
+  int roomIndex,
+  Color cardSurface,
+) {
+  final bg = clueChipBackground(tokens, roomIndex);
+  final cartoon = tokens != null && tokens.isCartoon;
+  return cartoon ? bg : Color.alphaBlend(bg, cardSurface);
+}
+
+/// WCAG contrast ratio of two colors (relative luminance, +0.05 offsets).
+double clueContrastRatio(Color a, Color b) {
+  final la = a.computeLuminance() + 0.05;
+  final lb = b.computeLuminance() + 0.05;
+  return math.max(la, lb) / math.min(la, lb);
+}
+
+/// The room chip's label ink (issue 104): a deterministic shade of the chip
+/// background's tint reaching AA (>= 4.5:1) against
+/// [effectiveBackground]. Steps darken the tint 10% toward black per
+/// iteration and prefer the darker shade (the spec's "same tint, darkened");
+/// toward-white steps join only as the fallback for backgrounds dark enough
+/// that no darker shade can ever reach 4.5:1 (classic dark cards). 96 steps
+/// bound the loop (the geometric series converges close enough to the black
+/// or white asymptote for every reachable background).
+Color clueChipInk(Color effectiveBackground) {
+  var dark = effectiveBackground;
+  var light = effectiveBackground;
+  for (var i = 0; i < 96; i++) {
+    if (clueContrastRatio(dark, effectiveBackground) >= 4.5) return dark;
+    if (clueContrastRatio(light, effectiveBackground) >= 4.5) return light;
+    dark = Color.lerp(dark, Colors.black, 0.1)!;
+    light = Color.lerp(light, Colors.white, 0.1)!;
+  }
+  return dark;
+}
+
+/// The clue chip's shape tokens (issue 104): a fixed radius (not the classic
+/// room-radius 0) and small padding so a chip line grows ~4 px.
+const double clueChipRadius = 9;
+const EdgeInsets clueChipPadding = EdgeInsets.symmetric(
+  horizontal: 6,
+  vertical: 2,
+);
+
+/// The inline span tree for one clue sentence (issue 104): the dash span at
+/// [dashScale] x the sentence font size, the plain spans at [sentenceStyle],
+/// and one rounded room chip WidgetSpan per room segment — filled with the
+/// room's board tint ([tokens] null or non-cartoon selects the classic
+/// legend-swatch alpha over [cardSurface]) and labeled in the tint-derived
+/// AA ink. The row-height math builds this same tree, so measured heights
+/// match the rendered heights.
+TextSpan clueSentenceSpan(
+  List<ClueSegment> segments, {
+  required TextStyle sentenceStyle,
+  required SkinTokens? tokens,
+  required Color cardSurface,
+  double dashScale = clueDashFontScale,
+}) => TextSpan(
+  children: [
+    for (final segment in segments)
+      switch (segment) {
+        DashClueSegment(:final text) => _dashSpan(
+          text,
+          sentenceStyle,
+          dashScale,
+        ),
+        PlainClueSegment(:final text) => TextSpan(
+          text: text,
+          style: sentenceStyle,
+        ),
+        RoomClueSegment(:final text, :final roomIndex) => _roomChipSpan(
+          text,
+          roomIndex,
+          sentenceStyle,
+          tokens,
+          cardSurface,
+        ),
+      },
+  ],
+);
+
+/// The sentence's leading dash at [dashScale] x the sentence font size
+/// (issue 104).
+TextSpan _dashSpan(String text, TextStyle sentenceStyle, double dashScale) =>
+    TextSpan(
+      text: text,
+      style: sentenceStyle.copyWith(
+        fontSize: (sentenceStyle.fontSize ?? 14) * dashScale,
+      ),
+    );
+
+/// The room chip WidgetSpan (issue 104): the rounded tint-filled box,
+/// middle-aligned on the sentence line. The label is a scale-down FittedBox
+/// so the chip NEVER re-wraps inside the paragraph's constraints — a phrase
+/// wider than the card at extreme text scales shrinks to the card's text
+/// width instead (no overflow, no reflow). The row-height math reserves the
+/// chip's natural-size box ([_clueChipSize] + [clueChipPadding]), which is
+/// therefore an upper bound of the rendered box at every text scale: rows
+/// grow at least to the rendered content, never clipping it.
+InlineSpan _roomChipSpan(
+  String text,
+  int roomIndex,
+  TextStyle sentenceStyle,
+  SkinTokens? tokens,
+  Color cardSurface,
+) {
+  final bg = clueChipBackground(tokens, roomIndex);
+  final effective = clueChipEffectiveBackground(tokens, roomIndex, cardSurface);
+  return WidgetSpan(
+    alignment: PlaceholderAlignment.middle,
+    child: Container(
+      padding: clueChipPadding,
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(clueChipRadius),
+      ),
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Text(
+          text,
+          maxLines: 1,
+          style: sentenceStyle.copyWith(color: clueChipInk(effective)),
+        ),
+      ),
+    ),
+  );
+}
+
 /// Pure clue -> sentence rendering per the spec's wording table (positive and
 /// negated forms). [names] resolves locale- and grammar-appropriate forms:
 /// genitive for direction/beside targets, nominative for same-row/col
@@ -200,7 +435,8 @@ class SuspectPanel extends StatelessWidget {
         ? skin.card.borderWidth
         : 2.0;
     final clueTexts = _clueTextsBySuspect(l10n, names);
-    final cards = _cards(names, clueTexts);
+    final clueSegments = _clueSegmentsBySuspect(l10n, names);
+    final cards = _cards(names, clueTexts, clueSegments);
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -214,7 +450,7 @@ class SuspectPanel extends StatelessWidget {
           context,
           constraints,
           cards,
-          clueTexts,
+          clueSegments,
           names,
           cardBorderWidth,
           skin,
@@ -262,10 +498,30 @@ class SuspectPanel extends StatelessWidget {
     };
   }
 
+  /// Clue sentences as inline segments grouped per suspect, in clue order
+  /// (issue 104) — the rendered form of [_clueTextsBySuspect]'s strings.
+  Map<String, List<List<ClueSegment>>> _clueSegmentsBySuspect(
+    AppLocalizations l10n,
+    NameForms names,
+  ) {
+    final cluesBySuspect = <String, List<Clue>>{};
+    for (final clue in caseData.clues) {
+      cluesBySuspect.putIfAbsent(clue.suspectId, () => []).add(clue);
+    }
+    return {
+      for (final entry in cluesBySuspect.entries)
+        entry.key: [
+          for (final clue in entry.value)
+            describeClueSegments(clue, caseData, l10n, names),
+        ],
+    };
+  }
+
   /// One card per suspect, in board order.
   List<_SuspectCard> _cards(
     NameForms names,
     Map<String, List<String>> clueTexts,
+    Map<String, List<List<ClueSegment>>> clueSegments,
   ) => [
     for (var i = 0; i < caseData.suspects.length; i++)
       _SuspectCard(
@@ -273,6 +529,9 @@ class SuspectPanel extends StatelessWidget {
         displayName: names.nom(caseData.suspects[i].id),
         color: suspectColor(i),
         clueTexts: clueTexts[caseData.suspects[i].id] ?? const <String>[],
+        clueSegments:
+            clueSegments[caseData.suspects[i].id] ??
+            const <List<ClueSegment>>[],
         selected: caseData.suspects[i].id == selectedSuspectId,
         isPlaced: placed.containsKey(caseData.suspects[i].id),
         onTap: () => onSuspectTap(caseData.suspects[i].id),
@@ -290,7 +549,7 @@ class SuspectPanel extends StatelessWidget {
     BuildContext context,
     BoxConstraints constraints,
     List<_SuspectCard> cards,
-    Map<String, List<String>> clueTexts,
+    Map<String, List<List<ClueSegment>>> clueSegments,
     NameForms names,
     double cardBorderWidth,
     SkinTokens? skin,
@@ -303,7 +562,7 @@ class SuspectPanel extends StatelessWidget {
       context,
       constraints,
       cardWidth,
-      clueTexts,
+      clueSegments,
       names,
       cardBorderWidth,
       skin?.chip,
@@ -367,7 +626,7 @@ class SuspectPanel extends StatelessWidget {
     BuildContext context,
     BoxConstraints constraints,
     double cardWidth,
-    Map<String, List<String>> clueTexts,
+    Map<String, List<List<ClueSegment>>> clueSegments,
     NameForms names,
     double cardBorderWidth,
     SkinChip? chip, {
@@ -380,7 +639,7 @@ class SuspectPanel extends StatelessWidget {
         _contentRowHeight(
           context,
           cardWidth,
-          clueTexts,
+          clueSegments,
           names,
           cardBorderWidth,
           chip,
@@ -459,11 +718,12 @@ class SuspectPanel extends StatelessWidget {
   /// height loose: cards grow instead of clipping text (UX-9). [chip] is the
   /// skin's clue-sentence gap token (issue 26; the pill is gone since issue
   /// 89), so each sentence measures at the card's full text width and only
-  /// the token's gap joins them — exactly the structure the card renders.
+  /// the token's gap joins them — exactly the structure the card renders,
+  /// chip WidgetSpans included (issue 104).
   double _contentRowHeight(
     BuildContext context,
     double cardWidth,
-    Map<String, List<String>> clueTextsBySuspect,
+    Map<String, List<List<ClueSegment>>> clueSegmentsBySuspect,
     NameForms names,
     double borderWidth,
     SkinChip? chip,
@@ -472,6 +732,12 @@ class SuspectPanel extends StatelessWidget {
     final theme = Theme.of(context);
     final scaler = MediaQuery.textScalerOf(context);
     final direction = Directionality.of(context);
+    // The chip colors the measurement spans carry (metrics ignore colors, so
+    // the unselected classic surface is fine here).
+    final tokens = SkinScope.maybeOf(context);
+    final cardSurface = tokens != null && tokens.isCartoon
+        ? tokens.card.background
+        : theme.colorScheme.surfaceContainerHighest;
     // Card insets: 4 outer padding + 8 container padding + border per side.
     final textWidth = math.max(cardWidth - 2 * (4 + 8 + borderWidth), 1.0);
     // The name row's text width: avatar (24) plus its 6px gap. The placed
@@ -492,13 +758,14 @@ class SuspectPanel extends StatelessWidget {
         nameWidth,
       );
       final clueHeight = _clueBlockHeight(
-        clueTextsBySuspect[suspect.id] ?? const <String>[],
+        clueSegmentsBySuspect[suspect.id] ?? const <List<ClueSegment>>[],
         chip,
-        theme,
-        base,
+        base.merge(theme.textTheme.bodySmall),
         scaler,
         direction,
         textWidth,
+        tokens: tokens,
+        cardSurface: cardSurface,
       );
       // 2 * (4 outer padding + 8 container padding + border) + name row
       // (the 24dp avatar floors its height) + 4 gap + clue text block.
@@ -509,37 +776,110 @@ class SuspectPanel extends StatelessWidget {
     return maxHeight;
   }
 
-  /// The clue text block's height at the card's text width: joined
+  /// The clue text block's height at the card's text width: joined rich
   /// paragraph for classic, per-sentence gap arithmetic in chip mode
-  /// (issue 26; sentences are bare Texts since issue 89) — exactly the
-  /// structure the card renders.
+  /// (issue 26) — the exact span trees the card renders (issue 104), with
+  /// the room chips as sized placeholders.
   double _clueBlockHeight(
-    List<String> texts,
+    List<List<ClueSegment>> sentenceSegments,
     SkinChip? chip,
-    ThemeData theme,
-    TextStyle base,
+    TextStyle sentenceStyle,
     TextScaler scaler,
     TextDirection direction,
-    double textWidth,
-  ) {
-    if (texts.isEmpty) return 0.0;
+    double textWidth, {
+    required SkinTokens? tokens,
+    required Color cardSurface,
+  }) {
+    if (sentenceSegments.isEmpty) return 0.0;
     if (chip == null) {
-      return _measureText(
-        texts.join('\n'),
-        theme.textTheme.bodySmall,
-        base,
+      return _measureClassicBlock(
+        sentenceSegments,
+        sentenceStyle,
         scaler,
         direction,
         textWidth,
+        tokens: tokens,
+        cardSurface: cardSurface,
       );
     }
+    return _measureChipBlock(
+      sentenceSegments,
+      sentenceStyle,
+      chip,
+      scaler,
+      direction,
+      textWidth,
+      tokens: tokens,
+      cardSurface: cardSurface,
+    );
+  }
+
+  /// Classic's joined rich paragraph height (issue 104's rich upgrade of
+  /// the plain join).
+  double _measureClassicBlock(
+    List<List<ClueSegment>> sentenceSegments,
+    TextStyle sentenceStyle,
+    TextScaler scaler,
+    TextDirection direction,
+    double textWidth, {
+    required SkinTokens? tokens,
+    required Color cardSurface,
+  }) {
+    // The root carries the sentence style so the newline separators inherit
+    // exactly what the rendered Text.rich's root gives them (issue 104).
+    final tree = TextSpan(
+      style: sentenceStyle,
+      children: [
+        for (final (i, segments) in sentenceSegments.indexed) ...[
+          if (i > 0) const TextSpan(text: '\n'),
+          clueSentenceSpan(
+            segments,
+            sentenceStyle: sentenceStyle,
+            tokens: tokens,
+            cardSurface: cardSurface,
+          ),
+        ],
+      ],
+    );
+    return _measureSpanTree(
+      tree,
+      [
+        for (final segments in sentenceSegments)
+          ..._placeholderSizes(segments, sentenceStyle, scaler, direction),
+      ],
+      scaler,
+      direction,
+      textWidth,
+    );
+  }
+
+  /// Chip mode's per-sentence heights plus the skin's gaps (issue 26).
+  double _measureChipBlock(
+    List<List<ClueSegment>> sentenceSegments,
+    TextStyle sentenceStyle,
+    SkinChip chip,
+    TextScaler scaler,
+    TextDirection direction,
+    double textWidth, {
+    required SkinTokens? tokens,
+    required Color cardSurface,
+  }) {
     var clueHeight = 0.0;
-    for (var i = 0; i < texts.length; i++) {
+    for (var i = 0; i < sentenceSegments.length; i++) {
       if (i > 0) clueHeight += chip.gap;
-      clueHeight += _measureText(
-        texts[i],
-        theme.textTheme.bodySmall,
-        base,
+      clueHeight += _measureSpanTree(
+        clueSentenceSpan(
+          sentenceSegments[i],
+          sentenceStyle: sentenceStyle,
+          tokens: tokens,
+          cardSurface: cardSurface,
+        ),
+        _placeholderSizes(
+          sentenceSegments[i],
+          sentenceStyle,
+          scaler,
+          direction,
+        ),
         scaler,
         direction,
         textWidth,
@@ -623,6 +963,7 @@ class _SuspectCard extends StatelessWidget {
     required this.displayName,
     required this.color,
     required this.clueTexts,
+    required this.clueSegments,
     required this.selected,
     required this.isPlaced,
     required this.onTap,
@@ -632,6 +973,10 @@ class _SuspectCard extends StatelessWidget {
   final String displayName;
   final Color color;
   final List<String> clueTexts;
+
+  /// The rendered form of [clueTexts] (issue 104): per sentence, the inline
+  /// segments with the room phrase to chip.
+  final List<List<ClueSegment>> clueSegments;
   final bool selected;
   final bool isPlaced;
   final VoidCallback onTap;
@@ -758,79 +1103,190 @@ class _SuspectCard extends StatelessWidget {
     );
   }
 
-  /// The clue area: bare gap-separated sentence column in chip mode
-  /// (issues 26/89), scrollable plain column on the expanded (selected)
-  /// card, joined paragraph otherwise.
+  /// The clue area: bare gap-separated rich sentence column in chip mode
+  /// (issues 26/89, rich since issue 104), scrollable rich column on the
+  /// expanded (selected) card, joined rich paragraph otherwise.
   Widget _clueArea(BuildContext context, SkinChip? chip) {
+    final sentenceStyle = _sentenceStyle(context);
+    final cardSurface = _cardSurface(context);
     if (chip != null) {
-      // Each clue sentence as a bare gap-separated Text (issue 89), selected
-      // and unselected alike. The scroll view is the same escape hatch the
-      // selected card already had: when the host pins a slot shorter than
-      // the content (narrow layout), the sentences scroll instead of
-      // throwing a RenderFlex overflow; the row-height math grows the rows
-      // wherever the host leaves the height loose, so this scrolls only
-      // when there is genuinely no room (UX-9).
+      // Each clue sentence as a bare gap-separated rich Text (issue 89,
+      // issue 104's dash/chip spans), selected and unselected alike. The
+      // scroll view is the same escape hatch the selected card already had:
+      // when the host pins a slot shorter than the content (narrow layout),
+      // the sentences scroll instead of throwing a RenderFlex overflow; the
+      // row-height math grows the rows wherever the host leaves the height
+      // loose, so this scrolls only when there is genuinely no room (UX-9).
       return Expanded(
-        child: SingleChildScrollView(child: _chipColumn(context, chip)),
+        child: SingleChildScrollView(
+          child: _chipColumn(context, chip, sentenceStyle, cardSurface),
+        ),
       );
     }
     if (selected) {
       return Expanded(
-        child: SingleChildScrollView(child: _plainColumn(context)),
+        child: SingleChildScrollView(
+          child: _plainColumn(context, sentenceStyle, cardSurface),
+        ),
       );
     }
     return Expanded(
-      child: Text(
-        clueTexts.join('\n'),
-        style: Theme.of(context).textTheme.bodySmall,
+      child: Text.rich(
+        _joinedParagraph(context, sentenceStyle, cardSurface),
+        style: sentenceStyle,
       ),
     );
   }
 
-  /// One bare clue sentence per line (issue 89): the rounded pill is gone,
-  /// the token's gap separates the sentences, and the texts left-align with
-  /// the name row.
-  Widget _chipColumn(BuildContext context, SkinChip chip) => Column(
+  /// The sentence style every clue span carries: the card's merged rendering
+  /// style — the same merge convention the row-height math measures with.
+  TextStyle _sentenceStyle(BuildContext context) =>
+      DefaultTextStyle.of(context).style
+          .merge(Theme.of(context).textTheme.bodySmall);
+
+  /// The opaque surface the card paints behind its clue text: the cartoon
+  /// token card, or the classic scheme container (selected containers swap
+  /// the scheme color, which the classic chip's composite accounts for).
+  Color _cardSurface(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final tokens = SkinScope.maybeOf(context);
+    return tokens != null && tokens.isCartoon
+        ? tokens.card.background
+        : selected
+        ? scheme.secondaryContainer
+        : scheme.surfaceContainerHighest;
+  }
+
+  /// One bare clue sentence per line (issue 89), rich since issue 104: the
+  /// rounded pill is gone, the token's gap separates the sentences, and the
+  /// texts left-align with the name row.
+  Widget _chipColumn(
+    BuildContext context,
+    SkinChip chip,
+    TextStyle sentenceStyle,
+    Color cardSurface,
+  ) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      for (final (i, text) in clueTexts.indexed)
+      for (final (i, segments) in clueSegments.indexed)
         Padding(
           padding: EdgeInsets.only(top: i == 0 ? 0 : chip.gap),
-          child: Text(text, style: Theme.of(context).textTheme.bodySmall),
+          child: Text.rich(
+            clueSentenceSpan(
+              segments,
+              sentenceStyle: sentenceStyle,
+              tokens: SkinScope.maybeOf(context),
+              cardSurface: cardSurface,
+            ),
+            style: sentenceStyle,
+          ),
         ),
     ],
   );
 
-  /// The selected card's clue column (issue 26's escape hatch).
-  Widget _plainColumn(BuildContext context) => Column(
+  /// The selected card's rich clue column (issue 26's escape hatch).
+  Widget _plainColumn(
+    BuildContext context,
+    TextStyle sentenceStyle,
+    Color cardSurface,
+  ) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      for (final text in clueTexts)
+      for (final segments in clueSegments)
         Padding(
           padding: const EdgeInsets.only(top: 2),
-          child: Text(text, style: Theme.of(context).textTheme.bodySmall),
+          child: Text.rich(
+            clueSentenceSpan(
+              segments,
+              sentenceStyle: sentenceStyle,
+              tokens: SkinScope.maybeOf(context),
+              cardSurface: cardSurface,
+            ),
+            style: sentenceStyle,
+          ),
         ),
+    ],
+  );
+
+  /// The classic unselected rendering: one rich paragraph per card, the
+  /// sentences newline-joined (issue 104's rich upgrade of the plain join).
+  TextSpan _joinedParagraph(
+    BuildContext context,
+    TextStyle sentenceStyle,
+    Color cardSurface,
+  ) => TextSpan(
+    children: [
+      for (final (i, segments) in clueSegments.indexed) ...[
+        if (i > 0) const TextSpan(text: '\n'),
+        clueSentenceSpan(
+          segments,
+          sentenceStyle: sentenceStyle,
+          tokens: SkinScope.maybeOf(context),
+          cardSurface: cardSurface,
+        ),
+      ],
     ],
   );
 }
 
-/// Measures [text]'s wrapped height at [width] with the card's merged style.
-double _measureText(
-  String text,
-  TextStyle? style,
-  TextStyle base,
+/// Measures [tree]'s wrapped height at [width]; the room chips participate
+/// through [placeholderSizes] (one box per WidgetSpan in traversal order,
+/// issue 104), so the measured height matches the rendered paragraph.
+double _measureSpanTree(
+  TextSpan tree,
+  List<Size> placeholderSizes,
   TextScaler scaler,
   TextDirection direction,
   double width,
 ) {
   final painter = TextPainter(
-    text: TextSpan(text: text, style: base.merge(style)),
+    text: tree,
     textDirection: direction,
     textScaler: scaler,
-  )..layout(maxWidth: width);
+  );
+  painter.setPlaceholderDimensions([
+    for (final size in placeholderSizes)
+      PlaceholderDimensions(size: size, alignment: PlaceholderAlignment.middle),
+  ]);
+  painter.layout(maxWidth: width);
   final height = painter.height;
   painter.dispose();
   return height;
+}
+
+/// The room chips' boxes for [segments], in tree traversal order: each room
+/// phrase measured at the sentence style plus the chip padding — exactly
+/// what the rendered WidgetSpan lays out.
+List<Size> _placeholderSizes(
+  List<ClueSegment> segments,
+  TextStyle sentenceStyle,
+  TextScaler scaler,
+  TextDirection direction,
+) => [
+  for (final segment in segments)
+    if (segment is RoomClueSegment)
+      _clueChipSize(segment.text, sentenceStyle, scaler, direction),
+];
+
+/// The room chip's box (issue 104): the phrase laid out on one line at
+/// [sentenceStyle] plus [clueChipPadding].
+Size _clueChipSize(
+  String roomText,
+  TextStyle sentenceStyle,
+  TextScaler scaler,
+  TextDirection direction,
+) {
+  final painter = TextPainter(
+    text: TextSpan(text: roomText, style: sentenceStyle),
+    textDirection: direction,
+    textScaler: scaler,
+  )..layout();
+  final size = Size(
+    painter.width + clueChipPadding.horizontal,
+    painter.height + clueChipPadding.vertical,
+  );
+  painter.dispose();
+  return size;
 }
 
 /// Scale-down-to-fit name row height (issue 15): the name lays out at its

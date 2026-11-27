@@ -25,6 +25,7 @@ import 'package:murdoku/ui/widgets/suspect_panel.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../support/seeded_overrides.dart';
+import '../widgets/suspect_panel_test.dart' show renderedPlainOf;
 
 Pos p(int row, int col) => (row: row, col: col);
 
@@ -112,21 +113,12 @@ Future<void> placeFirstGuest(WidgetTester tester) async {
 }
 
 /// Ideal (unclamped) height the paragraph's text needs at its laid-out
-/// width: a rendered paragraph shorter than this is being clipped.
-double idealParagraphHeight(RenderParagraph paragraph) {
-  final painter = TextPainter(
-    text: paragraph.text,
-    textAlign: paragraph.textAlign,
-    textDirection: paragraph.textDirection,
-    textScaler: paragraph.textScaler,
-    textWidthBasis: paragraph.textWidthBasis,
-    textHeightBehavior: paragraph.textHeightBehavior,
-    maxLines: paragraph.maxLines,
-  )..layout(maxWidth: paragraph.size.width);
-  final height = painter.height;
-  painter.dispose();
-  return height;
-}
+/// width: a rendered paragraph shorter than this is being clipped. Uses the
+/// render object's own intrinsics so the room chip's placeholder dimensions
+/// (issue 104) participate — a standalone TextPainter over the rich span
+/// tree would assert without them.
+double idealParagraphHeight(RenderParagraph paragraph) =>
+    paragraph.computeMaxIntrinsicHeight(paragraph.size.width);
 
 /// Issue 15 no-clipping property for a name row paragraph: the box must be
 /// at least the name's ideal height at its laid-out width, and no word may
@@ -834,7 +826,9 @@ void main() {
       for (final clue in fixedCase.clues)
         (
           suspectId: clue.suspectId,
-          text: describeClue(clue, fixedCase, l10n, names),
+          text: renderedPlainOf(
+            describeClueSegments(clue, fixedCase, l10n, names),
+          ),
         ),
     ];
     final longest = rendered.reduce(
@@ -866,10 +860,14 @@ void main() {
     // by text: two clues can render the same words (e.g. two same-kind
     // items in one room — the #93 interim furniture cycles chair/sofa), and
     // one renderObject per distinct sentence covers every occurrence.
+    // The rendered plain text: the room chip is a \uFFFC placeholder in
+    // the RichText's plain text (issue 104).
     final renderedClues = <({String suspectId, String text})>[];
     final seenTexts = <String>{};
     for (final clue in fixedCase.clues) {
-      final text = describeClue(clue, fixedCase, l10n, names);
+      final text = renderedPlainOf(
+        describeClueSegments(clue, fixedCase, l10n, names),
+      );
       if (seenTexts.add(text)) {
         renderedClues.add((suspectId: clue.suspectId, text: text));
       }
@@ -905,7 +903,9 @@ void main() {
       for (final clue in fixedCase.clues)
         (
           suspectId: clue.suspectId,
-          text: describeClue(clue, fixedCase, l10n, names),
+          text: renderedPlainOf(
+            describeClueSegments(clue, fixedCase, l10n, names),
+          ),
         ),
     ];
     final longest = rendered.reduce(
@@ -1179,7 +1179,10 @@ void main() {
       isNotEmpty,
       reason: 'standard cases always carry a negated clue (issue #10)',
     );
+    String renderedOf(Clue clue) =>
+        renderedPlainOf(describeClueSegments(clue, standardCase, l10n, names));
     final text = describeClue(negated.first, standardCase, l10n, names);
+    final renderedText = renderedOf(negated.first);
     expect(negated.first.negated, isTrue);
 
     // The positive counterpart of the same predicate must render through the
@@ -1221,10 +1224,16 @@ void main() {
       ),
     };
     final positiveText = describeClue(positive, standardCase, l10n, names);
+    final renderedPositiveText = renderedOf(positive);
     expect(
       positiveText,
       isNot(text),
       reason: 'the negated and positive templates must differ',
+    );
+    expect(
+      renderedPositiveText,
+      isNot(renderedText),
+      reason: 'the rendered forms differ too (the chip is a placeholder)',
     );
 
     container
@@ -1238,7 +1247,7 @@ void main() {
     // own scrollable (document order puts it before each card's clue
     // scroll view, so .first is the grid).
     await tester.scrollUntilVisible(
-      find.text(text),
+      find.text(renderedText),
       100,
       scrollable: find
           .descendant(
@@ -1250,12 +1259,12 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(
-      find.text(text),
+      find.text(renderedText),
       findsOneWidget,
       reason: 'the negated clue template renders on the real game screen',
     );
     expect(
-      find.text(positiveText),
+      find.text(renderedPositiveText),
       findsNothing,
       reason:
           'the plain (non-negated) template of the same predicate '

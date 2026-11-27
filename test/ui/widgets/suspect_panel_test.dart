@@ -391,22 +391,19 @@ Widget skinWideWrap(SkinTokens tokens, CaseData c) => MaterialApp(
   ),
 );
 
+/// The rendered plain text of clue [segments] (issue 104): the room chip is
+/// a \uFFFC placeholder in the RichText's plain text, so room-sentence
+/// finders go through this helper instead of the plain `describeClue` string.
+String renderedPlainOf(List<ClueSegment> segments) =>
+    segments.map((s) => s is RoomClueSegment ? '\uFFFC' : s.text).join();
+
 /// Ideal (unclamped) height the paragraph's text needs at its laid-out
-/// width: a rendered paragraph shorter than this is being clipped.
-double idealParagraphHeight(RenderParagraph paragraph) {
-  final painter = TextPainter(
-    text: paragraph.text,
-    textAlign: paragraph.textAlign,
-    textDirection: paragraph.textDirection,
-    textScaler: paragraph.textScaler,
-    textWidthBasis: paragraph.textWidthBasis,
-    textHeightBehavior: paragraph.textHeightBehavior,
-    maxLines: paragraph.maxLines,
-  )..layout(maxWidth: paragraph.size.width);
-  final height = painter.height;
-  painter.dispose();
-  return height;
-}
+/// width: a rendered paragraph shorter than this is being clipped. Uses the
+/// render object's own intrinsics so the room chip's placeholder dimensions
+/// (issue 104) participate — a standalone TextPainter over the rich span
+/// tree would assert without them.
+double idealParagraphHeight(RenderParagraph paragraph) =>
+    paragraph.computeMaxIntrinsicHeight(paragraph.size.width);
 
 /// The fixture suspects' display names, keyed by id.
 const Map<String, String> fixtureSuspectNames = {
@@ -435,8 +432,10 @@ void main() {
     await tester.pump();
 
     // The grid shows all cards at once; assert each name and exact en wording.
+    // Room sentences render as rich text with the chip placeholder (\uFFFC,
+    // issue 104); non-room sentences stay plain.
     expect(find.text('Ash'), findsOneWidget);
-    expect(find.text('— in the Hall.'), findsOneWidget);
+    expect(find.text('— in the \uFFFC.'), findsOneWidget);
     expect(find.text('Blair'), findsOneWidget);
     expect(find.text('— not on the same floor as the victim.'), findsOneWidget);
     expect(find.text('Casey'), findsOneWidget);
@@ -506,7 +505,7 @@ void main() {
     await tester.pump();
 
     // Initially Ash (s0) is selected: uncapped clue text.
-    final ashSelected = tester.widget<Text>(find.text('— in the Hall.'));
+    final ashSelected = tester.widget<Text>(find.text('— in the \uFFFC.'));
     expect(ashSelected.maxLines, isNull);
 
     // Unselected cards are uncapped too: the (taller) card height bounds
@@ -525,7 +524,7 @@ void main() {
       find.text('— not on the same floor as the victim.'),
     );
     expect(blairSelected.maxLines, isNull);
-    final ash = tester.widget<Text>(find.text('— in the Hall.'));
+    final ash = tester.widget<Text>(find.text('— in the \uFFFC.'));
     expect(ash.maxLines, isNull);
   });
 
@@ -615,10 +614,13 @@ void main() {
       final context = tester.element(find.byType(SuspectPanel));
       final l10n = AppLocalizations.of(context)!;
       final names = NameForms.forLocale(l10n.localeName, multiClueFixture);
-      // Per suspect, the exact string its unselected card renders.
+      // Per suspect, the exact plain text its unselected card renders (the
+      // room chip is a \uFFFC placeholder in the plain text, issue 104).
       final joinedBySuspect = <String, String>{};
       for (final clue in multiClueFixture.clues) {
-        final text = describeClue(clue, multiClueFixture, l10n, names);
+        final text = renderedPlainOf(
+          describeClueSegments(clue, multiClueFixture, l10n, names),
+        );
         joinedBySuspect[clue.suspectId] =
             joinedBySuspect[clue.suspectId] == null
             ? text
@@ -805,7 +807,8 @@ void main() {
   };
 
   /// The exact sentence each [fixture] card renders, keyed by suspect id
-  /// (the fixture gives every suspect exactly one clue).
+  /// (the fixture gives every suspect exactly one clue) — the plain
+  /// `describeClue` strings the Semantics labels carry.
   Map<String, String> fixtureSentencesById(WidgetTester tester) {
     final context = tester.element(find.byType(SuspectPanel));
     final l10n = AppLocalizations.of(context)!;
@@ -816,17 +819,34 @@ void main() {
     };
   }
 
-  /// Describes [multiClueFixture]'s clues as (suspectId, sentence) pairs in
+  /// The clue segments per suspect of [fixture] (issue 104) — the rendered
+  /// form of [fixtureSentencesById]'s strings.
+  Map<String, List<ClueSegment>> fixtureSegmentsById(WidgetTester tester) {
+    final context = tester.element(find.byType(SuspectPanel));
+    final l10n = AppLocalizations.of(context)!;
+    final names = NameForms.forLocale(l10n.localeName, fixture);
+    return {
+      for (final clue in fixture.clues)
+        clue.suspectId: describeClueSegments(clue, fixture, l10n, names),
+    };
+  }
+
+  /// Describes [multiClueFixture]'s clues as (suspectId, segments) pairs in
   /// clue order; s0's four clue sentences come first (the fixture lists them
   /// first). Name-less sentences can repeat literally across cards (issue
   /// 89), so callers scope each find to its owning card via [suspectCardOf].
-  List<(String, String)> describeMultiClueSentences(WidgetTester tester) {
+  List<(String, List<ClueSegment>)> describeMultiClueSegments(
+    WidgetTester tester,
+  ) {
     final context = tester.element(find.byType(SuspectPanel));
     final l10n = AppLocalizations.of(context)!;
     final names = NameForms.forLocale(l10n.localeName, multiClueFixture);
     return [
       for (final clue in multiClueFixture.clues)
-        (clue.suspectId, describeClue(clue, multiClueFixture, l10n, names)),
+        (
+          clue.suspectId,
+          describeClueSegments(clue, multiClueFixture, l10n, names),
+        ),
     ];
   }
 
@@ -857,11 +877,11 @@ void main() {
       final sentences = fixtureSentencesById(tester);
       // Premise: the exact name-less wording pins.
       expect(sentences.values.toSet(), clueSentences);
-      for (final entry in sentences.entries) {
+      for (final entry in fixtureSegmentsById(tester).entries) {
         final card = suspectCardOf(entry.key);
         final sentence = find.descendant(
           of: card,
-          matching: find.text(entry.value),
+          matching: find.text(renderedPlainOf(entry.value)),
         );
         expect(sentence, findsOneWidget);
         // No leftover indent: the sentence's left edge is the name row's
@@ -895,11 +915,12 @@ void main() {
     // Padding, and none padding carries any horizontal inset.
     await tester.pumpWidget(skinSidePanelWrap(stickerTokens, multiClueFixture));
     await tester.pump();
-    final s0Clues = describeMultiClueSentences(tester)
+    final s0Clues = describeMultiClueSegments(tester)
         .where((clue) => clue.$1 == 's0')
         .toList();
     expect(s0Clues.length, 4, reason: 'premise: s0 carries 4 sentences');
-    for (final (i, (id, text)) in s0Clues.indexed) {
+    for (final (i, (id, segments)) in s0Clues.indexed) {
+      final plain = renderedPlainOf(segments);
       final paddings = tester
           .widgetList<Padding>(
             find.descendant(
@@ -908,12 +929,13 @@ void main() {
                 (w) =>
                     w is Padding &&
                     w.child is Text &&
-                    (w.child as Text).data == text,
+                    ((w.child as Text).data == plain ||
+                        (w.child as Text).textSpan?.toPlainText() == plain),
               ),
             ),
           )
           .toList();
-      expect(paddings, isNotEmpty, reason: 'sentence "$text" was wrapped');
+      expect(paddings, isNotEmpty, reason: 'sentence "$plain" was wrapped');
       for (final padding in paddings) {
         expect(
           padding.padding,
@@ -935,8 +957,11 @@ void main() {
         isEmpty,
         reason: 'no chip-pill containers without a cartoon skin scope',
       );
-      // The clue sentences still render (joined plain text, as shipped).
-      expect(find.text('— in the Hall.'), findsOneWidget);
+      // The clue sentences still render (joined into the card's rich
+      // paragraph since issue 104 — the room chip is a \uFFFC placeholder
+      // in its plain text; the fixture's one-clue-per-card join is exactly
+      // the sentence).
+      expect(find.text('— in the \uFFFC.'), findsOneWidget);
     },
   );
 
@@ -955,18 +980,19 @@ void main() {
       );
       await tester.pump();
 
-      final clues = describeMultiClueSentences(tester);
+      final clues = describeMultiClueSegments(tester);
       // Every chip's paragraph box is at least the text's ideal height —
       // anything shorter means the card clipped the sentence. Scoped to the
       // owning card: identical name-less fragments repeat across cards.
-      for (final (id, text) in clues) {
+      for (final (id, segments) in clues) {
+        final plain = renderedPlainOf(segments);
         final paragraph = tester.renderObject<RenderParagraph>(
-          find.descendant(of: suspectCardOf(id), matching: find.text(text)),
+          find.descendant(of: suspectCardOf(id), matching: find.text(plain)),
         );
         expect(
           paragraph.size.height,
           greaterThanOrEqualTo(idealParagraphHeight(paragraph) - 0.5),
-          reason: 'clue "$text" renders in full on the 300px side panel',
+          reason: 'clue "$plain" renders in full on the 300px side panel',
         );
       }
 
@@ -1031,17 +1057,18 @@ void main() {
           'overflow, classic pinned behavior preserved',
     );
 
-    final clues = describeMultiClueSentences(tester);
+    final clues = describeMultiClueSegments(tester);
     // Rows 1's chips (s0's four sentences, Blair's and Casey's cards) are
     // built at the initial offset: they lay out in full on the grown rows.
-    for (final (id, text) in clues.sublist(0, 6)) {
+    for (final (id, segments) in clues.sublist(0, 6)) {
+      final plain = renderedPlainOf(segments);
       final paragraph = tester.renderObject<RenderParagraph>(
-        find.descendant(of: suspectCardOf(id), matching: find.text(text)),
+        find.descendant(of: suspectCardOf(id), matching: find.text(plain)),
       );
       expect(
         paragraph.size.height,
         greaterThanOrEqualTo(idealParagraphHeight(paragraph) - 0.5),
-        reason: 'clue "$text" lays out in full on the pinned narrow grid',
+        reason: 'clue "$plain" lays out in full on the pinned narrow grid',
       );
     }
 
@@ -1056,14 +1083,15 @@ void main() {
     );
     await tester.drag(find.text('Ash'), const Offset(0, -2000));
     await tester.pumpAndSettle();
-    for (final (id, text) in clues.sublist(6)) {
+    for (final (id, segments) in clues.sublist(6)) {
+      final plain = renderedPlainOf(segments);
       final paragraph = tester.renderObject<RenderParagraph>(
-        find.descendant(of: suspectCardOf(id), matching: find.text(text)),
+        find.descendant(of: suspectCardOf(id), matching: find.text(plain)),
       );
       expect(
         paragraph.size.height,
         greaterThanOrEqualTo(idealParagraphHeight(paragraph) - 0.5),
-        reason: 'clue "$text" lays out in full on the pinned narrow grid',
+        reason: 'clue "$plain" lays out in full on the pinned narrow grid',
       );
     }
   });
@@ -1082,15 +1110,16 @@ void main() {
       await tester.pumpWidget(skinWideWrap(candyTokens, multiClueFixture));
       await tester.pump();
 
-      final clues = describeMultiClueSentences(tester);
-      for (final (id, text) in clues) {
+      final clues = describeMultiClueSegments(tester);
+      for (final (id, segments) in clues) {
+        final plain = renderedPlainOf(segments);
         final paragraph = tester.renderObject<RenderParagraph>(
-          find.descendant(of: suspectCardOf(id), matching: find.text(text)),
+          find.descendant(of: suspectCardOf(id), matching: find.text(plain)),
         );
         expect(
           paragraph.size.height,
           greaterThanOrEqualTo(idealParagraphHeight(paragraph) - 0.5),
-          reason: 'clue "$text" renders in full on the wide card at scale 2.0',
+          reason: 'clue "$plain" renders in full on the wide card at scale 2.0',
         );
       }
     },
@@ -1698,10 +1727,14 @@ void main() {
         final context = tester.element(find.byType(SuspectPanel));
         final l10n = AppLocalizations.of(context)!;
         final names = NameForms.forLocale(l10n.localeName, multiClueFixture);
+        // Rendered plain sentences grouped by SUSPECT IDENTITY (the room
+        // chip is a \uFFFC placeholder in the plain text, issue 104).
         final sentencesById = <String, List<String>>{};
         for (final clue in multiClueFixture.clues) {
           (sentencesById[clue.suspectId] ??= []).add(
-            describeClue(clue, multiClueFixture, l10n, names),
+            renderedPlainOf(
+              describeClueSegments(clue, multiClueFixture, l10n, names),
+            ),
           );
         }
         String joinedById(String id) => sentencesById[id]!.join('\n');
