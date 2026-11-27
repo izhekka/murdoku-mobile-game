@@ -1,5 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
+import 'package:murdoku/core/skins.dart';
+
 import 'package:murdoku/domain/models.dart';
 
 /// The fallback Material icon per item kind (table-driven, issue 35).
@@ -42,6 +44,12 @@ class ItemSprite extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    // Issue 100 (T1): recolor the game-icons art to the skin's sprite ink
+    // at render — srcATop paints the ink strictly inside the art's own
+    // alpha, so the silhouette is an opaque spriteInk core with the
+    // antialiased edge alpha preserved; the assets stay untouched. Sprites
+    // without a SkinScope (bare harnesses) keep the classic scheme ink.
+    final ink = SkinScope.maybeOf(context)?.spriteInk ?? scheme.onSurface;
     final icon = Icon(
       objectIcon(kind),
       size: size,
@@ -53,6 +61,8 @@ class ItemSprite extends StatelessWidget {
         itemAssetPath(kind),
         width: size * 1.35,
         height: size * 1.35,
+        color: ink,
+        colorBlendMode: BlendMode.srcATop,
         errorBuilder: (_, _, _) => icon,
       ),
     );

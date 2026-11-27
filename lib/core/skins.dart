@@ -16,6 +16,7 @@ class SkinTokens {
     required this.appBackground,
     required this.ink,
     required this.inkSoft,
+    required this.spriteInk,
     required this.card,
     required this.roomTints,
     required this.badge,
@@ -49,6 +50,14 @@ class SkinTokens {
   /// Primary text/icon ink and its softened variant.
   final Color ink;
   final Color inkSoft;
+
+  /// The ink item sprites (ItemSprite, issue 100) recolor the game-icons
+  /// art to at render: an opaque skin-ink silhouette over whatever tint the
+  /// sprite lands on, at the WCAG 3:1 non-text bar. Candy needs a deeper
+  /// shade than [ink] here — ink #35406E vs the red room tint #D45D48
+  /// measures 2.59:1; the deepened navy clears it (see pinned bars in
+  /// test/core/skins_contrast_test.dart). Assets are untouched at render.
+  final Color spriteInk;
 
   /// Content cards: suspect cards, home cards, sheets, dialogs.
   final SkinCard card;
@@ -109,6 +118,7 @@ class SkinTokens {
       other.appBackground == appBackground,
       other.ink == ink,
       other.inkSoft == inkSoft,
+      other.spriteInk == spriteInk,
       other.card == card,
       other.roomTints == roomTints,
       other.badge == badge,
@@ -137,6 +147,7 @@ class SkinTokens {
     appBackground,
     ink,
     inkSoft,
+    spriteInk,
     card,
     roomTints,
     badge,
@@ -360,6 +371,7 @@ const candyTokens = SkinTokens(
   appBackground: Color(0xFF6FCBFF),
   ink: Color(0xFF35406E),
   inkSoft: Color(0xFF505D9A),
+  spriteInk: Color(0xFF1F2440), // Deepened ink: dimmed-vs-lavender 2.63:1 and core-vs-red 2.59:1 with plain ink both miss the 3:1 bar (issue 100).
   card: SkinCard(
     background: Color(0xFFFFFFFF),
     borderColor: Color(0xFFFFFFFF),
@@ -402,6 +414,7 @@ const stickerTokens = SkinTokens(
   appBackground: Color(0xFFFFF8EF),
   ink: Color(0xFF1D3557),
   inkSoft: Color(0xFF457B9D),
+  spriteInk: Color(0xFF1D3557),
   card: SkinCard(
     background: Color(0xFFFFFFFF),
     borderColor: Color(0xFF1D3557),
@@ -450,6 +463,7 @@ const comicTokens = SkinTokens(
   appBackground: Color(0xFFFFFFFF),
   ink: Color(0xFF111111),
   inkSoft: Color(0xFF444444),
+  spriteInk: Color(0xFF111111),
   card: SkinCard(
     background: Color(0xFFFFFFFF),
     borderColor: Color(0xFF111111),
@@ -499,6 +513,7 @@ SkinTokens skinTokensFor(SkinSetting skin, ColorScheme scheme) =>
         appBackground: scheme.surface,
         ink: scheme.onSurface,
         inkSoft: scheme.onSurfaceVariant,
+        spriteInk: scheme.onSurface,
         card: SkinCard(
           background: scheme.surface,
           borderColor: scheme.outlineVariant,

@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:murdoku/core/skins.dart';
+import 'package:murdoku/core/theme.dart';
 
 /// Contract test for the issue 87 contrast bars — the binding source of
 /// truth for the token palette, not the palette itself. All color math is
@@ -318,6 +319,119 @@ void main() {
     expect(candyTokens.appBackground, isNot(candyTokens.mortarColor));
     for (final tint in candyTokens.roomTints) {
       expect(candyTokens.appBackground, isNot(tint));
+    }
+  });
+
+  test('sprite ink clears WCAG 3:1 vs every room tint on every skin '
+      '(issue 100)', () {
+    // T1 (owner-picked): ItemSprite recolors the game-icons art to the
+    // opaque skin spriteInk at render — the sprite core's blended pair IS
+    // (spriteInk, tint) on the solid cartoon tile, so the non-text bar is
+    // the sprite-vs-tint ratio. Measured pre-fix blend pairs (mockup:
+    // candy lavender 1.13:1, candy sand 1.41:1, sticker sky 1.55:1 comic
+    // #FFE24A 1.30:1) all failed; candy ink itself still fails its red
+    // tint at 2.59:1, hence the dedicated deeper spriteInk.
+    for (final t in skins) {
+      for (var i = 0; i < t.roomTints.length; i++) {
+        final tint = t.roomTints[i];
+        final ratio = _contrastRatio(t.spriteInk, tint);
+        expect(
+          ratio,
+          greaterThanOrEqualTo(3),
+          reason:
+              '${t.skin}: sprite ink ${_hexOf(t.spriteInk)} on tint[$i] '
+              '${_hexOf(tint)} must reach the 3:1 non-text bar, measured '
+              '$ratio',
+        );
+        // Combined on-board pair (issue 100 review): a blocked row/column
+        // paints the ink overlay @10% over the tint (board_view
+        // _cartoonFill), and the furniture sprite renders on that overlay
+        // backdrop at full opacity — the 0.85 dimming that used to pair
+        // with it measured 2.85:1 on classic dark and was removed with the
+        // recolor. The overlay pair is the weakest surface a sprite sits
+        // on.
+        final overlay = Color.alphaBlend(t.ink.withValues(alpha: 0.10), tint);
+        final combined = _contrastRatio(t.spriteInk, overlay);
+        expect(
+          combined,
+          greaterThanOrEqualTo(3),
+          reason:
+              '${t.skin}: sprite ink ${_hexOf(t.spriteInk)} on the blocked '
+              'overlay blend ${_hexOf(overlay)} (tint[$i]) must reach 3:1, '
+              'measured $combined',
+        );
+      }
+    }
+    // Classic: the cell a sprite sits on is tint@55% alpha over the scheme
+    // surface (board_view.dart _classicFill), light and dark; the recolor
+    // ink is the scheme onSurface. The blocked variant adds the
+    // onSurface@10% overlay on top of that blend.
+    for (final theme in [AppTheme.light, AppTheme.dark]) {
+      final scheme = theme.colorScheme;
+      for (var i = 0; i < classicRoomTints.length; i++) {
+        final cellBg = Color.alphaBlend(
+          classicRoomTints[i].withValues(alpha: 0.55),
+          scheme.surface,
+        );
+        final ratio = _contrastRatio(scheme.onSurface, cellBg);
+        expect(
+          ratio,
+          greaterThanOrEqualTo(3),
+          reason:
+              'classic ${theme.brightness}: sprite ink on tints[$i] blend '
+              '${_hexOf(cellBg)} must reach 3:1, measured $ratio',
+        );
+        final overlay = Color.alphaBlend(
+          scheme.onSurface.withValues(alpha: 0.10),
+          cellBg,
+        );
+        final combined = _contrastRatio(scheme.onSurface, overlay);
+        expect(
+          combined,
+          greaterThanOrEqualTo(3),
+          reason:
+              'classic ${theme.brightness}: sprite ink on the blocked '
+              'overlay blend ${_hexOf(overlay)} (tints[$i]) must reach '
+              '3:1, measured $combined',
+        );
+      }
+    }
+  });
+
+  test('sprite ink on sheet/card surfaces reaches 3:1 (issue 100)', () {
+    // The legend-sheet item sprites (and any future sprite surface that
+    // sits on the white sheets/cards — no separate tray widget ships in
+    // lib/**) paint the recolored ink on the skin's sheet/card surface;
+    // classic sits on the scheme surface.
+    for (final t in skins) {
+      final s = _contrastRatio(t.spriteInk, t.sheetBackground);
+      expect(
+        s,
+        greaterThanOrEqualTo(3),
+        reason:
+            '${t.skin}: sprite ink ${_hexOf(t.spriteInk)} on the sheet '
+            'surface ${_hexOf(t.sheetBackground)} must reach 3:1, measured '
+            '$s',
+      );
+      final c = _contrastRatio(t.spriteInk, t.card.background);
+      expect(
+        c,
+        greaterThanOrEqualTo(3),
+        reason:
+            '${t.skin}: sprite ink on the card surface '
+            '${_hexOf(t.card.background)} must reach 3:1, measured $c',
+      );
+    }
+    for (final theme in [AppTheme.light, AppTheme.dark]) {
+      final scheme = theme.colorScheme;
+      final s = _contrastRatio(scheme.onSurface, scheme.surface);
+      expect(
+        s,
+        greaterThanOrEqualTo(3),
+        reason:
+            'classic ${theme.brightness}: sprite ink on the sheet surface '
+            'must reach 3:1, measured $s',
+      );
     }
   });
 }

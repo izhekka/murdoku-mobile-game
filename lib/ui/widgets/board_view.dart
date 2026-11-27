@@ -834,13 +834,7 @@ class _Cell extends StatelessWidget {
     final suspectIndexHere = suspectIdHere == null
         ? null
         : c.suspects.indexWhere((s) => s.id == suspectIdHere);
-    final dimmed = _isBlocking(objectHere) && !hasX;
-    final underlay = _furnitureUnderlay(
-      objectHere,
-      itemIcon,
-      suspectIndexHere,
-      dimmed,
-    );
+    final underlay = _furnitureUnderlay(objectHere, itemIcon, suspectIndexHere);
     return Stack(
       children: [
         // Furniture renders under everything in the cell.
@@ -858,7 +852,6 @@ class _Cell extends StatelessWidget {
               itemIcon,
               objectHere,
               selectedSuspectId,
-              dimmed,
               scheme,
               tokens,
               cartoon,
@@ -876,7 +869,6 @@ class _Cell extends StatelessWidget {
     List<ObjectDef> objectHere,
     IconData? itemIcon,
     int? suspectIndexHere,
-    bool dimmed,
   ) {
     if (itemIcon == null) return null;
     if (suspectIndexHere == null) return null;
@@ -884,7 +876,7 @@ class _Cell extends StatelessWidget {
       alignment: Alignment.topLeft,
       child: Padding(
         padding: const EdgeInsets.all(2),
-        child: _furnitureSprite(objectHere.first.kind, 12, dimmed: dimmed),
+        child: _furnitureSprite(objectHere.first.kind, 12),
       ),
     );
   }
@@ -899,7 +891,6 @@ class _Cell extends StatelessWidget {
     IconData? itemIcon,
     List<ObjectDef> objectHere,
     String? selectedSuspectId,
-    bool dimmed,
     ColorScheme scheme,
     SkinTokens? tokens,
     bool cartoon, {
@@ -925,22 +916,19 @@ class _Cell extends StatelessWidget {
     }
     if (itemIcon != null) {
       return Center(
-        child: _furnitureSprite(
-          objectHere.first.kind,
-          furnitureSize,
-          dimmed: dimmed,
-        ),
+        child: _furnitureSprite(objectHere.first.kind, furnitureSize),
       );
     }
     return const SizedBox.shrink();
   }
 
-  /// The furniture sprite, dimmed while sharing a cell with a guest or X.
-  Widget _furnitureSprite(
-    ObjectKind kind,
-    double size, {
-    required bool dimmed,
-  }) => ItemSprite(kind: kind, size: size, opacity: dimmed ? 0.85 : 1.0);
+  /// The furniture sprite at full opacity: the ink recolor (issue 100)
+  /// gives it its designed contrast, and the blocked row/col overlay
+  /// (issue 82/83 fill) carries the blocked-cell signal — the old 0.85
+  /// dimming broke the 3:1 bar for the light ink on classic dark
+  /// (combined overlay×dimmed pair measured 2.85:1, review round #100).
+  Widget _furnitureSprite(ObjectKind kind, double size) =>
+      ItemSprite(kind: kind, size: size);
 }
 
 /// The room number badge on a board cell's top-right corner; hidden without
