@@ -1,6 +1,22 @@
 # AGENTS.md — Murdoku
 
-## What is Murdoku?
+## General conversational rules for every agent
+
+1. Speak in a simple language, be concise, don't overcomplicate sentences, use simple words.
+2. Be as much concise as possible, save output tokens.
+3. Always ask questions one-by-one with 2-3 option provided to select. Never present questions as a list.
+
+## Working mode: ponytail (always on)
+
+Every change request — implementation, fix, refactor, review, dependency
+choice — is scoped with [`docs/ponytail.md`](docs/ponytail.md): the smallest
+change that fully solves the task. Applies without being asked; default
+level `full`, the user may request `lite`/`ultra`. It governs how much code
+to write, not how work is gated — the branch/review/landing flow still
+applies, and its "never cut" list wins when minimalism collides with any
+of its protected items.
+
+## About the project
 
 Murdoku (working title) is an offline murder-mystery logic puzzle built with
 Flutter: place every guest on the mansion map so each row, column and room
@@ -33,15 +49,6 @@ make hooks                                                # install the pre-comm
 make quality                                              # local one-command gate: format + analyze + test --coverage + CRAP ratchet
 ```
 
-## Development notes
-
-- The app is built task-by-task from development plans under
-  `docs/superpowers/plans/` in strict task order (Task 0 … Task 17). Those
-  plans are local working docs, untracked from the public tree — this file
-  stands on its own. The plans' §2 Game Design Spec is binding; their
-  *Interfaces* blocks pin public APIs across tasks — never rename them.
-- GitHub issues #1/#2/#3 track the current UX work.
-
 ## Guides
 
 | Topic | Guide |
@@ -49,8 +56,9 @@ make quality                                              # local one-command ga
 | Branches, commits | [docs/git-workflow.md](docs/git-workflow.md) |
 | Decision records | [docs/spec/README.md](docs/spec/README.md) |
 | Code conventions, enforced lints | [docs/code-guidelines.md](docs/code-guidelines.md) |
+| Working style | [docs/ponytail.md](docs/ponytail.md) |
 
-## Guardrails (summary of plan §1)
+## Guardrails
 
 - Work task-by-task, TDD: failing test first, then minimal implementation, then green.
 - Gate after every task: `flutter analyze` (0 issues) && `flutter test` (all pass), then commit.
@@ -61,7 +69,7 @@ make quality                                              # local one-command ga
 - Fully offline; no networking, analytics, ads, or permissions.
 - All user-facing strings go through AppLocalizations (arb files).
 - Never edit generated output: `lib/l10n/generated/**`, `**/.dart_tool/**`, `*.g.dart`.
-- "Murdoku" is a working title — trademark risk; rename before store submission (Task 17).
+- "Murdoku" is a working title — trademark risk; rename before store submission.
 
 ## Item sprites (ownership)
 
