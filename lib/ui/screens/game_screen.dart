@@ -68,7 +68,6 @@ class _GameScreenState extends ConsumerState<GameScreen>
 
     final difficultyLabel = _difficultyLabel(l10n, state.caseData.difficulty);
     final board = _board(state);
-    final panel = _panel(state);
 
     return Scaffold(
       appBar: AppBar(
@@ -102,23 +101,51 @@ class _GameScreenState extends ConsumerState<GameScreen>
         child: LayoutBuilder(
           builder: (context, constraints) {
             final wide = constraints.maxWidth >= 600;
+            // Built per branch (review, issue 103): the wide branch hosts it
+            // header-less — building the portrait variant up here would
+            // construct a widget the landscape tree discards every build.
+            final panel = _panel(state, showHeader: !wide);
             if (wide) {
               return Column(
                 children: [
                   Expanded(
-                    child: Row(
-                      children: [
-                        // Bottom-center the square board in its (wider than
-                        // tall) slot so it hugs the toolbar, matching the
-                        // narrow branch's flush seam.
-                        Expanded(
-                          child: Align(
-                            alignment: Alignment.bottomCenter,
-                            child: board,
+                    child: LayoutBuilder(
+                      builder: (context, slot) {
+                        // Issue 103: the board's square footprint pins to
+                        // the slot's bottom-LEFT edge (the 8px padding stays
+                        // the left seam — no dead band) and the suspects
+                        // panel takes ALL remaining width, header-less. The
+                        // square side follows the narrow branch's pattern:
+                        // the slot height, capped so the panel never loses
+                        // its minimum width (tall desktop windows).
+                        final boardSide = math.max(
+                          0.0,
+                          math.min(
+                            slot.maxHeight,
+                            slot.maxWidth - _panelMinWidth,
                           ),
-                        ),
-                        SizedBox(width: 300, child: panel),
-                      ],
+                        );
+                        return Row(
+                          children: [
+                            SizedBox(
+                              width: boardSide,
+                              child: Align(
+                                alignment: Alignment.bottomLeft,
+                                child: board,
+                              ),
+                            ),
+                            Expanded(
+                              // Tight height (like the narrow branch's
+                              // Expanded panel): the landscape grid's
+                              // pinned split measures the real slot.
+                              child: SizedBox(
+                                height: double.infinity,
+                                child: panel,
+                              ),
+                            ),
+                          ],
+                        );
+                      },
                     ),
                   ),
                   _toolbar(l10n, state),
@@ -237,12 +264,15 @@ class _GameScreenState extends ConsumerState<GameScreen>
   }
 
   /// The suspects panel; tapping a card selects it, tapping the selected
-  /// card asks the controller to deselect.
-  Widget _panel(GameState state) {
+  /// card asks the controller to deselect. The landscape wide branch hosts
+  /// it header-less ([showHeader] false, issue 103); every other host keeps
+  /// the default header.
+  Widget _panel(GameState state, {bool showHeader = true}) {
     return SuspectPanel(
       caseData: state.caseData,
       placed: state.placed,
       selectedSuspectId: state.selectedSuspectId,
+      showHeader: showHeader,
       onSuspectTap: (id) {
         final notifier = ref.read(gameControllerProvider.notifier);
         notifier.selectSuspect(state.selectedSuspectId == id ? null : id);
@@ -645,6 +675,12 @@ const double _toolbarWrapWidth = 472;
 /// is tighter, the board shrinks to fit instead (overflow is never
 /// allowed).
 const double _panelMinHeight = 72;
+
+/// The suspect panel's minimum width in the wide game branch (issue 103):
+/// the landscape board's square slot is capped to `width − _panelMinWidth`,
+/// so a window taller than wide (e.g. 600×1000) keeps the panel at the
+/// pre-issue 300px column instead of crushing it to zero width.
+const double _panelMinWidth = 300;
 
 /// The test key of a tool button, matching the tool's name.
 String _toolKeyName(Tool tool) => switch (tool) {

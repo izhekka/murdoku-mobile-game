@@ -1987,4 +1987,198 @@ void main() {
       expectDocumentedAssertion(tester);
     });
   });
+
+  group('landscape panel (issue 103)', () {
+    /// The landscape game screen's header-less host (issue 103): the wide
+    /// branch Expandeds the panel with `showHeader: false`, so the panel
+    /// receives tight width AND tight height (pinned branch) at the
+    /// reference geometry — 575 wide × 277 tall at the 852×393 viewport.
+    Widget landscapeWrap(
+      CaseData c, {
+      double width = 575,
+      double height = 277,
+      bool showHeader = true,
+    }) => MaterialApp(
+      locale: const Locale('en'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: Scaffold(
+        body: Align(
+          child: SizedBox(
+            width: width,
+            height: height,
+            child: SuspectPanel(
+              caseData: c,
+              placed: const {},
+              selectedSuspectId: null,
+              onSuspectTap: (_) {},
+              showHeader: showHeader,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    testWidgets('landscape host: showHeader false drops the header; default '
+        'keeps it (issue 103)', (tester) async {
+      await tester.pumpWidget(landscapeWrap(fixture, showHeader: false));
+      await tester.pump();
+      expect(
+        find.byKey(suspectsPanelHeaderKey),
+        findsNothing,
+        reason: 'the landscape game screen hosts the panel header-less',
+      );
+      expect(find.text('Suspects'), findsNothing);
+
+      // Default (no param): every other host keeps the header.
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpWidget(landscapeWrap(fixture));
+      await tester.pump();
+      expect(find.byKey(suspectsPanelHeaderKey), findsOneWidget);
+    });
+
+    testWidgets('landscape host: 2 columns; rows split the header-less slot '
+        'when they fit (issues 103/39/58)', (tester) async {
+      // A taller landscape slot (the 277px reference's grown rows overflow
+      // it under the test font's inflated widths — pinned separately below):
+      // when the grown rows fit, the issue-39 pinned split applies to the
+      // header-less slot exactly as it did to the post-header slot.
+      await tester.pumpWidget(
+        landscapeWrap(fixture, height: 360, showHeader: false),
+      );
+      await tester.pump();
+
+      final grid = tester.widget<GridView>(find.byType(GridView));
+      final delegate =
+          grid.gridDelegate as SliverGridDelegateWithFixedCrossAxisCount;
+      expect(
+        delegate.crossAxisCount,
+        2,
+        reason: 'the landscape grid is 2 wide',
+      );
+      expect(
+        (grid.childrenDelegate as SliverChildListDelegate).children.length,
+        6,
+        reason: '5 cards + the decorative slot (odd count at 2 columns, 58)',
+      );
+      expect(
+        grid.physics,
+        isA<NeverScrollableScrollPhysics>(),
+        reason: '3 grown rows fit the 360px slot; no scrolling (issue 39)',
+      );
+      expect(tester.takeException(), isNull);
+
+      final gridRect = tester.getRect(find.byType(GridView));
+      expect(gridRect.width, closeTo(575, 0.5));
+      expect(
+        gridRect.height,
+        closeTo(360, 0.5),
+        reason: 'the grid fills the whole header-less panel',
+      );
+
+      final card = tester.getRect(find.byType(InkWell).first);
+      expect(
+        card.width,
+        closeTo((575 - 2 * 4 - 1 * 4) / 2 - 2 * 4, 0.5),
+        reason: '2 columns of wide cards across the 575px panel',
+      );
+      // 3 real rows split the header-less slot exactly (issue 39) — content
+      // proportions, far below the retired 1.05-ratio floor (268).
+      expect(
+        card.height,
+        closeTo((360 - 2 * 4 - 2 * 4) / 3 - 2 * 4, 0.5),
+        reason: '3 real rows split the header-less slot',
+      );
+      expect(card.height, lessThan(150));
+    });
+
+    testWidgets('landscape host at the 277px reference: grown rows overflow, '
+        'the grid keeps them and scrolls (issues 103/39)', (tester) async {
+      await tester.pumpWidget(landscapeWrap(fixture, showHeader: false));
+      await tester.pump();
+
+      expect(tester.takeException(), isNull);
+      expect(
+        tester.widget<GridView>(find.byType(GridView)).physics,
+        isA<ClampingScrollPhysics>(),
+        reason: 'grown rows exceed the 277px slot; the grid scrolls',
+      );
+      final card = tester.getRect(find.byType(InkWell).first);
+      // Grown content-height rows on overflow (issue 39's loose behavior):
+      // not the retired square-ish 1.05 ratio (281.5/1.05 ≈ 268) and not a
+      // compressed split of the slot.
+      expect(card.height, lessThan(150));
+      expect(card.height, greaterThan(50));
+    });
+
+    testWidgets('landscape host: 6 suspects lay out 3 full rows, no lone '
+        'decorative row (issue 58)', (tester) async {
+      await tester.pumpWidget(
+        landscapeWrap(standardFixture, showHeader: false),
+      );
+      await tester.pump();
+
+      final grid = tester.widget<GridView>(find.byType(GridView));
+      expect(
+        (grid.childrenDelegate as SliverChildListDelegate).children.length,
+        standardFixture.suspects.length,
+        reason: '6 suspects fill 3 rows of 2; the slot would open a lone cell',
+      );
+      for (final s in standardFixture.suspects) {
+        expect(find.text(s.name), findsOneWidget);
+      }
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('landscape host: overflow keeps grown content rows and '
+        'scrolls (issues 103/39)', (tester) async {
+      await tester.pumpWidget(landscapeWrap(hardFixture, showHeader: false));
+      await tester.pump();
+
+      expect(tester.takeException(), isNull);
+      final grid = tester.widget<GridView>(find.byType(GridView));
+      expect(
+        grid.physics,
+        isA<ClampingScrollPhysics>(),
+        reason: '4 grown rows exceed the 277px slot; the grid scrolls',
+      );
+      // The decorative slot joins the 7-suspect grid too: 7 % 2 = 1, so the
+      // last row has a spare cell (AC, issue 103; review round).
+      expect(
+        (grid.childrenDelegate as SliverChildListDelegate).children.length,
+        hardFixture.suspects.length + 1,
+        reason: '7 suspects + the decorative empty slot = 8 children',
+      );
+      final card = tester.getRect(find.byType(InkWell).first);
+      // Grown content-height rows: not the retired square-ish 1.05 ratio
+      // (281.5/1.05 ≈ 268) and not a compressed split of the slot.
+      expect(card.height, lessThan(150));
+      expect(card.height, greaterThan(50));
+    });
+
+    testWidgets('landscape host at tablet width (>=600 panel): the header '
+        'stays suppressed on the ListView branch (issue 103)', (tester) async {
+      // Panel width >=600 renders the panel's own wide ListView branch
+      // (explicitly unchanged by the issue) — but the landscape game screen
+      // still hosts it header-less, so showHeader must suppress the header
+      // there too (e.g. 1400x700 desktop or 900x400 phone landscape).
+      await tester.pumpWidget(
+        landscapeWrap(fixture, width: 700, showHeader: false),
+      );
+      await tester.pump();
+
+      expect(
+        find.byType(ListView),
+        findsOneWidget,
+        reason: 'the panel-wide (>=600) branch stays the ListView column',
+      );
+      expect(
+        find.byKey(suspectsPanelHeaderKey),
+        findsNothing,
+        reason:
+            'showHeader false suppresses the header on the ListView branch too',
+      );
+      expect(tester.takeException(), isNull);
+    });
+  });
 }

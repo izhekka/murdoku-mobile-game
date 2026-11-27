@@ -612,23 +612,142 @@ void main() {
     );
   });
 
-  testWidgets('wide branch unchanged: board max square beside the 300px '
-      'panel column (issue 95)', (tester) async {
-    await pumpGame(tester, size: const Size(1024, 768));
+  testWidgets('wide branch pins the board bottom-left; the panel takes the '
+      'rest without the header (issue 103)', (tester) async {
+    await pumpGame(tester, size: const Size(1024, 768), tutorialSeen: true);
     expect(tester.takeException(), isNull);
     final boardRect = tester.getRect(find.byKey(const Key('board_view')));
+    // Row slot 768 − app bar 56 − toolbar 60 = 652 ⇒ plate 652 − 16 = 636.
+    expect(boardRect.width, closeTo(636, 0.5));
+    expect(boardRect.height, closeTo(636, 0.5));
     expect(
-      boardRect.width,
-      closeTo(636, 0.5),
-      reason: 'wide slot (768−56−60=652) minus padding ⇒ 636 square',
+      boardRect.left,
+      closeTo(8, 0.5),
+      reason: 'the board hugs the left screen edge (no dead band)',
     );
-    expect(boardRect.height, closeTo(boardRect.width, 0.5));
     final panelRect = tester.getRect(find.byType(SuspectPanel));
     expect(
       panelRect.width,
-      closeTo(300, 0.5),
-      reason: 'the 300px panel column is unchanged',
+      closeTo(1024 - 652, 0.5),
+      reason: 'the panel takes all width right of the board',
     );
+    expect(
+      find.byKey(suspectsPanelHeaderKey),
+      findsNothing,
+      reason: 'the landscape game screen drops the suspects header',
+    );
+
+    // Portrait control: the narrow branch keeps the header.
+    await pumpGame(tester, size: const Size(402, 874), tutorialSeen: true);
+    expect(find.byKey(suspectsPanelHeaderKey), findsOneWidget);
+  });
+
+  testWidgets('852x393 reference: board footprint 277 at the left edge, '
+      'panel 575 wide, no header (issue 103)', (tester) async {
+    await pumpGame(tester, size: const Size(852, 393), tutorialSeen: true);
+    expect(tester.takeException(), isNull);
+    final boardRect = tester.getRect(find.byKey(const Key('board_view')));
+    // Row slot 393 − app bar 56 − toolbar 60 = 277 ⇒ plate 261 inside the
+    // 8px padding, pinned to the left edge.
+    expect(boardRect.width, closeTo(261, 0.5));
+    expect(boardRect.height, closeTo(261, 0.5));
+    expect(boardRect.left, closeTo(8, 0.5));
+    expect(
+      boardRect.top,
+      closeTo(64, 0.5),
+      reason: 'app bar 56 + the 8px seam',
+    );
+    final panelRect = tester.getRect(find.byType(SuspectPanel));
+    expect(panelRect.left, closeTo(277, 0.5));
+    expect(panelRect.width, closeTo(575, 0.5));
+    expect(panelRect.height, closeTo(277, 0.5));
+    expect(
+      find.text('Подозреваемые'),
+      findsNothing,
+      reason: 'the suspects header is not rendered in landscape',
+    );
+  });
+
+  testWidgets('tall wide window: the board cedes the 300px panel minimum '
+      '(issue 103)', (tester) async {
+    await pumpGame(tester, size: const Size(600, 1000), tutorialSeen: true);
+    expect(tester.takeException(), isNull);
+    final boardRect = tester.getRect(find.byKey(const Key('board_view')));
+    // Slot height 1000 − 56 − 60 = 884 exceeds the width the panel shares:
+    // the board cedes the 300px panel minimum ⇒ 600 − 300 = 300 square.
+    expect(boardRect.width, closeTo(284, 0.5));
+    expect(boardRect.height, closeTo(284, 0.5));
+    expect(boardRect.left, closeTo(8, 0.5));
+    final panelRect = tester.getRect(find.byType(SuspectPanel));
+    expect(panelRect.width, closeTo(300, 0.5));
+  });
+
+  testWidgets('landscape standard 7x7: the grid scrolls without overflow '
+      '(issue 103)', (tester) async {
+    await pumpGame(
+      tester,
+      size: const Size(852, 393),
+      difficulty: Difficulty.standard,
+      tutorialSeen: true,
+    );
+    expect(tester.takeException(), isNull);
+    expect(
+      tester.widget<GridView>(find.byType(GridView)).physics,
+      isA<ClampingScrollPhysics>(),
+      reason: '4 grown rows exceed the 277px slot; the grid scrolls',
+    );
+    // The 4th row is below the fold; scrolling reaches its cards.
+    final names = NameForms.forLocale('ru', currentCase());
+    await tester.drag(
+      find.text(names.nom(currentCase().suspects.first.id)),
+      const Offset(0, -2000),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.text(names.nom(currentCase().suspects.last.id)),
+      findsOneWidget,
+      reason: 'the last suspect row is reachable by scrolling',
+    );
+  });
+
+  testWidgets('every RU clue sentence of the generated corpus fits one line '
+      'at the landscape card text width (issue 103)', (tester) async {
+    await pumpGame(tester, size: const Size(852, 393), tutorialSeen: true);
+    final context = tester.element(find.byType(Scaffold).first);
+    final l10n = AppLocalizations.of(context)!;
+    expect(l10n.localeName, 'ru');
+
+    // The landscape card's text width at the reference panel: tile
+    // (575 − 2·4 − 4)/2 = 281.5 minus the card insets 2·(4 + 8 + border 3).
+    const cardTextWidth = (575 - 2 * 4 - 1 * 4) / 2 - 2 * (4 + 8 + 3);
+    // Measured with production Roboto metrics (the fixed-advance test font
+    // inflates widths) in the card's own merged bodySmall style.
+    final style = DefaultTextStyle.of(context).style
+        .merge(Theme.of(context).textTheme.bodySmall)
+        .copyWith(fontFamily: 'Roboto');
+    await _ensureRobotoLoaded(tester);
+
+    // The AC is a corpus claim: names and rooms draw from fixed pools, so a
+    // sweep over the difficulties and a seed window bounds the longest
+    // sentence the generator can produce (code-review round, issue 103).
+    // Lines are counted by height, not width — a wrapped paragraph reports
+    // its widest line, which can sit under the limit.
+    for (final difficulty in Difficulty.values) {
+      for (var seed = 1; seed <= 20; seed++) {
+        final c = generateCase(difficulty: difficulty, seed: seed);
+        final names = NameForms.forLocale('ru', c);
+        for (final clue in c.clues) {
+          final text = describeClue(clue, c, l10n, names);
+          expect(
+            _measureIdealHeight(text, style, cardTextWidth),
+            lessThan(32),
+            reason:
+                'RU sentence "$text" ($difficulty seed $seed) fits one line '
+                'at $cardTextWidth px (two lines measure ≥32px)',
+          );
+        }
+      }
+    }
   });
 
   testWidgets('small viewport 320x569 does not overflow (UX-6)', (
@@ -1699,6 +1818,19 @@ double _measureWithRoboto(String text, double fontSize) {
   final width = painter.width;
   painter.dispose();
   return width;
+}
+
+/// The wrapped height [text] needs at [maxWidth] in the merged [style]
+/// (production-font family expected, e.g. Roboto): one line of the card's
+/// bodySmall measures 16px, two lines 32px.
+double _measureIdealHeight(String text, TextStyle style, double maxWidth) {
+  final painter = TextPainter(
+    text: TextSpan(text: text, style: style),
+    textDirection: TextDirection.ltr,
+  )..layout(maxWidth: maxWidth);
+  final height = painter.height;
+  painter.dispose();
+  return height;
 }
 
 /// Adjacent-pair ≥4px seam assertions shared by the issue-88 wrap tests.

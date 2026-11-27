@@ -12,9 +12,11 @@ import 'package:murdoku/ui/widgets/avatar.dart';
 const Key suspectsPanelHeaderKey = Key('suspects_panel_header');
 
 /// The narrow grid's geometry shared by the row-height math and the
-/// layout-time pinned split (issue 39): 3 columns, 4px padding on the grid
-/// edges, 4px gutters between tiles.
+/// layout-time pinned split (issue 39): 3 columns on phones (2 in the
+/// landscape game screen, issue 103), 4px padding on the grid edges, 4px
+/// gutters between tiles.
 const int _gridColumns = 3;
+const int _landscapeGridColumns = 2;
 const double _gridHPad = 4.0;
 const double _gridSpacing = 4.0;
 
@@ -171,12 +173,20 @@ class SuspectPanel extends StatelessWidget {
     required this.placed,
     required this.selectedSuspectId,
     required this.onSuspectTap,
+    this.showHeader = true,
   });
 
   final CaseData caseData;
   final Map<String, Pos> placed;
   final String? selectedSuspectId;
   final void Function(String) onSuspectTap;
+
+  /// False only from the landscape game screen's wide branch (issue 103):
+  /// the «Подозреваемые»/"Suspects" header row disappears, the grid lays
+  /// out 2 columns of content-height cards, and the grid fills the whole
+  /// panel. Every other host keeps the default true (header + 3-column
+  /// phone grid).
+  final bool showHeader;
 
   @override
   Widget build(BuildContext context) {
@@ -198,16 +208,7 @@ class SuspectPanel extends StatelessWidget {
         // below (see _assertHostWidthIsFinite).
         _assertHostWidthIsFinite(constraints);
         if (constraints.maxWidth >= 600) {
-          // Wide column of cards: each card sizes itself to its content
-          // instead of a pinned 150px height, so longer clue text (or large
-          // text scale) never clips (UX-9). The header (issue 27) rides the
-          // top of the list.
-          return ListView(
-            children: [
-              const _SuspectsHeader(),
-              for (final card in cards) IntrinsicHeight(child: card),
-            ],
-          );
+          return _wideColumn(cards);
         }
         return _narrowColumn(
           context,
@@ -221,6 +222,27 @@ class SuspectPanel extends StatelessWidget {
       },
     );
   }
+
+  /// The panel's wide (≥600px) branch: a vertical list of cards, each sizing
+  /// itself to its content instead of a pinned 150px height, so longer clue
+  /// text (or large text scale) never clips (UX-9). The header (issue 27)
+  /// rides the top of the list — unless the landscape game screen dropped it
+  /// (issue 103).
+  Widget _wideColumn(List<_SuspectCard> cards) => ListView(
+    children: [
+      if (showHeader) const _SuspectsHeader(),
+      for (final card in cards) IntrinsicHeight(child: card),
+    ],
+  );
+
+  /// The narrow branch's grid column count: 3 on phones, 2 in the landscape
+  /// game screen's header-less host (issue 103).
+  int get _narrowColumns => showHeader ? _gridColumns : _landscapeGridColumns;
+
+  /// The header row above the narrow grid — an empty list in the landscape
+  /// game screen's header-less host (issue 103).
+  List<Widget> get _headerRow =>
+      showHeader ? [const _SuspectsHeader()] : const <Widget>[];
 
   /// Clue sentences grouped per suspect, in clue order.
   Map<String, List<String>> _clueTextsBySuspect(
@@ -260,7 +282,10 @@ class SuspectPanel extends StatelessWidget {
   /// The narrow (below 600px) layout: header above the 3-column grid; the
   /// grid fills the pinned slot below the header, clamps to the space under
   /// the header when the host bounds the height, or shrink-wraps its grown
-  /// rows otherwise (issue 39).
+  /// rows otherwise (issue 39). The landscape game screen hosts this branch
+  /// header-less ([showHeader] false, issue 103): 2 columns of pure
+  /// content-height rows, the grid filling the whole panel — the issue-39
+  /// pinned split and issue-58 slot rule carry over with the new numbers.
   Widget _narrowColumn(
     BuildContext context,
     BoxConstraints constraints,
@@ -270,11 +295,10 @@ class SuspectPanel extends StatelessWidget {
     double cardBorderWidth,
     SkinTokens? skin,
   ) {
+    final columns = _narrowColumns;
     final cardWidth =
-        (constraints.maxWidth -
-            2 * _gridHPad -
-            (_gridColumns - 1) * _gridSpacing) /
-        _gridColumns;
+        (constraints.maxWidth - 2 * _gridHPad - (columns - 1) * _gridSpacing) /
+        columns;
     final grownRowHeight = _narrowRowHeight(
       context,
       constraints,
@@ -283,6 +307,7 @@ class SuspectPanel extends StatelessWidget {
       names,
       cardBorderWidth,
       skin?.chip,
+      showHeader: showHeader,
     );
     // Grid children, their real row count, and their ideal shrink-wrapped
     // height at the grown row height above: padding on both edges, every
@@ -290,19 +315,19 @@ class SuspectPanel extends StatelessWidget {
     // detection, now shared by the pinned branch's overflow check via the
     // layout-time slot compare — issue 39). The row count is the real grid
     // children's (issue 39). The decorative empty slot joins only when the
-    // last row has a spare cell to fill: 5 suspects lay out 2 rows with the
+    // last row has a spare cell: 5 suspects lay out 2 rows with the
     // slot in the sixth cell, 6 suspects lay out 2 full rows — appending the
     // slot to a full last row would open a lone decorative row that owns the
     // scroll end and clip the last suspect row at max scroll (issue 58).
-    final children = caseData.suspects.length % _gridColumns != 0
+    final children = caseData.suspects.length % columns != 0
         ? [...cards, const _EmptySlot()]
         : cards;
-    final rows = (children.length / _gridColumns).ceil();
+    final rows = (children.length / columns).ceil();
     final gridContentHeight =
         2 * _gridHPad + rows * grownRowHeight + (rows - 1) * _gridSpacing;
     GridView buildGrid({required bool scrollable, required double rowHeight}) =>
         GridView.count(
-          crossAxisCount: _gridColumns,
+          crossAxisCount: columns,
           shrinkWrap: true,
           physics: _gridPhysics(scrollable: scrollable),
           childAspectRatio: cardWidth / rowHeight,
@@ -317,7 +342,7 @@ class SuspectPanel extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: pinned ? MainAxisSize.max : MainAxisSize.min,
       children: [
-        const _SuspectsHeader(),
+        ..._headerRow,
         _gridChild(
           pinned: pinned,
           bounded: bounded,
@@ -335,7 +360,9 @@ class SuspectPanel extends StatelessWidget {
   /// clue text (UX-9). The pinned host resolves the final tile height
   /// against the post-header slot at layout time (issue 39): this grown
   /// height is what the pinned grid scrolls to when the slot cannot show
-  /// every row.
+  /// every row. The landscape grid (issue 103) drops the square-ish
+  /// `cardWidth / 1.05` floor — its wide cards would stretch to ~268px tall
+  /// — so its rows are pure content height.
   double _narrowRowHeight(
     BuildContext context,
     BoxConstraints constraints,
@@ -343,12 +370,13 @@ class SuspectPanel extends StatelessWidget {
     Map<String, List<String>> clueTexts,
     NameForms names,
     double cardBorderWidth,
-    SkinChip? chip,
-  ) {
-    final rowHeight = cardWidth / 1.05;
+    SkinChip? chip, {
+    required bool showHeader,
+  }) {
+    final floorHeight = showHeader ? cardWidth / 1.05 : 0.0;
     if (constraints.maxWidth.isFinite) {
       return math.max(
-        rowHeight,
+        floorHeight,
         _contentRowHeight(
           context,
           cardWidth,
@@ -359,7 +387,7 @@ class SuspectPanel extends StatelessWidget {
         ),
       );
     }
-    return rowHeight;
+    return floorHeight;
   }
 
   /// Scroll physics for the suspect grid (issues 30/39): when the grown row
