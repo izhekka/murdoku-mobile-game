@@ -208,23 +208,30 @@ class _Scan {
 /// painted over is an uncovered gap (the artifact class issue 83 forbids).
 const Color _canary = Color(0xFFB400DC);
 
-/// The A/B variants of the wrapping tile's inner corner (issue 91): the
-/// pre-#90 square corner (tint over the junction pocket; main `aef0cac`)
-/// and the #90 quadratic K-round (commits `333868b`/`a832cc0`: the mortar
-/// spike). The fix leg renders through the real `SkinRoomPainter`.
-enum _TileVariant { square, spikeK }
+/// The A/B variants of the wrapping tile's inner corner (issues 91/94): the
+/// pre-#90 square corner (tint over the junction pocket; main `aef0cac`),
+/// the #90 bare k-recess (commits `333868b`/`a832cc0`: the mortar spike),
+/// and #91's square pocket L-step (main `6303b25` until today). The fix leg
+/// renders through the real `SkinRoomPainter`.
+enum _TileVariant { square, spikeK, lStep }
 
 /// Renders the wrapCorner fixture's fill layer through a test-local
-/// reconstruction where the corner emission of the wrapping cell (1, 1)
-/// follows [variant]'s shape. Fidelity is scoped to the A/B's probed pixels:
-/// every assertion reads at vertex (1, 1) — the fixture's second rounding
-/// corner (cell (0, 2)'s SE at vertex (3, 1)) is NOT reconstructed and NOT
-/// probed. A/B differential evidence for issue 91; not a correctness gate
+/// reconstruction where the corner emission of the wrapping cell (1, 1)'s
+/// NW corner follows [variant]'s shape; [withStrokes] composes the #82
+/// wall stroke overpass after the tiles (the live stack). Fidelity is
+/// scoped to the A/B's probed pixels — under the unchanged predicate the
+/// fixture rounds THREE corners: cell (1, 1)'s NW at vertex (1, 1) (the
+/// one reconstructed), cell (1, 1)'s SE at vertex (2, 2) and cell
+/// (0, 2)'s SE at vertex (1, 3); the latter two are NOT reconstructed
+/// (their legs render the plain rect) and the A/B does NOT probe them —
+/// the painter-level probes and the (2, 2) mirrored probe cover them.
+/// A/B differential evidence for issues 91/94; not a correctness gate
 /// (the painter's own probes are).
 Future<_Scan> _renderSpikedVariant(
   SkinTokens tokens,
-  _TileVariant variant,
-) async {
+  _TileVariant variant, {
+  required bool withStrokes,
+}) async {
   final (g, rooms) = _fixtures['wrapCorner']!;
   final side = g * _cell;
   final s = _scaleFor(tokens);
@@ -279,6 +286,16 @@ Future<_Scan> _renderSpikedVariant(
     fill.color = tokens.roomTints[index % tokens.roomTints.length];
     canvas.drawPath(path, fill);
   }
+  if (withStrokes) {
+    SkinRoomWallPainter(
+      rooms: rooms,
+      gridSize: g,
+      cellSize: _cell,
+      mortarColor: tokens.mortarColor,
+      lineWidth: tokens.roomLineWidth,
+      radius: tokens.roomRadius,
+    ).paint(canvas, ui.Size(side, side));
+  }
   final image = await recorder.endRecording().toImage(n, n);
   final bytes = (await image.toByteData())!.buffer.asUint8List();
   image.dispose();
@@ -310,6 +327,19 @@ Path _variantCornerPath(
   switch (variant) {
     case _TileVariant.square:
       return path..addRect(ui.Rect.fromLTRB(left, top, right, bottom));
+    case _TileVariant.lStep:
+      // #91's pocket L-step (main 6303b25 until today): recess exactly
+      // lineWidth/2 and join through the point recessed on both edges.
+      final o = tokens.roomLineWidth / 2;
+      return path
+        ..moveTo(left + o, top)
+        ..lineTo(right, top)
+        ..lineTo(right, bottom)
+        ..lineTo(left, bottom)
+        ..lineTo(left, top + o)
+        ..lineTo(left + o, top + o)
+        ..lineTo(left + o, top)
+        ..close();
     case _TileVariant.spikeK:
       final k = math.min(tokens.roomRadius, _cell / 2);
       path
@@ -663,14 +693,34 @@ void _assertVictimEdgeMortar(
   }
 }
 
-/// The issue 91 pocket-recess probe at the wrapCorner vertex: the wrapper
+/// The issue 94 mirror-ribbon arc: the wrapper tile's recessed-corner
+/// quadratic in the corner's local frame (tile at (+x, +y) of the corner):
+/// from `(tail, 0)` on one seam to `(0, tail)` on the other, with control
+/// `(recess, recess)` (the pocket's inner corner), h = lineWidth/2,
+/// K = min(radius, cellSize/2), tail = h + K. Given a depth [d] past the
+/// probed edge's corner (along the other edge), returns the resumption
+/// offset along the probed edge — where tile resumes (x when walking rows
+/// dy = d past the seam) — plus the curve parameter u ∈ [0, 1].
+(double, double) _ribbonArc(SkinTokens tokens, double d) {
+  final h = tokens.roomLineWidth / 2;
+  final k = math.min(tokens.roomRadius, _cell / 2);
+  final tail = h + k;
+  final a = k - h;
+  final u = a <= 0
+      ? d / (2 * h)
+      : (math.sqrt(4 * h * h + 4 * a * d) - 2 * h) / (2 * a);
+  final x = tail * (1 - u) * (1 - u) + 2 * h * u * (1 - u);
+  return (x, u);
+}
+
+/// The issue 94 arc-bounded probe at the wrapCorner vertex: the wrapper
 /// corner cell sits SE of [vertex] with its N and W sides same-room (zero
-/// insets). Recessed exactly to the junction pocket (lineWidth/2), the tile
-/// covers every pixel from the pocket edge outward and none inside it: the
-/// half×half device quarter at the vertex is mortar, and tint resumes within
-/// the first device pixel past the pocket edge on both seam rays — no spike
-/// or horn on either same-room butt seam.
-void _assertPocketRecess(
+/// insets). The pocket quarter at the vertex stays exactly mortar, and
+/// along each of the two zero-inset seams the tile resumes ON the
+/// mirror-ribbon arc — mortar up to the arc's resumption, tint beyond, at
+/// every probe depth (no straight-edged L-step edge, no #90 spike whose
+/// bare k-recess resumes on the pointed `k(1-√(dy/k))²` wedge instead).
+void _assertPocketArcRecess(
   _Scan scan, {
   required Pos vertex,
   required SkinTokens tokens,
@@ -680,6 +730,9 @@ void _assertPocketRecess(
   final cx = (vertex.col * _cell * scan.s).round();
   final cy = (vertex.row * _cell * scan.s).round();
   final mortar = tokens.mortarColor.toARGB32();
+  final tail =
+      tokens.roomLineWidth / 2 + math.min(tokens.roomRadius, _cell / 2);
+  // The junction pocket's near quarter stays mortar (issue 91/94).
   for (var dy = 0; dy < half; dy++) {
     for (var dx = 0; dx < half; dx++) {
       expect(
@@ -688,43 +741,143 @@ void _assertPocketRecess(
         reason: 'pocket quarter pixel (+$dx, +$dy) is not mortar',
       );
     }
+  }
+  // North seam: rows dy past the seam. The arc is steep at the seam tail,
+  // sweeping several device px within a row, so each leg uses a
+  // directional margin: the boundary inside a row lies between its
+  // bottom-resumption (smaller) and top-resumption (larger).
+  for (var dy = 0; dy < tail * scan.s; dy++) {
+    final (xTop, _) = _ribbonArc(tokens, dy / scan.s);
+    final (xBottom, _) = _ribbonArc(tokens, (dy + 1) / scan.s);
+    final bTop = (xTop * scan.s).round();
+    final bBottom = (xBottom * scan.s).round();
+    if (bBottom >= 3) {
+      expect(
+        _pixelAt(scan, cx + bBottom - 2, cy + dy),
+        mortar,
+        reason:
+            'north-seam mortar does not reach the arc at depth +$dy '
+            '(resumption must follow the ribbon arc, not a straight '
+            'L-step edge or the bare k-recess wedge)',
+      );
+    }
     expect(
-      _pixelAt(scan, cx + half, cy + dy),
+      _pixelAt(scan, cx + bTop + 2, cy + dy),
       wrapperTint,
       reason:
-          'no tint at the pocket edge on the north seam at depth +$dy '
-          '— the corner spike',
-    );
-    expect(
-      _pixelAt(scan, cx + half + 1, cy + dy),
-      wrapperTint,
-      reason:
-          'no tint 1 px past the pocket edge on the north seam at depth '
-          '+$dy — the corner spike',
-    );
-    expect(
-      _pixelAt(scan, cx + dy, cy + half),
-      wrapperTint,
-      reason:
-          'no tint at the pocket edge on the west seam at depth +$dy '
-          '— the corner spike',
-    );
-    expect(
-      _pixelAt(scan, cx + dy, cy + half + 1),
-      wrapperTint,
-      reason:
-          'no tint 1 px past the pocket edge on the west seam at depth '
-          '+$dy — the corner spike',
+          'no tint at the arc resumption on the north seam at depth '
+          '+$dy — the recess must be bounded by the ribbon arc',
     );
   }
-  // The inner corner of the pocket: the tile resumes past it too.
-  expect(
-    _pixelAt(scan, cx + half + 1, cy + half + 1),
-    wrapperTint,
-    reason:
-        'no tint past the pocket inner corner — the corner spike '
-        'reaches the tile beyond the designed recess',
-  );
+  // West seam: columns dx past the seam — symmetric (the boundary's y
+  // within a column lies between the right-edge (smaller) and left-edge
+  // (larger) resumptions).
+  for (var dx = 0; dx < tail * scan.s; dx++) {
+    final (yLeft, _) = _ribbonArc(tokens, dx / scan.s);
+    final (yRight, _) = _ribbonArc(tokens, (dx + 1) / scan.s);
+    final bTop = (yLeft * scan.s).round();
+    final bBottom = (yRight * scan.s).round();
+    if (bBottom >= 3) {
+      expect(
+        _pixelAt(scan, cx + dx, cy + bBottom - 2),
+        mortar,
+        reason:
+            'west-seam mortar does not reach the arc at depth +$dx '
+            '(resumption must follow the ribbon arc, not a straight '
+            'L-step edge or the bare k-recess wedge)',
+      );
+    }
+    expect(
+      _pixelAt(scan, cx + dx, cy + bTop + 2),
+      wrapperTint,
+      reason:
+          'no tint at the arc resumption on the west seam at depth '
+          '+$dx — the recess must be bounded by the ribbon arc',
+    );
+  }
+}
+
+/// The mirrored twin of [_assertPocketArcRecess] for a wrapper corner cell
+/// sitting NW of [vertex] (its SE corner rounds — wrapCorner's cell
+/// (1, 1) at vertex (2, 2), issue 94 AC "at every wrapper junction"): the
+/// pocket quarter NW of the vertex stays mortar, and along the cell's two
+/// zero-inset seams (S and E) the tile resumes on the mirror-ribbon arc —
+/// mortar (the lens, between the arc and the vertex) to the arc's
+/// east/north-most boundary, tint beyond (west/south of it), at every
+/// probe depth. Directional row/col margins as in the SE probe.
+void _assertPocketArcRecessNW(
+  _Scan scan, {
+  required Pos vertex,
+  required SkinTokens tokens,
+  required int wrapperTint,
+}) {
+  final half = (tokens.roomLineWidth * scan.s / 2).round();
+  final cx = (vertex.col * _cell * scan.s).round();
+  final cy = (vertex.row * _cell * scan.s).round();
+  final mortar = tokens.mortarColor.toARGB32();
+  final tail =
+      tokens.roomLineWidth / 2 + math.min(tokens.roomRadius, _cell / 2);
+  // The junction pocket's near (NW) quarter stays mortar (issues 91/94).
+  for (var dy = 0; dy < half; dy++) {
+    for (var dx = 0; dx < half; dx++) {
+      expect(
+        _pixelAt(scan, cx - dx, cy - dy),
+        mortar,
+        reason: 'pocket quarter pixel (-$dx, -$dy) is not mortar',
+      );
+    }
+  }
+  // S seam: device rows dy INSIDE the lens (rows [cy-1-dy, cy-dy), the
+  // first row north of the seam). The arc is steep at the S tail, so each
+  // leg keeps a directional margin: within a row the boundary lies
+  // between its north-edge resumption (x = cx - near, east-most) and its
+  // south-edge resumption (x = cx - far, west-most).
+  for (var dy = 0; dy < tail * scan.s; dy++) {
+    final (xFar, _) = _ribbonArc(tokens, dy / scan.s);
+    final (xNear, _) = _ribbonArc(tokens, (dy + 1) / scan.s);
+    final bFar = (xFar * scan.s).round();
+    final bNear = (xNear * scan.s).round();
+    if (bNear >= 3) {
+      expect(
+        _pixelAt(scan, cx - bNear + 2, cy - 1 - dy),
+        mortar,
+        reason:
+            'south-seam lens mortar does not reach the arc at depth '
+            '-$dy (resumption must follow the ribbon arc)',
+      );
+    }
+    expect(
+      _pixelAt(scan, cx - bFar - 2, cy - 1 - dy),
+      wrapperTint,
+      reason:
+          'no tint west of the arc resumption on the south seam at '
+          'depth -$dy — the recess must be bounded by the ribbon arc',
+    );
+  }
+  // E seam: device columns dx inside the lens (columns [cx-1-dx, cx-dx),
+  // the first column west of the seam) — symmetric.
+  for (var dx = 0; dx < tail * scan.s; dx++) {
+    final (yFar, _) = _ribbonArc(tokens, dx / scan.s);
+    final (yNear, _) = _ribbonArc(tokens, (dx + 1) / scan.s);
+    final bFar = (yFar * scan.s).round();
+    final bNear = (yNear * scan.s).round();
+    if (bNear >= 3) {
+      expect(
+        _pixelAt(scan, cx - 1 - dx, cy - bNear + 2),
+        mortar,
+        reason:
+            'east-seam lens mortar does not reach the arc at depth '
+            '-$dx (resumption must follow the ribbon arc)',
+      );
+    }
+    expect(
+      _pixelAt(scan, cx - 1 - dx, cy - bFar - 2),
+      wrapperTint,
+      reason:
+          'no tint north of the arc resumption on the east seam at '
+          'depth -$dx — the recess must be bounded by the ribbon arc',
+    );
+  }
 }
 
 void main() {
@@ -961,14 +1114,24 @@ void main() {
           // The donut renders through the legacy per-cell fallback whose
           // anti-aliased arcs blend allowed colors (tint↔mortar↔tint); the
           // blend classifier accepts exactly those 8-bit lerp pairs, never
-          // the page. Every traced-room fixture — donut is the only
-          // legacy-fallback board — keeps tile edges axis-aligned on
-          // integer device pixels (issue 91 pocketed the wrapper corners,
-          // removing their quadratic arcs), so it stays strictly exact.
+          // the page. Since issue 94 three fixtures also carry the
+          // wrapper-junction ribbon arcs — verified per predicate:
+          // lCrook's cell (1, 0) NE (N and E sides same-room with
+          // (0, 0) / (1, 1); diagonal (0, 1) is the filler room),
+          // wrapCorner's (1, 1) NW and ring's (0, 0) SE — whose quadratic
+          // AA blends the same two-color pairs (lCrook's arc tail AA sits
+          // at pixel row 160, x = 113, exactly its edge-a tail); every
+          // other traced-room fixture keeps tile edges axis-aligned on
+          // integer device pixels and stays strictly exact.
           _assertClosedWorld(
             scan,
             tokens,
-            strict: !const {'donut'}.contains(entry.key),
+            strict: !const {
+              'donut',
+              'wrapCorner',
+              'ring',
+              'lCrook',
+            }.contains(entry.key),
           );
         }
       }
@@ -1440,11 +1603,14 @@ void main() {
           // wrapper's inner corner once the tile recesses; the same rule
           // covers the older three-quadrant wrapper junctures.
           _assertJunctionMortar(scan, _p(1, 1), tokens);
-          // The corner silhouette (issue 91): the recess is exactly the
-          // pocket — along the SE diagonal into the wrapper's inner corner,
-          // no tint sits inside the pocket square and the tile resumes at
-          // the pocket's inner corner. The K-scale step class poked from
-          // the first pre-pocket pixel on (the pre-#90 battlement).
+          // The corner silhouette (issue 94): the recess is the
+          // mockup-A lens — along the SE diagonal into the wrapper's inner
+          // corner, no tint sits inside the pocket square, the pocket's
+          // inner corner itself stays inside the mortar lens, and the tile
+          // resumes beyond the ribbon arc's diagonal reach
+          // (0.75·half + 0.25·K from the vertex). The K-scale step class
+          // poked from the first pre-pocket pixel on (the pre-#90
+          // battlement).
           final half = (tokens.roomLineWidth * scan.s / 2).round();
           final cx = (1 * _cell * scan.s).round();
           final cy = (1 * _cell * scan.s).round();
@@ -1461,10 +1627,19 @@ void main() {
           }
           expect(
             _pixelAt(scan, cx + half, cy + half),
-            wrapperTint,
+            isNot(anyOf(wrapperTint, cornerTint)),
             reason:
-                'the tile resumes exactly at the pocket inner corner '
-                '(issue 91)',
+                'the pocket inner corner stays inside the mortar lens '
+                '(issue 94)',
+          );
+          final diag =
+              (0.75 * tokens.roomLineWidth / 2 +
+                  0.25 * math.min(tokens.roomRadius, _cell / 2)) *
+              scan.s;
+          expect(
+            _pixelAt(scan, cx + diag.round() + 2, cy + diag.round() + 2),
+            wrapperTint,
+            reason: 'tile resumes beyond the ribbon arc diagonal (issue 94)',
           );
         }
         // And lCrook + ring hold the same wrapper-junction squares.
@@ -1483,8 +1658,8 @@ void main() {
     });
   });
 
-  testWidgets('scan: wrapper junction recesses exactly to the pocket, four '
-      'exits clean on all skins (issue 91)', (tester) async {
+  testWidgets('scan: wrapper junction recesses to the ribbon arc, four '
+      'exits clean on all skins (issue 91, arc form 94)', (tester) async {
     await tester.runAsync(() async {
       for (final tokens in allSkins) {
         final (g, rooms) = _fixtures['wrapCorner']!;
@@ -1506,9 +1681,9 @@ void main() {
           // The designed pocket stays exactly mortar (the unchanged #83
           // junction-square rule at the wrapper junction).
           _assertJunctionMortar(scan, _p(1, 1), tokens);
-          // The seam exits: tint at and past the pocket edge on both
-          // same-room butt seams at every depth (no spike, issue 91).
-          _assertPocketRecess(
+          // The seam arcs: the tile resumes on the ribbon arc on both
+          // same-room butt seams at every depth (no L-step edge, no spike).
+          _assertPocketArcRecess(
             scan,
             vertex: _p(1, 1),
             tokens: tokens,
@@ -1544,73 +1719,247 @@ void main() {
     });
   });
 
-  testWidgets('scan A/B: square corner (aef0cac), K spike (333868b/a832cc0), '
-      'pocket recess (fix) at the wrapCorner junction (issue 91)', (
-    tester,
-  ) async {
+  testWidgets('scan: the wrapper ribbon arc bounds the pocket recess, four '
+      'exits clean, fill + composite, on all skins (issue 94)', (tester) async {
     await tester.runAsync(() async {
       for (final tokens in allSkins) {
         final (g, rooms) = _fixtures['wrapCorner']!;
         final wrapperTint = _tintAt(tokens, rooms, _p(1, 1));
-        final mortar = tokens.mortarColor.toARGB32();
-        final square = await _renderSpikedVariant(tokens, _TileVariant.square);
-        final spike = await _renderSpikedVariant(tokens, _TileVariant.spikeK);
-        final fix = await _render(
+        for (final withStrokes in [false, true]) {
+          final scan = await _render(
+            tokens: tokens,
+            g: g,
+            rooms: rooms,
+            seed: null,
+            withStrokes: withStrokes,
+          );
+          // The junction square (±lineWidth/2) stays exactly mortar on the
+          // arc form too (the unchanged #83 rule, issue 94) — at both of
+          // the fixture's wrapper junctions.
+          _assertJunctionMortar(scan, _p(1, 1), tokens);
+          _assertJunctionMortar(scan, _p(2, 2), tokens);
+          // The two seam exits: mortar to the ribbon arc, tint beyond, at
+          // every probe depth; the two boundary-edge exits keep the
+          // designed wall widths (asserted below on the fill layer, the
+          // layer the #83 battery measures widths on).
+          _assertPocketArcRecess(
+            scan,
+            vertex: _p(1, 1),
+            tokens: tokens,
+            wrapperTint: wrapperTint,
+          );
+          // The mirrored wrapper junction (cell (1, 1)'s SE at vertex
+          // (2, 2)): the same seam-exit arc probes from the NW side
+          // (issue 94 AC: at every wrapper junction).
+          _assertPocketArcRecessNW(
+            scan,
+            vertex: _p(2, 2),
+            tokens: tokens,
+            wrapperTint: wrapperTint,
+          );
+        }
+        final fillOnly = await _render(
           tokens: tokens,
           g: g,
           rooms: rooms,
           seed: null,
         );
-        expect(square.n, spike.n, reason: 'same raster per variant');
-        expect(square.n, fix.n);
-        final s = _scaleFor(tokens);
-        final cx = (1 * _cell * s).round();
-        final cy = (1 * _cell * s).round();
-        final half = (tokens.roomLineWidth * s / 2).round();
-        // Pre-#90 (square corner): no pocket at all — wrapper tint sits
-        // over the junction (the aef0cac defect class; absent from the fix
-        // and from the spike variant, which both keep the pocket mortar).
-        expect(
-          _pixelAt(square, cx + 1, cy + 1),
-          wrapperTint,
-          reason: 'the square corner fills the junction pocket (aef0cac)',
-        );
-        // The K spike (333868b/a832cc0): the pocket exists, and recessing
-        // the tile corner by k (sticker/comic 10, candy 14) leaves mortar
-        // ≥ 2 device px beyond the pocket edge on both same-room seams —
-        // the owner's thorn, reproduced.
-        expect(
-          _pixelAt(spike, cx + 1, cy + 1),
-          mortar,
-          reason: 'the K spike keeps the pocket',
-        );
-        expect(
-          _pixelAt(spike, cx + half + 2, cy + 1),
-          mortar,
-          reason:
-              'the K spike: mortar beyond the pocket edge on the '
-              'north seam',
-        );
-        expect(
-          _pixelAt(spike, cx + 1, cy + half + 2),
-          mortar,
-          reason:
-              'the K spike: mortar beyond the pocket edge on the '
-              'west seam',
-        );
-        // The fix (the real painter): the pocket only — mortar inside,
-        // tint resuming at the pocket edge, no spike, no battlement.
-        expect(
-          _pixelAt(fix, cx + 1, cy + 1),
-          mortar,
-          reason: 'the fix keeps the designed pocket mortar',
-        );
-        _assertPocketRecess(
-          fix,
-          vertex: _p(1, 1),
+        final half = (tokens.roomLineWidth * fillOnly.s / 2).round();
+        final cx = (1 * _cell * fillOnly.s).round();
+        final cy = (1 * _cell * fillOnly.s).round();
+        _assertMortarRun(
+          fillOnly,
+          alongX: true,
+          center: Offset(cx.toDouble(), (cy - half - 1).toDouble()),
           tokens: tokens,
-          wrapperTint: wrapperTint,
+          tintA: _tintAt(tokens, rooms, _p(0, 0)),
+          tintB: _tintAt(tokens, rooms, _p(0, 1)),
         );
+        _assertMortarRun(
+          fillOnly,
+          alongX: false,
+          center: Offset((cx - half - 1).toDouble(), cy.toDouble()),
+          tokens: tokens,
+          tintA: _tintAt(tokens, rooms, _p(0, 0)),
+          tintB: _tintAt(tokens, rooms, _p(1, 0)),
+        );
+      }
+    });
+  });
+
+  testWidgets('scan A/B: square (aef0cac), K spike (333868b/a832cc0), L-step '
+      '(6303b25), ribbon arc (fix) at the wrapCorner junction, fill + '
+      'composite (issues 91/94)', (tester) async {
+    await tester.runAsync(() async {
+      for (final tokens in allSkins) {
+        final (g, rooms) = _fixtures['wrapCorner']!;
+        final wrapperTint = _tintAt(tokens, rooms, _p(1, 1));
+        final mortar = tokens.mortarColor.toARGB32();
+        final h = tokens.roomLineWidth / 2;
+        final k = math.min(tokens.roomRadius, _cell / 2);
+        // The bare k-recess's seam resumption (the #90 spike shape: control
+        // at the raw corner, tails at K): x(d) = k(1-√(d/k))², so the fix
+        // and L-step legs can be pinned against it per skin.
+        double spikeResumption(double d) {
+          final u = 1 - math.sqrt(math.min(1, d / k));
+          return k * u * u;
+        }
+
+        for (final withStrokes in [false, true]) {
+          final square = await _renderSpikedVariant(
+            tokens,
+            _TileVariant.square,
+            withStrokes: withStrokes,
+          );
+          final spike = await _renderSpikedVariant(
+            tokens,
+            _TileVariant.spikeK,
+            withStrokes: withStrokes,
+          );
+          final lStep = await _renderSpikedVariant(
+            tokens,
+            _TileVariant.lStep,
+            withStrokes: withStrokes,
+          );
+          final fix = await _render(
+            tokens: tokens,
+            g: g,
+            rooms: rooms,
+            seed: null,
+            withStrokes: withStrokes,
+          );
+          expect(
+            {square.n, spike.n, lStep.n, fix.n}.length,
+            1,
+            reason: 'same raster per leg',
+          );
+          final s = _scaleFor(tokens);
+          final cx = (1 * _cell * s).round();
+          final cy = (1 * _cell * s).round();
+          final half = (tokens.roomLineWidth * s / 2).round();
+          // Pre-#90 (square corner): no pocket at all — wrapper tint sits
+          // over the junction (the aef0cac defect class; absent from the
+          // three recessed states, which all keep the pocket mortar).
+          expect(
+            _pixelAt(square, cx + 1, cy + 1),
+            wrapperTint,
+            reason: 'the square corner fills the junction pocket (aef0cac)',
+          );
+          expect(
+            _pixelAt(spike, cx + 1, cy + 1),
+            mortar,
+            reason: 'the K spike keeps the pocket',
+          );
+          expect(
+            _pixelAt(lStep, cx + 1, cy + 1),
+            mortar,
+            reason: 'the L step keeps the pocket',
+          );
+          expect(
+            _pixelAt(fix, cx + 1, cy + 1),
+            mortar,
+            reason: 'the ribbon arc keeps the pocket',
+          );
+          // The spike's thorn: the bare k-recess leaves mortar beyond the
+          // pocket edge (the owner's thorn, 23px sticker / 14-15px
+          // comic-candy class) — reproduced on both same-room seams.
+          expect(
+            _pixelAt(spike, cx + half + 2, cy + 1),
+            mortar,
+            reason:
+                'the K spike: mortar beyond the pocket edge on the '
+                'north seam',
+          );
+          expect(
+            _pixelAt(spike, cx + 1, cy + half + 2),
+            mortar,
+            reason:
+                'the K spike: mortar beyond the pocket edge on the '
+                'west seam',
+          );
+          // The L-step leg reproduces today's square step: tint resuming
+          // at the pocket edge on the seam rows, square-cornered through
+          // the pocket's inner corner.
+          expect(
+            _pixelAt(lStep, cx + half + 2, cy + 1),
+            wrapperTint,
+            reason:
+                'the L step resumes at the pocket edge (the square '
+                'step the fix removes)',
+          );
+          expect(
+            _pixelAt(lStep, cx + half, cy + half),
+            wrapperTint,
+            reason: 'the L step covers from the pocket inner corner',
+          );
+          // The fix (the real painter): mortar through the pocket's inner
+          // corner (inside the lens)...
+          expect(
+            _pixelAt(fix, cx + half, cy + half),
+            mortar,
+            reason: 'the ribbon lens covers the pocket inner corner',
+          );
+          // ...and pairwise distinguished from both other states at
+          // pinned midpoints of their resumptions (self-derived per skin):
+          // (a) ribbon vs L-step at dy = 3 device px — the ribbon still
+          //     mortar where the L step already resumed.
+          final (ribbonX3, _) = _ribbonArc(tokens, 3 / s);
+          final dxRibbonL = ((h + ribbonX3) / 2 * s).round();
+          expect(
+            _pixelAt(fix, cx + dxRibbonL, cy + 3),
+            mortar,
+            reason:
+                'the ribbon arc keeps mortar at dx=$dxRibbonL (mid of '
+                '${h.toStringAsFixed(2)} and ${ribbonX3.toStringAsFixed(2)} '
+                'at dy=3) where the L step resumed',
+          );
+          expect(
+            _pixelAt(lStep, cx + dxRibbonL, cy + 3),
+            wrapperTint,
+            reason: 'the L step resumed at the pocket edge',
+          );
+          // (b) ribbon vs spike at dy = half + 1 device px — the midpoint
+          //     of (spike resumption, ribbon resumption).
+          final (ribbonXH, _) = _ribbonArc(tokens, (half + 1) / s);
+          final spikeMidX = spikeResumption((half + 1) / s);
+          final dxRibbonS = ((spikeMidX + ribbonXH) / 2 * s).round();
+          expect(
+            _pixelAt(fix, cx + dxRibbonS, cy + half + 1),
+            mortar,
+            reason:
+                'the ribbon arc keeps mortar at dx=$dxRibbonS (mid of '
+                '${spikeMidX.toStringAsFixed(2)} and '
+                '${ribbonXH.toStringAsFixed(2)} at dy=${half + 1}) where '
+                'the spike resumed',
+          );
+          expect(
+            _pixelAt(spike, cx + dxRibbonS, cy + half + 1),
+            wrapperTint,
+            reason: 'the bare k-recess resumed on its pointed k(1-√)² wedge',
+          );
+          // (c) spike vs L-step at dy = 2 device px — the midpoint of
+          //     (pocket edge, spike resumption).
+          final dxSpikeL = ((h + spikeResumption(2 / s)) / 2 * s).round();
+          expect(
+            _pixelAt(spike, cx + dxSpikeL, cy + 2),
+            mortar,
+            reason:
+                'the spike still mortar near the seam where the L '
+                'step resumed',
+          );
+          expect(
+            _pixelAt(lStep, cx + dxSpikeL, cy + 2),
+            wrapperTint,
+            reason: 'the L step resumed at the pocket edge',
+          );
+          // The fix leg passes the four-exit arc probe on this layer.
+          _assertPocketArcRecess(
+            fix,
+            vertex: _p(1, 1),
+            tokens: tokens,
+            wrapperTint: wrapperTint,
+          );
+        }
       }
     });
   });

@@ -1067,12 +1067,15 @@ class SkinRoomPainter extends CustomPainter {
   /// inside the union fill: same-color rects meet exactly, with no
   /// fractional AA fringe across a room in the live app, and the band edges
   /// sit exactly on their insets. A tile corner at a wrapper junction
-  /// recesses exactly the junction pocket, `lineWidth / 2` (issue 91): the
-  /// vacated quarter is the pocket itself — within it the mortar plate
-  /// shows, beyond it the tile resumes flush along both same-room seams. A
-  /// deeper (K-scale) recess vacates tile along the seams where no stroke
-  /// runs and carves mortar spikes; the visible rounded corner is the wall
-  /// stroke's own K-arc above the tiles (issue 90).
+  /// recesses with the stroke's K-rounding family (issue 94, owner-approved
+  /// mockup variant A): tails at `recess + K` along each edge, control at
+  /// the pocket edge — so the vacated corner region is one smooth lens that
+  /// contains the pocket itself and tapers onto both same-room seams on the
+  /// arc; the wall band reads as one constant-width rounded ribbon (the
+  /// stroke's own K-arc rounds the inner edge above the tiles, issue 82/90).
+  /// The #90 bare-k-recess spike (control at the raw corner, tails at K)
+  /// leaves pointed mortar thorns along the seams; bounding the arc by the
+  /// pocket corner on the control side is what closes them.
   void _paintTiles(Canvas canvas, Paint tiles) {
     final recess = lineWidth / 2;
     for (final (index, room) in rooms.indexed) {
@@ -1090,10 +1093,12 @@ class SkinRoomPainter extends CustomPainter {
   }
 
   /// The tile's outline at (row, col) with per-side [insets]: a plain rect,
-  /// plus a pocket-sized recess at every corner that rounds per the issue 90
-  /// predicate (see [roomTileCornerRounds]): [recess] (`lineWidth / 2`) in
-  /// along each edge, joined by an L-corner through the point recessed on
-  /// both edges — the pocket itself (issue 91).
+  /// plus a ribbon-rounded recess at every corner that rounds per the issue
+  /// 90 predicate (see [roomTileCornerRounds]): the approach tails sit
+  /// `recess + K` along each edge ([_cornerTailOffsets]), joined by the
+  /// mirror-ribbon quadratic whose control sits at the pocket's inner
+  /// corner — `recess` into the tile on both edges (issue 94, mockup
+  /// variant A).
   Path _tilePath(
     int row,
     int col,
@@ -1106,32 +1111,40 @@ class SkinRoomPainter extends CustomPainter {
     final right = (col + 1) * cellSize - r;
     final bottom = (row + 1) * cellSize - b;
     final (nw, ne, se, sw) = _tileCornerRounding(row, col, insets);
-    final (oNw, oNe, oSe, oSw) = _cornerOffsets((nw, ne, se, sw), recess);
+    final (tnw, tne, tse, tsw) = _cornerTailOffsets(
+      (nw, ne, se, sw),
+      recess,
+      math.min(radius, cellSize / 2),
+    );
     final path = Path();
-    path.moveTo(left + oNw, top);
-    _emitTileCorner(
+    path.moveTo(left + tnw, top);
+    _emitCorner(
       path,
-      edgeA: Offset(right - oNe, top),
-      inner: Offset(right - oNe, top + oNe),
-      edgeB: Offset(right, top + oNe),
+      edgeA: Offset(right - tne, top),
+      inner: Offset(right - recess, top + recess),
+      edgeB: Offset(right, top + tne),
+      rounds: ne,
     );
-    _emitTileCorner(
+    _emitCorner(
       path,
-      edgeA: Offset(right, bottom - oSe),
-      inner: Offset(right - oSe, bottom - oSe),
-      edgeB: Offset(right - oSe, bottom),
+      edgeA: Offset(right, bottom - tse),
+      inner: Offset(right - recess, bottom - recess),
+      edgeB: Offset(right - tse, bottom),
+      rounds: se,
     );
-    _emitTileCorner(
+    _emitCorner(
       path,
-      edgeA: Offset(left + oSw, bottom),
-      inner: Offset(left + oSw, bottom - oSw),
-      edgeB: Offset(left, bottom - oSw),
+      edgeA: Offset(left + tsw, bottom),
+      inner: Offset(left + recess, bottom - recess),
+      edgeB: Offset(left, bottom - tsw),
+      rounds: sw,
     );
-    _emitTileCorner(
+    _emitCorner(
       path,
-      edgeA: Offset(left, top + oNw),
-      inner: Offset(left + oNw, top + oNw),
-      edgeB: Offset(left + oNw, top),
+      edgeA: Offset(left, top + tnw),
+      inner: Offset(left + recess, top + recess),
+      edgeB: Offset(left + tnw, top),
+      rounds: nw,
     );
     path.close();
     return path;
@@ -1153,31 +1166,44 @@ class SkinRoomPainter extends CustomPainter {
     );
   }
 
-  /// The pocket-recess offsets of the four corner flags (clockwise from
-  /// top-left, issue 91): `recess` where the corner rounds, zero otherwise.
-  (double, double, double, double) _cornerOffsets(
+  /// The pocket-recess tail offsets of the four corner flags (clockwise
+  /// from top-left, issues 91/94): a rounding corner's tails sit
+  /// `recess + K` along each edge from the corner — the ribbon arc's
+  /// approach points, meeting the two same-room seams at `recess + K`
+  /// beyond the pocket edge — clamped to `cellSize / 2` so the two tails
+  /// sharing an edge can never cross; square corners keep zero offsets.
+  (double, double, double, double) _cornerTailOffsets(
     (bool, bool, bool, bool) rounds,
     double recess,
-  ) => (
-    rounds.$1 ? recess : 0.0,
-    rounds.$2 ? recess : 0.0,
-    rounds.$3 ? recess : 0.0,
-    rounds.$4 ? recess : 0.0,
-  );
+    double k,
+  ) {
+    final tail = math.min(recess + k, cellSize / 2);
+    return (
+      rounds.$1 ? tail : 0.0,
+      rounds.$2 ? tail : 0.0,
+      rounds.$3 ? tail : 0.0,
+      rounds.$4 ? tail : 0.0,
+    );
+  }
 
-  /// Emits one clockwise tile corner: onto the recessed approach [edgeA],
-  /// the recessed [inner] corner point (equal to [edgeA]/[edgeB] for a
-  /// square corner), and back out along [edgeB] — the issue 91 pocket
-  /// recess, straight flush lines hugging the pocket.
-  void _emitTileCorner(
+  /// Emits one clockwise tile corner: onto the approach [edgeA], then — for
+  /// a [rounds] corner — the ribbon quadratic with control at the pocket
+  /// [inner] point, ending on the exit tail [edgeB] (issue 94); square
+  /// corners keep the plain L-through-the-corner emission (all offsets are
+  /// zero, so [edgeA] and [edgeB] are the corner itself).
+  void _emitCorner(
     Path path, {
     required Offset edgeA,
     required Offset inner,
     required Offset edgeB,
+    required bool rounds,
   }) {
     path.lineTo(edgeA.dx, edgeA.dy);
-    path.lineTo(inner.dx, inner.dy);
-    path.lineTo(edgeB.dx, edgeB.dy);
+    if (rounds) {
+      path.quadraticBezierTo(inner.dx, inner.dy, edgeB.dx, edgeB.dy);
+    } else {
+      path.lineTo(edgeB.dx, edgeB.dy);
+    }
   }
 
   /// The tile's per-side wall insets (issue 90): delegated to the shared
