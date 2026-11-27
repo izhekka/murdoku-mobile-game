@@ -6,8 +6,10 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:murdoku/core/skins.dart';
+import 'package:murdoku/core/theme.dart';
 import 'package:murdoku/domain/models.dart';
 import 'package:murdoku/l10n/generated/app_localizations.dart';
+import 'package:murdoku/storage/prefs_repository.dart' show SkinSetting;
 import 'package:murdoku/ui/widgets/board_view.dart';
 
 /// Headless painter-pixel scans for the layered wall plate (issue 83).
@@ -1481,6 +1483,179 @@ void main() {
         cellS: (320.0 * dpr / 5).round(),
         origin: (0, 0),
       );
+    }
+  });
+
+  testWidgets('scan: the retuned victim backdrop reaches the raster — both '
+      'pair colors appear exactly and the old pair is gone, on every '
+      'cartoon skin (issue 102)', (tester) async {
+    await tester.runAsync(() async {
+      // The pre-#102 pastel pair (candy #FFB8B8/#C2435A,
+      // sticker+comic #FFC9C9/#F47C7C) must not survive anywhere in the
+      // victim tile.
+      const oldPair = {0xFFFFB8B8, 0xFFFFC9C9, 0xFFC2435A, 0xFFF47C7C};
+      for (final tokens in allSkins) {
+        final scan = await _render(
+          tokens: tokens,
+          g: 2,
+          rooms: _roomsFor(2, {
+            'rv': [_p(0, 0)],
+          }),
+          seed: tokens.mortarColor,
+          victim: _p(0, 0),
+        );
+        // Scan the victim tile's inset rect (roomTileInsets: full
+        // lineWidth on the outer N/W edges, half on the E/S boundaries),
+        // eroded by 2 device px to skip AA fringes.
+        final lw = tokens.roomLineWidth;
+        final s = _scaleFor(tokens);
+        final left = (lw * s).round() + 2;
+        final top = (lw * s).round() + 2;
+        final right = ((40 - lw / 2) * s).round() - 2;
+        final bottom = ((40 - lw / 2) * s).round() - 2;
+        final fill = tokens.victimFill.toARGB32();
+        final stripe = tokens.victimStripeColor.toARGB32();
+        var fillCount = 0;
+        var stripeCount = 0;
+        var oldCount = 0;
+        for (var y = top; y < bottom; y++) {
+          for (var x = left; x < right; x++) {
+            final p = _pixelAt(scan, x, y);
+            if (p == fill) fillCount++;
+            if (p == stripe) stripeCount++;
+            if (oldPair.contains(p)) oldCount++;
+          }
+        }
+        expect(
+          fillCount,
+          greaterThan(0),
+          reason:
+              '${tokens.skin}: the retuned victim fill '
+              '${tokens.victimFill} never reaches the raster',
+        );
+        expect(
+          stripeCount,
+          greaterThan(0),
+          reason:
+              '${tokens.skin}: the retuned victim stripes '
+              '${tokens.victimStripeColor} never reach the raster',
+        );
+        expect(
+          oldCount,
+          0,
+          reason: '${tokens.skin}: old victim pair colors still in the raster',
+        );
+      }
+    });
+  });
+
+  testWidgets('scan: classic paints the retuned light error fill and dark '
+      'keeps its error container — raster matches the tokens (issue 102)', (
+    tester,
+  ) async {
+    const dpr = 4.0;
+    tester.view.physicalSize = const Size(1280, 2276);
+    tester.view.devicePixelRatio = dpr;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    for (final brightness in Brightness.values) {
+      final theme = brightness == Brightness.dark
+          ? AppTheme.dark
+          : AppTheme.light;
+      final tokens = skinTokensFor(SkinSetting.classic, theme.colorScheme);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: theme,
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(
+            body: Center(
+              child: SkinScope(
+                tokens: tokens,
+                child: RepaintBoundary(
+                  key: const Key('victim_scan_boundary_classic'),
+                  child: BoardView(
+                    caseData: CaseData(
+                      seed: 90,
+                      difficulty: Difficulty.easy,
+                      rooms: _victimRooms,
+                      objects: const [],
+                      suspects: [
+                        for (var i = 0; i < 5; i++)
+                          Suspect(id: 's$i', name: 'S$i'),
+                      ],
+                      victimPos: _p(0, 0),
+                      murdererId: 's0',
+                      clues: const [],
+                      solution: {'s0': _p(1, 0)},
+                    ),
+                    placed: const {},
+                    xMarks: const {},
+                    selectedSuspectId: null,
+                    onCellTap: (_) {},
+                    onCellDrag: (_) {},
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final boundary = tester.renderObject<RenderRepaintBoundary>(
+        find.byKey(const Key('victim_scan_boundary_classic')),
+      );
+      final image = (await tester.runAsync(
+        () => boundary.toImage(pixelRatio: dpr),
+      ))!;
+      final data = await tester.runAsync(image.toByteData);
+      final bytes = data!.buffer.asUint8List();
+      final width = image.width;
+      image.dispose();
+      // The victim cell is 64 logical px (320/5) = 256 device px wide;
+      // the border band is 2.5 logical = 10 device px and the centered
+      // sprite starts at (256 - 160) / 2 = 48 device px — sample the
+      // fill-only corner block (12..46 device px).
+      int pixelAt(int x, int y) {
+        final i = (y * width + x) * 4;
+        return bytes[i + 3] << 24 | // A
+            bytes[i] << 16 | // R
+            bytes[i + 1] << 8 | // G
+            bytes[i + 2]; // B
+      }
+
+      final fill = tokens.victimFill.toARGB32();
+      var fillCount = 0;
+      for (var y = 12; y < 46; y++) {
+        for (var x = 12; x < 46; x++) {
+          if (pixelAt(x, y) == fill) fillCount++;
+        }
+      }
+      expect(
+        fillCount,
+        greaterThan(0),
+        reason:
+            'classic ${brightness.name}: the retuned victim fill '
+            '${tokens.victimFill} never reaches the raster',
+      );
+      if (brightness == Brightness.dark) {
+        // Dark keeps the error container: the light scheme's error must
+        // not leak into the dark victim cell.
+        final lightError = AppTheme.light.colorScheme.error.toARGB32();
+        var lightLeak = 0;
+        for (var y = 12; y < 46; y++) {
+          for (var x = 12; x < 46; x++) {
+            if (pixelAt(x, y) == lightError) lightLeak++;
+          }
+        }
+        expect(
+          lightLeak,
+          0,
+          reason:
+              'classic dark: the light error fill leaked into the '
+              'victim cell — dark must keep its own fill',
+        );
+      }
     }
   });
 

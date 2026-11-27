@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:murdoku/core/skins.dart';
 import 'package:murdoku/core/theme.dart';
+import 'package:murdoku/storage/prefs_repository.dart' show SkinSetting;
 
 /// Contract test for the issue 87 contrast bars — the binding source of
 /// truth for the token palette, not the palette itself. All color math is
@@ -270,6 +271,50 @@ void main() {
     );
     // The clue chip's surface-vs-card bar (issue 87) is gone with the pill
     // (issue 89): the sentences paint directly on the card.
+  });
+
+  test('victim chalk clears 3:1 vs its fill; stripes hold 3:1 vs the fill '
+      'on every skin (issue 102)', () {
+    // The owner-picked option 3 (stage-1 mockup
+    // docs/superpowers/mockups/2026-11-27-victim-contrast.html): the
+    // victim fills retune under the untouched chalk sprite —
+    // assets/items/victim.png is a uniform warm chalk #F2EEE3 (measured),
+    // so the sprite-vs-fill pair is exactly (chalk, victimFill). Stage-1
+    // render measurements: cartoon pair 3.33 / 3.09, classic light 5.53
+    // (scheme.error), classic dark 8.01 (errorContainer, unchanged).
+    const chalk = Color(0xFFF2EEE3);
+    for (final t in skins) {
+      final chalkVsFill = _contrastRatio(chalk, t.victimFill);
+      expect(
+        chalkVsFill,
+        greaterThanOrEqualTo(3),
+        reason:
+            '${t.skin}: victim chalk ${_hexOf(chalk)} vs its fill '
+            '${_hexOf(t.victimFill)} must reach the 3:1 non-text bar, '
+            'measured $chalkVsFill',
+      );
+      final stripe = _contrastRatio(t.victimStripeColor, t.victimFill);
+      expect(
+        stripe,
+        greaterThanOrEqualTo(3),
+        reason:
+            '${t.skin}: victim stripes ${_hexOf(t.victimStripeColor)} vs '
+            'their fill ${_hexOf(t.victimFill)} must reach 3:1, '
+            'measured $stripe',
+      );
+    }
+    for (final theme in [AppTheme.light, AppTheme.dark]) {
+      final classic = skinTokensFor(SkinSetting.classic, theme.colorScheme);
+      final chalkVsFill = _contrastRatio(chalk, classic.victimFill);
+      expect(
+        chalkVsFill,
+        greaterThanOrEqualTo(3),
+        reason:
+            'classic ${theme.brightness.name}: victim chalk '
+            '${_hexOf(chalk)} vs its fill ${_hexOf(classic.victimFill)} '
+            'must reach the 3:1 non-text bar, measured $chalkVsFill',
+      );
+    }
   });
 
   test('candy control surfaces separate from the sky page (issue 97)', () {

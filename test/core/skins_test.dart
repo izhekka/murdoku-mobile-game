@@ -7,9 +7,13 @@ const scheme = _FakeScheme();
 
 /// Minimal stand-in for a resolved ColorScheme: skinTokensFor(classic, …)
 /// derives classic tokens from it, so the mapping must be verified against
-/// the very values passed in.
+/// the very values passed in. The brightness drives the issue-102 victim
+/// fill (light → error, dark → errorContainer).
 class _FakeScheme implements ColorScheme {
-  const _FakeScheme();
+  const _FakeScheme([this.brightness = Brightness.light]);
+
+  @override
+  final Brightness brightness;
 
   @override
   String toString({DiagnosticLevel minLevel = DiagnosticLevel.info}) =>
@@ -18,6 +22,7 @@ class _FakeScheme implements ColorScheme {
   @override
   dynamic noSuchMethod(Invocation invocation) =>
       switch (invocation.memberName) {
+        #brightness => brightness,
         #surface => const Color(0xFFAAAAAA),
         #onSurface => const Color(0xFFBBBBBB),
         #onSurfaceVariant => const Color(0xFFCCCCCC),
@@ -66,11 +71,19 @@ void main() {
       c(0xFF3BB08C),
       c(0xFF74B6F2),
     ]);
-    expect(t.victimFill, c(0xFFFFB8B8), reason: 'candy victim fill (issue 87)');
+    // Issue 102 (owner-picked option 3): the victim pair retunes to the
+    // stage-1-measured coral/oxblood pair — chalk-vs-fill 3.33:1,
+    // stripe-vs-fill 3.09:1 — and candy rejoins the shared pair (the
+    // issue 87 divergence ends). The chalk sprite stays untouched.
+    expect(
+      t.victimFill,
+      c(0xFFCA6161),
+      reason: 'candy victim fill (issue 102)',
+    );
     expect(
       t.victimStripeColor,
-      c(0xFFC2435A),
-      reason: 'candy victim stripes (issue 87)',
+      c(0xFF6E0E20),
+      reason: 'candy victim stripes (issue 102)',
     );
     expect(t.victimStripeColor, isNot(t.victimFill));
     expect(t.menuIcons, isFalse);
@@ -165,12 +178,19 @@ void main() {
     // The retune diverges only candy's board tokens; the shared toolbar
     // pills and danger accent are the sticker/comic changes allowed by the
     // issue. Their roomTints stay pinned by the issue 23 mockup tests.
+    // Issue 102: the victim pair retunes to the shared coral/oxblood pair
+    // on all three cartoon skins — sticker and comic carry it unchanged
+    // from candy (the issue 87 victim divergence ends).
     for (final t in [stickerTokens, comicTokens]) {
-      expect(t.victimFill, c(0xFFFFC9C9), reason: '${t.skin} victim fill');
+      expect(
+        t.victimFill,
+        c(0xFFCA6161),
+        reason: '${t.skin} victim fill (issue 102)',
+      );
       expect(
         t.victimStripeColor,
-        c(0xFFF47C7C),
-        reason: '${t.skin} victim stripe',
+        c(0xFF6E0E20),
+        reason: '${t.skin} victim stripe (issue 102)',
       );
     }
   });
@@ -225,7 +245,22 @@ void main() {
     expect(t.mortarColor, c(0xFFF1F1F1));
     expect(t.badge.background, c(0xFFDDDDDD));
     expect(t.badge.ink, c(0xFFEEEEEE));
-    expect(t.victimFill, c(0xFFF3F3F3));
+    // Issue 102: classic light's victim fill is the scheme error color —
+    // the retuned pair the owner picked; dark keeps the error container so
+    // its rendering stays byte-identical (the chalk already reads 8.0:1).
+    expect(
+      t.victimFill,
+      c(0xFFF4F4F4),
+      reason: 'classic light victim fill = scheme.error (issue 102)',
+    );
+    expect(
+      skinTokensFor(
+        SkinSetting.classic,
+        const _FakeScheme(Brightness.dark),
+      ).victimFill,
+      c(0xFFF3F3F3),
+      reason: 'classic dark victim fill stays the error container (issue 102)',
+    );
     expect(t.dangerColor, c(0xFFF4F4F4));
     expect(t.menuIcons, isTrue);
   });

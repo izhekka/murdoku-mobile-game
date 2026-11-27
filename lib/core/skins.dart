@@ -312,17 +312,17 @@ const SkinChip _cartoonChip = SkinChip(gap: 6);
 /// sticker keeps its own token carrying the shared gap.
 const SkinChip _stickerChip = SkinChip(gap: 6);
 
-/// Victim-cell stripe pair; sticker and comic keep the mockup values, while
-/// candy diverges below (issue 87).
-const Color _victimFill = Color(0xFFFFC9C9);
-const Color _victimStripe = Color(0xFFF47C7C);
-
-/// The candy victim pair diverges from the shared mockup pair (issue 87):
-/// #FFC9C9/#F47C7C sat within ~1.3:1 of the page and the warm room tints.
-/// This pair keeps the same striped render and clears the issue's bars —
-/// fill 1.64:1 vs the page and stripe 3.0:1 vs its own fill.
-const Color _candyVictimFill = Color(0xFFFFB8B8);
-const Color _candyVictimStripe = Color(0xFFC2435A);
+/// Victim-cell stripe pair (issue 102, the owner-picked option 3 of the
+/// 2026-11-27 mockup): the fills retune under the untouched chalk sprite —
+/// assets/items/victim.png is a uniform warm chalk #F2EEE3, and the old
+/// pastel pair measured only 1.25–1.42:1 against it. This pair holds the
+/// issue's 3:1 bars pinned in test/core/skins_contrast_test.dart with
+/// measured margins: chalk-vs-fill 3.33:1 (+0.33 above the bar) and
+/// stripe-vs-fill 3.09:1 (+0.09 — razor-thin; a future fill lightening
+/// erodes the stripe margin first). All three cartoon skins share it (the
+/// issue 87 candy divergence ends).
+const Color _victimFill = Color(0xFFCA6161);
+const Color _victimStripe = Color(0xFF6E0E20);
 
 /// Soft candy shadow tone: rgba(31,108,158,.14) per the issue.
 const Color _candyShadow = Color(0x241F6C9E);
@@ -354,7 +354,7 @@ bool _allEqual(List<bool> checks) {
 /// 28 pairs CIE76 ΔE ≥ 15, ≥ 12 under both Machado-0.6 deuteranopia and
 /// protanopia simulation — lavender/sky pulled further apart than the
 /// issue's starting pair, which collapsed to ΔE ~8 under both
-/// simulations), the victim pair separates from the plate and cards, and
+/// simulations), the victim pair separated from the plate and cards, and
 /// `inkSoft` reaches AA — on white it must measure ≥ 4.5:1, and it is also
 /// the clue text color (onSurfaceVariant), so it is darkened past the
 /// issue's starting #5A66A0 until it clears AA on white (#505D9A: 6.23:1;
@@ -364,6 +364,10 @@ bool _allEqual(List<bool> checks) {
 /// mockup sky `0xFF6FCBFF` (the owner-picked white-cloud schema, restoring
 /// the pre-#86 pageColor) so the white cloud-controls separate from the
 /// page without borders; every control surface keeps its landed colors.
+/// Issue 102 supersedes the victim clause: the fills retune to the shared
+/// coral/oxblood pair under the untouched chalk sprite (chalk-vs-fill
+/// 3.33:1, stripe-vs-fill 3.09:1 — the owner-picked option 3; the #87
+/// separation role moves to the chalk-vs-fill bar).
 /// Pinned by test/core/skins_contrast_test.dart.
 const candyTokens = SkinTokens(
   skin: SkinSetting.candy,
@@ -394,8 +398,8 @@ const candyTokens = SkinTokens(
   solidRooms: true,
   roomRadius: 14,
   roomLineWidth: 4,
-  victimFill: _candyVictimFill,
-  victimStripeColor: _candyVictimStripe,
+  victimFill: _victimFill,
+  victimStripeColor: _victimStripe,
   actions: _cartoonActions,
   dangerColor: _cartoonDanger,
   buttonRadius: 14,
@@ -499,9 +503,22 @@ const comicTokens = SkinTokens(
   chip: _cartoonChip,
 );
 
+/// The issue-102 classic victim fill: light retunes to the scheme error —
+/// the chalk sprite reads 5.53:1 vs it vs 1.11:1 against the old
+/// container — and dark keeps the error container (8.0:1, byte-identical
+/// rendering). Classic never stripes, so both victim token slots carry
+/// this color. The board renders the same mapping (board_view
+/// `_classicFill`); the pixel scans keep the two sites honest.
+Color _classicVictimFill(ColorScheme scheme) =>
+    scheme.brightness == Brightness.dark ? scheme.errorContainer : scheme.error;
+
 /// Classic noir tokens, derived from the resolved [ColorScheme] so the
-/// classic rendering stays byte-identical to the current main (both light
-/// and dark). Cartoon skins ignore the scheme and return their constants.
+/// classic rendering stays byte-identical to the current main. The one
+/// issue-102 divergence: light's victim fill retunes from the error
+/// container to the scheme error (chalk #F2EEE3 reads 5.53:1 vs it vs
+/// 1.11:1 before); dark keeps the container, so its rendering stays
+/// byte-identical (the chalk already reads 8.0:1 there). Cartoon skins
+/// ignore the scheme and return their constants.
 SkinTokens skinTokensFor(SkinSetting skin, ColorScheme scheme) =>
     switch (skin) {
       SkinSetting.candy => candyTokens,
@@ -534,8 +551,8 @@ SkinTokens skinTokensFor(SkinSetting skin, ColorScheme scheme) =>
         solidRooms: false,
         roomRadius: 0,
         roomLineWidth: 0,
-        victimFill: scheme.errorContainer,
-        victimStripeColor: scheme.errorContainer,
+        victimFill: _classicVictimFill(scheme),
+        victimStripeColor: _classicVictimFill(scheme),
         actions: SkinActions(
           place: scheme.primary,
           mark: scheme.primary,

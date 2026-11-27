@@ -634,7 +634,11 @@ class _Cell extends StatelessWidget {
     return null;
   }
 
-  /// Classic per-cell fill: room tint, victim container, occupancy blend.
+  /// Classic per-cell fill: room tint, victim fill, occupancy blend. The
+  /// victim fill is the issue-102 pair (light: the scheme error — the
+  /// chalk sprite reads 5.5:1 vs it vs 1.11:1 against the old container;
+  /// dark: the container, unchanged at 8.0:1) — the same mapping
+  /// skinTokensFor(classic) carries in [SkinTokens.victimFill].
   Color _classicFill(
     CaseData c,
     Pos pos,
@@ -646,7 +650,11 @@ class _Cell extends StatelessWidget {
     ColorScheme scheme,
   ) {
     var fill = AppTheme.roomColors(g)[roomIndex].withValues(alpha: 0.55);
-    if (isVictim) fill = scheme.errorContainer;
+    if (isVictim) {
+      fill = scheme.brightness == Brightness.dark
+          ? scheme.errorContainer
+          : scheme.error;
+    }
     if (rowBlocked || colBlocked) {
       fill = Color.alphaBlend(scheme.onSurface.withValues(alpha: 0.10), fill);
     }
