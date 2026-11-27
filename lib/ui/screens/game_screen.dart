@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -126,17 +127,44 @@ class _GameScreenState extends ConsumerState<GameScreen>
             }
             return Column(
               children: [
-                // The square board hugs the suspect grid; whatever vertical
-                // space is left above it (under the app bar) is a few px at
-                // phone sizes — never a dead band, and never a gap between
-                // the board and the panel (UX-6).
+                // Issue 95: the board takes its maximum square first — the
+                // leftover between the app bar and the toolbar minus the
+                // panel's minimum, capped at the full-width square — and the
+                // suspect panel takes what remains, filling all space under
+                // the board (UX-9) with no dead band and no vertical gap to
+                // the board (UX-6): the slot never exceeds the square it
+                // holds, and the board's own 8px bottom padding rides the
+                // seam. When the leftover is tighter than the panel's
+                // minimum, the board shrinks to fit (overflow is never
+                // allowed). The outer Column lays out the non-flex toolbar
+                // before the flex children, so the inner LayoutBuilder
+                // measures the exact leftover above the toolbar with no
+                // height estimates — correct at any text scale.
                 Expanded(
-                  child: Align(alignment: Alignment.bottomCenter, child: board),
+                  child: LayoutBuilder(
+                    builder: (context, slot) {
+                      final slotHeight = math.max(
+                        0.0,
+                        math.min(
+                          slot.maxWidth,
+                          slot.maxHeight - _panelMinHeight,
+                        ),
+                      );
+                      return Column(
+                        children: [
+                          SizedBox(
+                            height: slotHeight,
+                            child: Align(
+                              alignment: Alignment.bottomCenter,
+                              child: board,
+                            ),
+                          ),
+                          Expanded(child: panel),
+                        ],
+                      );
+                    },
+                  ),
                 ),
-                // The panel fills all space under the board (UX-9) instead of
-                // a fixed 205px slot, so its cards stretch taller and the
-                // full clue text stays readable.
-                Expanded(child: panel),
                 _toolbar(l10n, state),
               ],
             );
@@ -607,6 +635,16 @@ Widget _toolbarRow(List<Widget> buttons) => Row(
 /// 440–471px band stays on two rows to keep every label ≥9px effective.
 /// The wrap is computed from width only, so every skin shares the geometry.
 const double _toolbarWrapWidth = 472;
+
+/// The suspect panel's minimum content height on phones (issue 95): the
+/// suspects header plus a scrollable sliver of its grid (issue 39's pinned
+/// branch clamps and scrolls under the header). Sized to keep the
+/// full-width board square on the narrow reference range down to 320×568,
+/// where 568 − app bar − two-row toolbar − the 320-wide square leaves
+/// exactly this much under the board; when the leftover above the toolbar
+/// is tighter, the board shrinks to fit instead (overflow is never
+/// allowed).
+const double _panelMinHeight = 72;
 
 /// The test key of a tool button, matching the tool's name.
 String _toolKeyName(Tool tool) => switch (tool) {

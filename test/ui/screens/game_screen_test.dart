@@ -537,6 +537,100 @@ void main() {
     },
   );
 
+  testWidgets('narrow game screen gives the board its maximum square at '
+      '402x874 (issue 95)', (tester) async {
+    await pumpGame(tester, size: const Size(402, 874));
+    expect(tester.takeException(), isNull);
+    final boardRect = tester.getRect(find.byKey(const Key('board_view')));
+    expect(
+      boardRect.width,
+      closeTo(386, 0.5),
+      reason: 'board side = viewport width − 2×8 on the reference phone',
+    );
+    expect(boardRect.height, closeTo(386, 0.5), reason: 'board stays square');
+    expect(
+      boardRect.left,
+      closeTo(8, 0.5),
+      reason: "side padding = today's top padding (8)",
+    );
+    final headerRect = tester.getRect(find.byKey(suspectsPanelHeaderKey));
+    expect(
+      headerRect.top - boardRect.bottom,
+      closeTo(8, 0.5),
+      reason: 'padded board abuts the panel exactly (no vertical gap)',
+    );
+  });
+
+  testWidgets('max square holds across the narrow range: 472x800 and '
+      '320x568 (issue 95)', (tester) async {
+    await pumpGame(tester, size: const Size(472, 800));
+    expect(tester.takeException(), isNull);
+    final boardRect = tester.getRect(find.byKey(const Key('board_view')));
+    expect(
+      boardRect.width,
+      closeTo(456, 0.5),
+      reason: '472 viewport ⇒ full-width square 456; panel takes the rest',
+    );
+    final panelRect = tester.getRect(find.byType(SuspectPanel));
+    expect(
+      panelRect.height,
+      closeTo(212, 0.5),
+      reason: 'panel takes the remaining height below the board',
+    );
+
+    await pumpGame(tester, size: const Size(320, 568));
+    expect(tester.takeException(), isNull);
+    final small = tester.getRect(find.byKey(const Key('board_view')));
+    expect(
+      small.width,
+      closeTo(304, 1.0),
+      reason: '320×568 still fits the full-width square (304)',
+    );
+    final smallPanel = tester.getRect(find.byType(SuspectPanel));
+    expect(
+      smallPanel.height,
+      closeTo(72, 0.5),
+      reason: 'the panel keeps its minimum content height',
+    );
+  });
+
+  testWidgets('squat narrow viewport shrinks the board to fit the panel '
+      'minimum (issue 95)', (tester) async {
+    await pumpGame(tester, size: const Size(320, 460));
+    expect(tester.takeException(), isNull);
+    final boardRect = tester.getRect(find.byKey(const Key('board_view')));
+    expect(
+      boardRect.width,
+      closeTo(196, 1.0),
+      reason: 'leftover 284 − panel min 72 = 212 slot ⇒ square 196',
+    );
+    final panelRect = tester.getRect(find.byType(SuspectPanel));
+    expect(
+      panelRect.height,
+      closeTo(72, 0.5),
+      reason: 'the panel keeps its minimum; the board shrinks instead',
+    );
+  });
+
+  testWidgets('wide branch unchanged: board max square beside the 300px '
+      'panel column (issue 95)', (tester) async {
+    await pumpGame(tester, size: const Size(1024, 768));
+    expect(tester.takeException(), isNull);
+    final boardRect = tester.getRect(find.byKey(const Key('board_view')));
+    expect(
+      boardRect.width,
+      closeTo(636, 0.5),
+      reason: 'wide slot (768−56−60=652) minus padding ⇒ 636 square',
+    );
+    expect(boardRect.height, closeTo(boardRect.width, 0.5));
+    final panelRect = tester.getRect(find.byType(SuspectPanel));
+    expect(
+      panelRect.width,
+      closeTo(300, 0.5),
+      reason: 'the 300px panel column is unchanged',
+    );
+  });
+
   testWidgets('small viewport 320x569 does not overflow (UX-6)', (
     tester,
   ) async {
