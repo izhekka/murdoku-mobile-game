@@ -1061,93 +1061,64 @@ class SkinRoomPainter extends CustomPainter {
     );
   }
 
-  /// The room-tint tiles (issue 83, layer 2): the union of per-cell shapes,
+  /// The room-tint tiles (issue 83, layer 2): the union of per-cell rects,
   /// each side inset by the wall band, drawn as one path per room. Abutting
   /// zero-inset same-room edges are the same coordinate, so they cancel
   /// inside the union fill: same-color rects meet exactly, with no
   /// fractional AA fringe across a room in the live app, and the band edges
-  /// sit exactly on their insets. A tile corner at a wrapper junction
-  /// recesses with the stroke's K-rounding family (issue 94, owner-approved
-  /// mockup variant A): tails at `recess + K` along each edge, control at
-  /// the pocket edge — so the vacated corner region is one smooth lens that
-  /// contains the pocket itself and tapers onto both same-room seams on the
-  /// arc; the wall band reads as one constant-width rounded ribbon (the
-  /// stroke's own K-arc rounds the inner edge above the tiles, issue 82/90).
-  /// The #90 bare-k-recess spike (control at the raw corner, tails at K)
-  /// leaves pointed mortar thorns along the seams; bounding the arc by the
-  /// pocket corner on the control side is what closes them.
+  /// sit exactly on their insets. A cell corner that wraps a junction per
+  /// the issue 90 predicate ([roomTileCornerRounds] is unchanged) keeps its
+  /// square corner — the room owns the pocket — and each wrapper junction
+  /// appends the owner-approved exact-A fill ([_exactAFill], issue 101): the
+  /// tile union covers the junction pocket, and only the band outside the
+  /// tangential arc stays mortar, so the wall band reads as one
+  /// constant-width rounded ribbon with square T junctions (the #82-era
+  /// junction mortar pocket remains at every NON-wrapper junction class,
+  /// which the fill never touches).
   void _paintTiles(Canvas canvas, Paint tiles) {
-    final recess = lineWidth / 2;
     for (final (index, room) in rooms.indexed) {
       final path = Path();
       for (final cell in room.cells) {
-        final insets = _tileInsets(cell.row, cell.col);
-        path.addPath(
-          _tilePath(cell.row, cell.col, insets, recess),
-          Offset.zero,
-        );
+        path.addPath(_cellTilePath(cell.row, cell.col), Offset.zero);
       }
       tiles.color = tints[index % tints.length];
       canvas.drawPath(path, tiles);
     }
   }
 
-  /// The tile's outline at (row, col) with per-side [insets]: a plain rect,
-  /// plus a ribbon-rounded recess at every corner that rounds per the issue
-  /// 90 predicate (see [roomTileCornerRounds]): the approach tails sit
-  /// `recess + K` along each edge ([_cornerTailOffsets]), joined by the
-  /// mirror-ribbon quadratic whose control sits at the pocket's inner
-  /// corner — `recess` into the tile on both edges (issue 94, mockup
-  /// variant A).
-  Path _tilePath(
-    int row,
-    int col,
-    (double, double, double, double) insets,
-    double recess,
-  ) {
+  /// The corner diagonals a tile's rounding flags are indexed against —
+  /// clockwise from the top-left, matching [_tileCornerRounding]'s tuple.
+  static const List<(int, int)> _cornerDiagonals = [
+    (-1, -1),
+    (-1, 1),
+    (1, 1),
+    (1, -1),
+  ];
+
+  /// The cell's tile subpath: the plain rect plus the exact-A junction
+  /// fills of its wrapper corners (issue 101; see [_exactAFill]).
+  Path _cellTilePath(int row, int col) {
+    final insets = _tileInsets(row, col);
+    final path = _tilePath(row, col, insets);
+    final (nw, ne, se, sw) = _tileCornerRounding(row, col, insets);
+    final rounds = [nw, ne, se, sw];
+    for (final (i, (dRow, dCol)) in _cornerDiagonals.indexed) {
+      if (!rounds[i]) continue;
+      path.addPath(_exactAFill(row, col, dRow, dCol), Offset.zero);
+    }
+    return path;
+  }
+
+  /// The tile's outline at (row, col) with per-side [insets]: a plain rect
+  /// (issue 101 — the former wrapper-corner recess is replaced by the
+  /// exact-A junction fills; see [_exactAFill]).
+  Path _tilePath(int row, int col, (double, double, double, double) insets) {
     final (l, t, r, b) = insets;
     final left = col * cellSize + l;
     final top = row * cellSize + t;
     final right = (col + 1) * cellSize - r;
     final bottom = (row + 1) * cellSize - b;
-    final (nw, ne, se, sw) = _tileCornerRounding(row, col, insets);
-    final (tnw, tne, tse, tsw) = _cornerTailOffsets(
-      (nw, ne, se, sw),
-      recess,
-      math.min(radius, cellSize / 2),
-    );
-    final path = Path();
-    path.moveTo(left + tnw, top);
-    _emitCorner(
-      path,
-      edgeA: Offset(right - tne, top),
-      inner: Offset(right - recess, top + recess),
-      edgeB: Offset(right, top + tne),
-      rounds: ne,
-    );
-    _emitCorner(
-      path,
-      edgeA: Offset(right, bottom - tse),
-      inner: Offset(right - recess, bottom - recess),
-      edgeB: Offset(right - tse, bottom),
-      rounds: se,
-    );
-    _emitCorner(
-      path,
-      edgeA: Offset(left + tsw, bottom),
-      inner: Offset(left + recess, bottom - recess),
-      edgeB: Offset(left, bottom - tsw),
-      rounds: sw,
-    );
-    _emitCorner(
-      path,
-      edgeA: Offset(left, top + tnw),
-      inner: Offset(left + recess, top + recess),
-      edgeB: Offset(left + tnw, top),
-      rounds: nw,
-    );
-    path.close();
-    return path;
+    return Path()..addRect(Rect.fromLTRB(left, top, right, bottom));
   }
 
   /// The tile's four corner-round flags at (row, col), clockwise from the
@@ -1166,44 +1137,38 @@ class SkinRoomPainter extends CustomPainter {
     );
   }
 
-  /// The pocket-recess tail offsets of the four corner flags (clockwise
-  /// from top-left, issues 91/94): a rounding corner's tails sit
-  /// `recess + K` along each edge from the corner — the ribbon arc's
-  /// approach points, meeting the two same-room seams at `recess + K`
-  /// beyond the pocket edge — clamped to `cellSize / 2` so the two tails
-  /// sharing an edge can never cross; square corners keep zero offsets.
-  (double, double, double, double) _cornerTailOffsets(
-    (bool, bool, bool, bool) rounds,
-    double recess,
-    double k,
-  ) {
-    final tail = math.min(recess + k, cellSize / 2);
-    return (
-      rounds.$1 ? tail : 0.0,
-      rounds.$2 ? tail : 0.0,
-      rounds.$3 ? tail : 0.0,
-      rounds.$4 ? tail : 0.0,
-    );
-  }
-
-  /// Emits one clockwise tile corner: onto the approach [edgeA], then — for
-  /// a [rounds] corner — the ribbon quadratic with control at the pocket
-  /// [inner] point, ending on the exit tail [edgeB] (issue 94); square
-  /// corners keep the plain L-through-the-corner emission (all offsets are
-  /// zero, so [edgeA] and [edgeB] are the corner itself).
-  void _emitCorner(
-    Path path, {
-    required Offset edgeA,
-    required Offset inner,
-    required Offset edgeB,
-    required bool rounds,
-  }) {
-    path.lineTo(edgeA.dx, edgeA.dy);
-    if (rounds) {
-      path.quadraticBezierTo(inner.dx, inner.dy, edgeB.dx, edgeB.dy);
-    } else {
-      path.lineTo(edgeB.dx, edgeB.dy);
-    }
+  /// The exact-A junction fill (issue 101, owner-approved variant A): at a
+  /// wrapper junction the tile facing the diagonal (dRow, dCol) keeps its
+  /// square corner — the room wraps the vertex, so the tile union covers the
+  /// pocket — and this fill appends the junction-side region bounded by the
+  /// tangential quadratic: from the band edge at tail `k − h` past the
+  /// pocket corner `(V − h, V − h)` (control at the pocket corner), landing
+  /// on the other band edge, then closing back through the vertex `V`. Both
+  /// end tangents lie along the band edges (no angular kink), the arc's
+  /// diagonal apex stays inside the pocket box, and the leg reach `k − 2h`
+  /// from the vertex is under one cell edge (k ≤ cellSize/2), so the arc can
+  /// never encroach an adjacent junction's pocket — T junctions keep their
+  /// square corners and every other junction class keeps the #82 mortar
+  /// pocket untouched. Replaces the landed `h + k`-tail quad (issues 90–94).
+  Path _exactAFill(int row, int col, int dRow, int dCol) {
+    final h = lineWidth / 2;
+    final k = math.min(radius, cellSize / 2);
+    final vx = dCol > 0 ? (col + 1) * cellSize : col * cellSize;
+    final vy = dRow > 0 ? (row + 1) * cellSize : row * cellSize;
+    final pcx = vx - dCol * h;
+    final pcy = vy - dRow * h;
+    final tail = k - h;
+    final p1 = Offset(vx, pcy);
+    final ps = Offset(pcx + dCol * tail, pcy);
+    final pe = Offset(pcx, pcy + dRow * tail);
+    final p3 = Offset(pcx, vy);
+    return Path()
+      ..moveTo(p1.dx, p1.dy)
+      ..lineTo(ps.dx, ps.dy)
+      ..quadraticBezierTo(pcx, pcy, pe.dx, pe.dy)
+      ..lineTo(p3.dx, p3.dy)
+      ..lineTo(vx, vy)
+      ..close();
   }
 
   /// The tile's per-side wall insets (issue 90): delegated to the shared
