@@ -40,20 +40,23 @@ void main() {
       // seed_convergence_test.dart — when that table is re-pinned, update
       // these in the same change. Deliberate literal copy: independent of
       // that table, the values also witness transcription drift in it
-      // (the golden-digest literal-copy style).
-      expect(mapping['easy']![0], 565798388);
-      expect(mapping['easy']![4], 1647545034); // == standard/4 (collision)
-      expect(mapping['standard']![4], 1647545034);
+      // (the golden-digest literal-copy style). Re-pinned 2026-11-27 for
+      // the issue-#93 interim configuration.
+      expect(mapping['easy']![0], 0);
+      expect(mapping['easy']![4], 1951803668); // == standard/4 (attempt-0 map)
+      expect(mapping['standard']![4], 1951803668);
       expect(mapping['hard']![60], 1403540709);
     });
 
-    test('marks a pinned exhaust seam with a null stored seed (#62)', () {
-      // hard/111 exhausts generateCase's whole widened budget (§13 corridor
-      // seam; the rethrow is pinned in case_factory_test.dart), while
-      // easy/111 generates — exhaust stays difficulty-scoped.
+    test('no pinned exhaust seam remains in the measured range (#62)', () {
+      // Pre-#93, hard/111 exhausted generateCase's whole widened budget
+      // (§13 corridor seam, rethrow pinned via recovery tests). The
+      // take-all per-type pool dissolved the corridor: hard/111 now
+      // generates in window 0 (stored seed 1237729143, map-probe measured
+      // 2026-11-27) alongside easy/111.
       final at111 = measureMapping(start: 111, end: 111);
-      expect(at111['hard']![111], isNull);
-      expect(at111['easy']![111], isNotNull);
+      expect(at111['hard']![111], 1237729143);
+      expect(at111['easy']![111], 1237729143);
     });
   });
 
@@ -175,18 +178,19 @@ void main() {
       // Literal copies of test/domain/generator/golden_digest_test.dart —
       // deliberate: independent of that file, the copies also witness drift
       // in it (the golden-digest literal-copy style; update in the same
-      // change as any digest re-pin).
+      // change as any digest re-pin). Regenerated 2026-11-27 for the
+      // issue-#93 interim configuration.
       expect(
         digestOf(generateCase(difficulty: Difficulty.easy, seed: 1)),
-        '9824ca8d10f6fd06',
+        '4573f6db2f8b1c6c',
       );
       expect(
         digestOf(generateCase(difficulty: Difficulty.hard, seed: 112)),
-        '55ec51fcbf077c9c',
+        'c226621083507342',
       );
       expect(
         digestOf(generateCase(difficulty: Difficulty.standard, seed: 20261119)),
-        '780d586106bf65c6',
+        '51e2e3d18c366a4b',
       );
     });
 
@@ -259,16 +263,16 @@ void main() {
         expect(rows.length, 2);
         expect(rows[0].date, '2026-11-19');
         expect(rows[0].seed, 20261119);
-        expect(rows[0].digest, '780d586106bf65c6');
+        expect(rows[0].digest, '51e2e3d18c366a4b');
         expect(rows[1].date, '2026-11-20');
         expect(rows[1].seed, 20261120);
-        expect(rows[1].digest, 'd12db8c1fb581348');
+        expect(rows[1].digest, 'fc194dd2155e926d');
       },
     );
 
     test('an explicit single date prints the live digest (#72)', () {
       final rows = dailyRows(start: DateTime.utc(2026, 11, 19));
-      expect(rows.single.digest, '780d586106bf65c6');
+      expect(rows.single.digest, '51e2e3d18c366a4b');
     });
 
     test('an explicit range is inclusive across a month boundary (#72)', () {
@@ -285,8 +289,8 @@ void main() {
       final rows = dailyRows(fromGolden: readGoldenEntries(goldenFileDefault));
       expect(
         formatDailyRows(rows),
-        '2026-11-19 20261119 -> 780d586106bf65c6\n'
-        '2026-11-20 20261120 -> d12db8c1fb581348',
+        '2026-11-19 20261119 -> 51e2e3d18c366a4b\n'
+        '2026-11-20 20261120 -> fc194dd2155e926d',
       );
     });
   });
@@ -312,7 +316,7 @@ void main() {
       final result = checkGolden(path);
       expect(
         result.drifted.single,
-        'drift easy/1 live=9824ca8d10f6fd06 committed=deadbeefdeadbeef',
+        'drift easy/1 live=4573f6db2f8b1c6c committed=deadbeefdeadbeef',
       );
       expect(result.ok, isEmpty);
     });

@@ -79,61 +79,58 @@ void main() {
     expect(repo.loadDailyState().streak, 1);
   });
 
-  test('corridor date-seed recovers instead of crashing the daily start (#60)', () async {
+  test('former corridor date-seeds now generate directly; daily replay stays deterministic (#60, interim #93)', () async {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
     final container = ProviderContainer(overrides: seededOverrides(prefs));
     addTearDown(container.dispose);
     final notifier = container.read(gameControllerProvider.notifier);
 
-    // Evidence the pinned date really sits in a budget-exhaustion corridor:
-    // bare generateCase (the pre-#60 daily call) throws for standard seed
-    // 20310928. Under the derived mapping (issue 61) the decorrelated
-    // failures shifted the corridor set: the 2019-2060 scan measured
-    // exactly two failing date-seeds, 2031-09-28 and 2047-04-01 — both
-    // pinned below; the pre-#61 corridor 2055-12-25 (20551225) now
-    // generates directly. Re-derive the scan from repo evidence with the
-    // committed tool `dart run tool/scan_daily_corridors.dart 2019 2060`
-    // (issue 71; manual invocation only, never from make quality).
+    // Evidence re-measured 2026-11-27 (issue #93 interim configuration):
+    // the pre-#93 cap-10 pool had exactly two failing date-seeds in
+    // 2019-2060 (2031-09-28 and 2047-04-01, issues 60/61). The take-all
+    // per-type pool dissolves both corridors — bare generateCase succeeds
+    // in window 0 for each (stored seeds from the map probe:
+    // 1243490650 / 1884598929), so the daily start no longer needs
+    // recovery for these dates.
+    final first = <String, int>{};
     for (final date in const ['2031-09-28', '2047-04-01']) {
+      final bare = generateCase(
+        difficulty: Difficulty.standard,
+        seed: dailySeedFor(parseUtcDate(date)),
+      );
       expect(
-        () => generateCase(
+        bare.seed,
+        date == '2031-09-28' ? 1243490650 : 1884598929,
+        reason: '$date must generate in window 0 (former corridor date)',
+      );
+      first[date] = bare.seed;
+
+      notifier.startDaily(date);
+      final state = container.read(gameControllerProvider)!;
+      expect(state.isDaily, isTrue);
+      expect(state.dailyDate, date);
+      expect(
+        state.caseData.seed,
+        first[date],
+        reason: 'a window-0 date plays the bare case',
+      );
+
+      // Daily replay determinism: same date, same case.
+      notifier.quit();
+      notifier.startDaily(date);
+      final second = container.read(gameControllerProvider)!.caseData;
+      expect(
+        second.toJson(),
+        generateCaseWithRecovery(
           difficulty: Difficulty.standard,
           seed: dailySeedFor(parseUtcDate(date)),
-        ),
-        throwsStateError,
-        reason:
-            'corridor moved or vanished — re-verify the failing date-seed '
-            'scan and re-pin date/stride ($date)',
+        ).toJson(),
+        reason: 'the daily path routes through the recovery-capable start',
       );
+      expect(second.toJson(), bare.toJson());
+      notifier.quit();
     }
-
-    // The daily start must not crash: recovery strides to seed 20310968.
-    notifier.startDaily('2031-09-28');
-    final first = container.read(gameControllerProvider)!;
-    expect(first.isDaily, isTrue);
-    expect(first.dailyDate, '2031-09-28');
-    expect(
-      first.caseData.seed,
-      895059595,
-      reason:
-          'recovery must land on the window-1 stride seed '
-          '(generateCase(standard, 20310968).seed)',
-    );
-    expect(
-      first.caseData.toJson(),
-      generateCaseWithRecovery(
-        difficulty: Difficulty.standard,
-        seed: dailySeedFor(parseUtcDate('2031-09-28')),
-      ).toJson(),
-      reason: 'a corridor date-seed recovers exactly like the issue-45 seam',
-    );
-
-    // Daily replay determinism after recovery: same date, same recovered case.
-    notifier.quit();
-    notifier.startDaily('2031-09-28');
-    final second = container.read(gameControllerProvider)!.caseData;
-    expect(second.toJson(), equals(first.caseData.toJson()));
   });
 
   test(

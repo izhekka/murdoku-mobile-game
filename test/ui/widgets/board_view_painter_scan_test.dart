@@ -134,10 +134,50 @@ final Map<String, (int, List<RoomDef>)> _fixtures = {
 /// victim tile's edges must show mortar + stroke, never victim colors
 /// (issue 90 D2). The victim keeps a non-victim room cell in its room so the
 /// badge anchor resolves.
-final List<RoomDef> _victimRooms = _roomsFor(5, {
+///
+/// Tiled as exactly FIVE rooms (`CaseData.gridSize` derives from
+/// `rooms.length`, issue 93, and the widget-pumped leg renders the board off
+/// the case): two named rooms plus three scan-order filler chunks covering
+/// the remaining cells — the raw-painter legs below pass `gridSize`
+/// explicitly and are unaffected by the room-list shape.
+final List<RoomDef> _victimRooms = _tiledFor(5, {
   'rv0': [_p(0, 0), _p(1, 0)],
   'rv1': [_p(0, 1), _p(0, 2), _p(0, 3), _p(0, 4)],
 });
+
+/// [layout]'s named rooms plus filler chunks over every other cell of the
+/// g×g board, chunked in scan order so the list carries exactly [g] rooms.
+List<RoomDef> _tiledFor(int g, Map<String, List<Pos>> layout) {
+  final named = layout.values.expand((cells) => cells).toSet();
+  final rooms = [
+    for (final entry in layout.entries)
+      RoomDef(id: entry.key, name: entry.key, cells: entry.value),
+  ];
+  final rest = [
+    for (var row = 0; row < g; row++)
+      for (var col = 0; col < g; col++)
+        if (!named.contains(_p(row, col))) _p(row, col),
+  ];
+  final chunkCount = g - rooms.length;
+  assert(
+    chunkCount >= 1 && rest.length >= chunkCount,
+    'layout must leave at least $chunkCount filler cells',
+  );
+  final perChunk = rest.length ~/ chunkCount;
+  var taken = 0;
+  for (var i = 0; i < chunkCount; i++) {
+    final size = i == chunkCount - 1 ? rest.length - taken : perChunk;
+    rooms.add(
+      RoomDef(
+        id: 'f$i',
+        name: 'filler',
+        cells: rest.sublist(taken, taken + size),
+      ),
+    );
+    taken += size;
+  }
+  return rooms;
+}
 
 /// The positional room index for [p] (drives the tint palette index).
 int _roomIndexOf(List<RoomDef> rooms, Pos p) =>

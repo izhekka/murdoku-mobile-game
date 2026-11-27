@@ -368,14 +368,21 @@ List<Clue>? _buildClueSet(
 ) {
   final g = difficulty.gridSize;
   final maxClues = difficulty.maxClues + widen;
+  // Issue #93 leak-rule anchor: the room the victim stands in. The murderer
+  // rule ("one guest shares a room with the victim") makes every positive
+  // reference to that room a killer-naming card, so the pool builders below
+  // never emit the excluded classes.
+  final victimRoomId = roomOf(prep.rooms, prep.victimPos)!;
 
-  // 5. clue pool: candidates true of the solution, per type capped at 10.
+  // 5. clue pool: candidates true of the solution, every shuffled candidate
+  // kept (see the cap comment above the pool literal).
   final pool = _cluePool(
     difficulty,
     prep.suspects,
     prep.rooms,
     prep.solution,
     prep.victimPos,
+    victimRoomId,
     prep.objects,
     rng,
   );
@@ -404,6 +411,8 @@ List<Clue>? _buildClueSet(
     prep.suspects,
     prep.rooms,
     prep.solution,
+    prep.victimPos,
+    victimRoomId,
   );
   if (picked.length > maxClues) return null;
   picked = _fillToMinClues(picked, pool, difficulty.minClues);
@@ -417,14 +426,22 @@ List<Clue>? _buildClueSet(
 
 /// Coverage: no suspect may end up without a clue (empty cards confuse
 /// players). Pool clues are all true of the solution, so additions are
-/// uniqueness-safe. InRoom(s, own room) always exists for every suspect, so
-/// the firstWhere orElse below is a defensive fallback only.
+/// uniqueness-safe. InRoom(s, own room) always exists as a fallback shape,
+/// so the firstWhere orElse below is a defensive fallback only.
+///
+/// Issue #93: the fallback must not name the killer. For a suspect whose own
+/// room IS the victim's room (that suspect is the murderer), an
+/// InRoom(own room) card is a positive victim's-room card — the excluded
+/// class — so the fallback falls back to the strongest true victim
+/// relation instead ([coverageFallbackClue]).
 List<Clue> _ensureCoverage(
   List<Clue> pruned,
   List<Clue> pool,
   List<Suspect> suspects,
   List<RoomDef> rooms,
   Map<String, Pos> solution,
+  Pos victimPos,
+  String victimRoomId,
 ) {
   final picked = [...pruned];
   final covered = picked.map((cl) => cl.suspectId).toSet();
@@ -432,15 +449,58 @@ List<Clue> _ensureCoverage(
     if (covered.contains(s.id)) continue;
     final candidate = pool.firstWhere(
       (cl) => cl.suspectId == s.id,
-      orElse: () => InRoom(
-        suspectId: s.id,
-        roomId: roomOf(rooms, solution[s.id]!)!,
-        negated: false,
+      orElse: () => coverageFallbackClue(
+        s.id,
+        solution[s.id]!,
+        victimPos,
+        victimRoomId,
+        rooms,
       ),
     );
     picked.add(candidate);
   }
   return picked;
+}
+
+/// The leak-safe defensive coverage fallback (issue #93). Any suspect
+/// except the murderer keeps today's shape — InRoom(own room). The suspect
+/// whose own room equals the victim's room is the murderer, and that card
+/// would name the killer, so the fallback emits the strongest clue that is
+/// always true of such a placement and never an excluded class:
+/// SameRow(victim) positive when he shares the victim's row (an allowed
+/// class — only SameCol/Beside victim cards are excluded), otherwise a
+/// strict north/south direction to the victim (cells differ, so exactly one
+/// of the two holds). Both are true of the solution, preserving the
+/// "additions keep uniqueness" guarantee.
+///
+/// Public seam (plainly public; no @visibleForTesting annotation so this
+/// pure-Dart file stays flutter/meta-free): the orElse path it backs never
+/// fires in generated cases — every suspect always holds at least one pool
+/// candidate (the murderer always has a strict north/south direction to the
+/// victim) — so pipeline tests cannot reach these branches, and the CRAP
+/// gate requires every decision branch covered. The unit test in
+/// leak_filter_test.dart pins all three branches; the 100-seed leak sweeps
+/// still guard the shipped set end to end.
+Clue coverageFallbackClue(
+  String suspectId,
+  Pos sp,
+  Pos victimPos,
+  String victimRoomId,
+  List<RoomDef> rooms,
+) {
+  final ownRoom = roomOf(rooms, sp)!;
+  if (ownRoom != victimRoomId) {
+    return InRoom(suspectId: suspectId, roomId: ownRoom, negated: false);
+  }
+  if (sp.row == victimPos.row) {
+    return SameRow(suspectId: suspectId, targetId: victimId, negated: false);
+  }
+  return DirectionClue(
+    suspectId: suspectId,
+    targetId: victimId,
+    direction: sp.row < victimPos.row ? Direction.north : Direction.south,
+    negated: false,
+  );
 }
 
 /// Tops up a sub-window pick with pool candidates, preferring clue types the
@@ -494,6 +554,28 @@ List<Clue> _negatedLeft(List<Clue> pool, List<Clue> picked) =>
 
 List<String> suspectIds(List<Suspect> suspects) =>
     suspects.map((s) => s.id).toList();
+
+/// Test seam for the issue-#93 pool-level leak assertions: rebuilds the
+/// candidate pool of an already-generated case via [_cluePool] — the exact
+/// call [_buildClueSet] makes when the case was born (same rooms, solution,
+/// victim and objects). The positive side is rng-free: the exclusion
+/// filters run at the emit sites before any shuffle, so the candidate SET
+/// is data-deterministic for the case. The negated side is capped by a
+/// shuffle-take, so a second run may carry a different negated subset —
+/// every candidate it can carry is drawn from the already-filtered negated
+/// list, which is why an excluded class appearing in ANY rebuilt pool is
+/// impossible unless an emit site regressed. Lets leak_filter_test assert
+/// the pool itself, not only the shipped set.
+List<Clue> cluePoolFor(CaseData c) => _cluePool(
+  c.difficulty,
+  c.suspects,
+  c.rooms,
+  c.solution,
+  c.victimPos,
+  roomOf(c.rooms, c.victimPos)!,
+  c.objects,
+  Random(0),
+);
 
 /// Backtracking over rows in random order; first complete assignment wins.
 Map<String, Pos>? _randomPlacement(int g, List<RoomDef> rooms, Random rng) =>
@@ -557,6 +639,7 @@ List<Clue> _cluePool(
   List<RoomDef> rooms,
   Map<String, Pos> solution,
   Pos victimPos,
+  String victimRoomId,
   List<ObjectDef> objects,
   Random rng,
 ) {
@@ -568,11 +651,29 @@ List<Clue> _cluePool(
     'beside': [],
     'besideObject': [],
   };
-  _positiveCandidates(suspects, solution, rooms, victimPos, objects, byType);
+  _positiveCandidates(
+    suspects,
+    solution,
+    rooms,
+    victimPos,
+    victimRoomId,
+    objects,
+    byType,
+  );
 
-  // Cap each type at 10, sampled deterministically.
+  // Cap each type deterministically (shuffle, then take). Issue #93: the
+  // take() is dropped rather than enlarged — a shuffle-then-take cap is
+  // prefix-preserving (same shuffle, bigger take appends candidates past
+  // the old first 10 without moving them), so widening it never changed any
+  // case the smaller pool generated; it only rescued attempts that
+  // exhausted. Measured at the 9×9 board with the killer-naming exclusions
+  // applied, cap 10 (the historical value) and cap 18 both starve the
+  // uniqueness search — [_minimizeToUnique] needs prefixes 41-100 clues
+  // deep (hard seeds 1/3/5 measured) — so the pool keeps every shuffled
+  // candidate. 5×5 output stays byte-identical to the cap-10 pool because
+  // only post-prefix candidates are appended.
   final pool = [
-    for (final entry in byType.entries) ...(entry.value..shuffle(rng)).take(10),
+    for (final entry in byType.entries) ...(entry.value..shuffle(rng)),
   ];
 
   // Issue #10: negated candidates, drawn TRUE of the solution (a card clue
@@ -581,8 +682,8 @@ List<Clue> _cluePool(
   // difficulty's negated cap, so every downstream selection (minimize,
   // prune, coverage, fill) obeys the cap without any removal step. Guarded
   // by cap > 0 so easy keeps the exact old pool and rng stream. Per-type
-  // caps: negated candidates join types whose cap is 10; with ≤3 negated in
-  // total, per-type counts stay trivially within it.
+  // caps: negated candidates join the pool like every other type; with
+  // ≤3 negated in total, per-type counts stay trivially within it.
   final negatedCap = difficulty.maxNegatedClues;
   if (negatedCap > 0) {
     final negated = _negatedCandidates(
@@ -600,30 +701,36 @@ List<Clue> _cluePool(
 /// The positive (non-negated) candidate pool, in the original per-suspect
 /// order: own room, suspect pairs (row/col, then directions, then beside),
 /// victim relations, then objects (issue 35 decomposition).
+///
+/// Issue #93 exclusions at the emit sites: no InRoom(victim's room) — the
+/// only suspect whose own room equals the victim's room is the murderer, so
+/// that card names the killer; no Beside(victim) positive; and no
+/// BesideObject positive for a victim's-room object (same killer-naming
+/// shape). SameCol(victim) is dropped in [_victimSame].
 void _positiveCandidates(
   List<Suspect> suspects,
   Map<String, Pos> solution,
   List<RoomDef> rooms,
   Pos victimPos,
+  String victimRoomId,
   List<ObjectDef> objects,
   Map<String, List<Clue>> byType,
 ) {
   final ids = suspects.map((s) => s.id).toList();
   for (final s in ids) {
     final sp = solution[s]!;
-    // InRoom: only the suspect's actual room is true of the solution.
-    byType['inRoom']!.add(
-      InRoom(suspectId: s, roomId: roomOf(rooms, sp)!, negated: false),
-    );
+    // InRoom: only the suspect's actual room is true of the solution — but
+    // the victim's own room is never emitted positive (issue #93).
+    final ownRoom = roomOf(rooms, sp)!;
+    if (ownRoom != victimRoomId) {
+      byType['inRoom']!.add(
+        InRoom(suspectId: s, roomId: ownRoom, negated: false),
+      );
+    }
     _pairCandidates(ids, sp, s, solution, byType);
     _victimSame(sp, victimPos, s, byType);
     _victimDirections(sp, victimPos, s, byType);
-    if (_manhattan(sp, victimPos) == 1) {
-      byType['beside']!.add(
-        Beside(suspectId: s, targetId: victimId, negated: false),
-      );
-    }
-    _objectCandidates(rooms, sp, objects, s, byType);
+    _objectCandidates(rooms, sp, victimRoomId, objects, s, byType);
   }
 }
 
@@ -713,7 +820,9 @@ void _pairDirections(
   }
 }
 
-/// Victim same-row and same-col candidates.
+/// Victim same-row candidate (issue #93: the same-col victim card is one of
+/// the four excluded classes — corridor = column reads as «was with the
+/// victim» — so it is never emitted in the positive pool; SameRow stays).
 void _victimSame(
   Pos sp,
   Pos victimPos,
@@ -723,11 +832,6 @@ void _victimSame(
   if (sp.row == victimPos.row) {
     byType['sameRow']!.add(
       SameRow(suspectId: s, targetId: victimId, negated: false),
-    );
-  }
-  if (sp.col == victimPos.col) {
-    byType['sameCol']!.add(
-      SameCol(suspectId: s, targetId: victimId, negated: false),
     );
   }
 }
@@ -783,16 +887,21 @@ void _victimDirections(
 
 /// UX-8 / ADR 0004: propose the full same-room relation for every object in
 /// the suspect's room, matching the BesideObject semantics (not just
-/// Manhattan-1 cells).
+/// Manhattan-1 cells). Issue #93: objects standing in the victim's room are
+/// skipped on the positive side — a guest sharing a room with such an
+/// object shares the victim's room, so the card names the killer.
 void _objectCandidates(
   List<RoomDef> rooms,
   Pos sp,
+  String victimRoomId,
   List<ObjectDef> objects,
   String s,
   Map<String, List<Clue>> byType,
 ) {
+  final guestRoom = roomOf(rooms, sp);
   for (final obj in objects) {
-    if (roomOf(rooms, sp) == roomOf(rooms, obj.pos)) {
+    final objRoom = roomOf(rooms, obj.pos);
+    if (objRoom == guestRoom && objRoom != victimRoomId) {
       byType['besideObject']!.add(
         BesideObject(suspectId: s, objectId: obj.id, negated: false),
       );
@@ -837,6 +946,11 @@ void _negatedRooms(
 }
 
 /// Per-target negated candidates: suspect ids other than [s] plus the victim.
+///
+/// Issue #93: victim-target SameCol and Beside are excluded in BOTH
+/// polarities — the negated forms never join the pool. SameRow(victim) and
+/// the four directions stay (a negated «not in the victim's row» / strict
+/// direction clue never reads as an accusation).
 void _negatedTargets(
   String s,
   Pos sp,
@@ -848,9 +962,11 @@ void _negatedTargets(
   final targets = [...ids.where((t) => t != s), victimId];
   for (final t in targets) {
     final tp = _negTargetPos(t, solution, victimPos);
-    _negatedRowCol(s, sp, t, tp, negated);
+    // Issue #93: the victim-target SameCol card is an excluded class in
+    // both polarities — never emitted, negated included.
+    _negatedRowCol(s, sp, t, tp, t != victimId, negated);
     _negatedDirections(s, sp, t, tp, negated);
-    if (_manhattan(sp, tp) != 1) {
+    if (_manhattan(sp, tp) != 1 && t != victimId) {
       negated.add(Beside(suspectId: s, targetId: t, negated: true));
     }
   }
@@ -861,11 +977,20 @@ Pos _negTargetPos(String t, Map<String, Pos> solution, Pos victimPos) =>
     t == victimId ? victimPos : solution[t]!;
 
 /// Negated same-row and same-col candidates for one suspect-target pair.
-void _negatedRowCol(String s, Pos sp, String t, Pos tp, List<Clue> negated) {
+/// [emitSameCol] is false only for the victim target (issue #93): the
+/// victim's column card is an excluded class in both polarities.
+void _negatedRowCol(
+  String s,
+  Pos sp,
+  String t,
+  Pos tp,
+  bool emitSameCol,
+  List<Clue> negated,
+) {
   if (tp.row != sp.row) {
     negated.add(SameRow(suspectId: s, targetId: t, negated: true));
   }
-  if (tp.col != sp.col) {
+  if (tp.col != sp.col && emitSameCol) {
     negated.add(SameCol(suspectId: s, targetId: t, negated: true));
   }
 }

@@ -22,46 +22,44 @@ String digestCase(CaseData c) {
       '${lo.toRadixString(16).padLeft(8, '0')}';
 }
 
-/// Golden digests captured from the issue-61 derived attempt-seed mapping
-/// (2026-11-24; originally captured 2026-11-23, issue 35, and regenerated
-/// in the same change as the attempt-seed re-derivation — the digest test's
-/// seeds list and values move together with any attempt-seed remap, §13).
-/// The set spans the clue window (easy 6-7, standard 8-10, hard 12-14), the
-/// negated top-up caps (standard 1, hard 3) and distinct derived retry
-/// paths; nearby seeds now hash distinct cases (the pre-#61 mapping made
-/// spaced seeds necessary). hard/111 exhausts the whole budget under the
-/// derived mapping, so its slot moved to the generating neighbor 112.
+/// Golden digests captured for the issue-#93 interim configuration
+/// (2026-11-27): the four killer-naming/proximity-victim exclusion classes
+/// removed at the emit sites, the take-all per-type pool (the historical
+/// cap 10 starved the uniqueness search — see the cap comment in
+/// `case_factory.dart`), easy at 5×5 with unchanged knobs, standard at the
+/// new 7×7 with retuned knobs, and hard kept at 7×7 with its pre-change
+/// knobs (the 9×9 leg is deferred to #98). Regenerated with
+/// `dart run tool/probe_convergence.dart digests`. The digest-literal-copy
+/// in test/tool/probe_convergence_test.dart moves together with this map.
 const golden = {
-  'easy/1': '9824ca8d10f6fd06',
-  'easy/101': '9b771a2636e78992',
-  'easy/201': 'a3cf5e480534c082',
-  'easy/301': 'ac021d40f41f7bf3',
-  'easy/11': 'fc60195ae391159f',
-  'easy/17': 'cc3d3f4914a8d1d8',
-  'easy/23': '4a130a34d2fc23ac',
-  'easy/29': '8a1fa98db4590de8',
-  'standard/1': '8c0ec46047c56cd1',
-  'standard/101': 'a9d0c28bb65b45a3',
-  'standard/201': '3123b4dfc683ad00',
-  'standard/301': '925ebe072620a3e1',
-  'standard/11': 'dfa48b224f6d95f6',
-  'standard/211': '84824d886890ec84',
-  'standard/123': '2bdb97cf8caa3043',
-  'standard/129': '30293967f726e797',
+  'easy/1': '4573f6db2f8b1c6c',
+  'easy/101': '4a721ccb2f6b29c1',
+  'easy/201': '5825c777b958015d',
+  'easy/301': 'e10c88c0350a84f2',
+  'easy/11': '07dedcdaabe48941',
+  'easy/17': 'cc078c577799cbb5',
+  'easy/23': 'd1499e9ea8ee1f2c',
+  'easy/29': 'f70d1b2ebf04e4fe',
+  'standard/1': 'f3d910d0baed9b76',
+  'standard/101': 'e872ccda37f5b18f',
+  'standard/201': '9cfaf0014587c3d1',
+  'standard/301': '68eca9e05283ace3',
+  'standard/11': 'b1f2d4adfe85d78f',
+  'standard/211': 'b6d3954a69ec63b8',
+  'standard/123': '11651f6f024f82a1',
+  'standard/129': 'c48848b2f11762de',
   // 20261119/20261120 are dailySeedFor(2026-11-19) / (2026-11-20) — the UTC
-  // dates pinned in the daily-card tests (issue 49). Under the derived
-  // mapping the two consecutive dates generate distinct cases (issue 61),
-  // so the digests differ.
-  'standard/20261119': '780d586106bf65c6',
-  'standard/20261120': 'd12db8c1fb581348',
-  'hard/1': '88b269dfceb54844',
-  'hard/101': 'e0f75bff9a81fec1',
-  'hard/201': '392de78e2dc61cc7',
-  'hard/301': '1132c97e7abaaefe',
-  'hard/401': 'aac354a9898bf2bd',
-  'hard/11': '6992d08c001592d5',
-  'hard/112': '55ec51fcbf077c9c',
-  'hard/211': '87c1dc1d64c500bb',
+  // dates pinned in the daily-card tests (issue 49).
+  'standard/20261119': '51e2e3d18c366a4b',
+  'standard/20261120': 'fc194dd2155e926d',
+  'hard/1': '378e0f7f008c09ad',
+  'hard/101': '5897daef6d5bc1fa',
+  'hard/201': 'ce93a5d5b5465813',
+  'hard/301': 'f4a857d6dacc4b24',
+  'hard/401': '6e4e4620b00cfab0',
+  'hard/11': 'a14859cda6a1f7a9',
+  'hard/112': 'c226621083507342',
+  'hard/211': 'ce40ff2c2ff50bb5',
 };
 
 void main() {

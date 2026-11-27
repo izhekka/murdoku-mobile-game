@@ -5,8 +5,10 @@ import 'package:murdoku/domain/generator/case_factory.dart';
 import 'package:murdoku/domain/models.dart';
 import 'package:murdoku/state/game_controller.dart';
 import 'package:murdoku/state/providers.dart';
+import 'package:murdoku/storage/prefs_repository.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../support/legacy_case_fixture.dart';
 import '../support/seeded_overrides.dart';
 
 Pos p(int row, int col) => (row: row, col: col);
@@ -196,6 +198,46 @@ void main() {
     expect(state.elapsed, const Duration(seconds: 7));
     expect(state.phase, GamePhase.playing);
   });
+
+  test(
+    'legacy 6x6 save resumes on its stored grid, not the new knob (issue #93)',
+    () async {
+      final container = await makeContainer();
+      addTearDown(container.dispose);
+      final repo = container.read(prefsRepositoryProvider);
+
+      // A pre-change in-progress 6x6 case stamped difficulty.standard.
+      await repo.saveActiveGame(
+        SavedGame(
+          caseData: legacyStandardCase,
+          isDaily: false,
+          dailyDate: '',
+          board: BoardSnapshot(
+            placed: {'s1': legacyStandardCase.solution['s1']!},
+            xMarks: {},
+            elapsed: const Duration(seconds: 5),
+            hintsUsed: 0,
+            wrongAccusations: 0,
+          ),
+        ),
+      );
+
+      final notifier = container.read(gameControllerProvider.notifier);
+      notifier.resume(repo.loadActiveGame()!);
+      final state = container.read(gameControllerProvider)!;
+      expect(state.phase, GamePhase.playing);
+      expect(state.caseData.gridSize, 6);
+      expect(state.placed['s1'], legacyStandardCase.solution['s1']);
+
+      // The restored board accepts moves across the whole stored 6x6 grid.
+      notifier.selectSuspect('s2');
+      notifier.tapCell(legacyStandardCase.solution['s2']!);
+      expect(
+        container.read(gameControllerProvider)!.placed['s2'],
+        legacyStandardCase.solution['s2'],
+      );
+    },
+  );
 
   test(
     'hints: placement locks a correct guest; third hint is a no-op',
@@ -450,33 +492,30 @@ void main() {
     );
   });
 
-  test(
-    'startNewCase recovers the budget-exhausting hard seed 111 (issue 45)',
-    () async {
-      final container = await makeContainer();
-      addTearDown(container.dispose);
-      final notifier = container.read(gameControllerProvider.notifier);
+  test('startNewCase resolves the former exhaust corridor hard seed 111 in window 0 (issue 45, interim #93)', () async {
+    final container = await makeContainer();
+    addTearDown(container.dispose);
+    final notifier = container.read(gameControllerProvider.notifier);
 
-      // Under the derived mapping (issue 61) hard 111 exhausts the whole
-      // widened budget, so this start genuinely enters
-      // generateCaseWithRecovery's retry path (the pre-61 pin 117 now
-      // generates directly in window 0 — see case_factory_test.dart).
-      notifier.startNewCase(Difficulty.hard, seed: 111);
-      final state = container.read(gameControllerProvider)!;
-      expect(state.phase, GamePhase.playing);
-      expect(
-        state.caseData.seed,
-        1633640402,
-        reason:
-            'the recovered case is the window-1 seam measured in '
-            'case_factory_test, not the requested seed',
-      );
-      expect(
-        state.caseData.clues.length,
-        inInclusiveRange(Difficulty.hard.minClues, Difficulty.hard.maxClues),
-      );
-    },
-  );
+    // Under the pre-#93 cap-10 pool, hard 111 exhausted the whole widened
+    // budget and this start exercised generateCaseWithRecovery's retry
+    // path (recovered seed 1633640402). The issue-#93 take-all pool
+    // dissolves that corridor: seed 111 generates directly in window 0
+    // (stored seed 1237729143, map-probe measured 2026-11-27) and the
+    // user path just plays it.
+    notifier.startNewCase(Difficulty.hard, seed: 111);
+    final state = container.read(gameControllerProvider)!;
+    expect(state.phase, GamePhase.playing);
+    expect(
+      state.caseData.seed,
+      1237729143,
+      reason: 'the former corridor seed now plays its window-0 case',
+    );
+    expect(
+      state.caseData.clues.length,
+      inInclusiveRange(Difficulty.hard.minClues, Difficulty.hard.maxClues),
+    );
+  });
 
   test(
     'property: seeds across difficulties never crash the user path (issue 45)',
@@ -485,10 +524,10 @@ void main() {
       addTearDown(container.dispose);
       final notifier = container.read(gameControllerProvider.notifier);
 
-      // Hard 111 and 375 are the measured derived-mapping exhausts (§13);
-      // 116/117 generate directly since #61. The rest probe normal and
-      // unknown ranges. Every start must yield a playable case, never a
-      // StateError.
+      // Former derived-mapping exhausts 111/375 (§13, pre-#93 cap-10 pool)
+      // now generate directly under the #93 take-all pool; the rest probe
+      // normal and unknown ranges. Every start must yield a playable case,
+      // never a StateError.
       for (final difficulty in Difficulty.values) {
         for (final seed in const [1, 3, 111, 375, 500, 99991]) {
           notifier.startNewCase(difficulty, seed: seed);

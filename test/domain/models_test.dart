@@ -1,6 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:murdoku/domain/models.dart';
 
+import '../support/legacy_case_fixture.dart';
+
 Pos p(int row, int col) => (row: row, col: col);
 
 /// Hand-written 5x5 fixture covering every [Clue] subtype, positive and
@@ -87,20 +89,22 @@ CaseData fixture() {
 
 void main() {
   test('difficulty extension values match the spec table', () {
+    // Issue #93 interim sizing: easy 5x5, standard 7x7; hard stays 7x7 in
+    // this landing (9x9 deferred to #98).
     expect(Difficulty.easy.gridSize, 5);
-    expect(Difficulty.standard.gridSize, 6);
+    expect(Difficulty.standard.gridSize, 7);
     expect(Difficulty.hard.gridSize, 7);
-    // Amended by the furniture addendum: 3+5 / 4+6 / 5+9 items.
+    // Issue #93 retuned knob table: 3+5 / 5+8 items; hard keeps its
+    // pre-change 5+9 furniture in the interim configuration.
     expect(Difficulty.easy.objectCount, 8);
-    expect(Difficulty.standard.objectCount, 10);
+    expect(Difficulty.standard.objectCount, 13);
     expect(Difficulty.hard.objectCount, 14);
     expect(Difficulty.easy.minClues, 6);
-    expect(Difficulty.standard.minClues, 8);
+    expect(Difficulty.standard.minClues, 9);
     expect(Difficulty.hard.minClues, 10);
     expect(Difficulty.easy.maxClues, 9);
-    expect(Difficulty.standard.maxClues, 12);
+    expect(Difficulty.standard.maxClues, 15);
     expect(Difficulty.hard.maxClues, 14);
-    // Issue #10: negated clues per case, gated by difficulty.
     expect(Difficulty.easy.maxNegatedClues, 0);
     expect(Difficulty.standard.maxNegatedClues, 1);
     expect(Difficulty.hard.maxNegatedClues, 3);
@@ -117,13 +121,23 @@ void main() {
   test('furniture counts per difficulty', () {
     expect(Difficulty.easy.occupiableCount, 3);
     expect(Difficulty.easy.blockingCount, 5);
-    expect(Difficulty.standard.occupiableCount, 4);
-    expect(Difficulty.standard.blockingCount, 6);
+    // Issue #93 retuned furniture: standard 5+8; hard keeps pre-change 5+9.
+    expect(Difficulty.standard.occupiableCount, 5);
+    expect(Difficulty.standard.blockingCount, 8);
     expect(Difficulty.hard.occupiableCount, 5);
     expect(Difficulty.hard.blockingCount, 9);
     expect(Difficulty.easy.objectCount, 8);
-    expect(Difficulty.standard.objectCount, 10);
+    expect(Difficulty.standard.objectCount, 13);
     expect(Difficulty.hard.objectCount, 14);
+  });
+
+  test('legacy save shape: gridSize derives from rooms.length (issue #93)', () {
+    // A pre-change 6x6 case stamped difficulty.standard must keep reporting
+    // 6 once difficulty.gridSize moves to the interim 5/7/7 knob (and later
+    // to #98's 9), so in-progress saves render on their stored grid.
+    expect(legacyStandardCase.difficulty.gridSize, 7);
+    expect(legacyStandardCase.rooms.length, 6);
+    expect(legacyStandardCase.gridSize, 6);
   });
 
   test('ObjectDef occupiable flag round-trips', () {

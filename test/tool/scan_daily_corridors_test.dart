@@ -51,31 +51,33 @@ void main() {
       expect(row.recoveryExhausted, isFalse);
     });
 
-    test('the pinned corridor date maps request -> window-1 stride (#71)', () {
-      // Post-#61 corridor pin (test/state/daily_test.dart): bare
-      // generateCase(standard, 20310928) throws; recovery strides +40.
+    test('the former corridor date maps ok post-#93 (window 0)', () {
+      // Issue #93 interim configuration: the take-all pool dissolved the
+      // historical 2031-09-28 exhaust corridor — bare generateCase succeeds
+      // in window 0 (stored attempt seed 1243490650, map-probe measured
+      // 2026-11-27), so the recovery loop never leaves window 0.
       final row = scanDate(DateTime.utc(2031, 9, 28));
       expect(row.seed, 20310928);
-      expect(row.recoveredStride, 20310968);
+      expect(row.recoveredStride, isNull);
       expect(row.recoveryExhausted, isFalse);
-      // Stride-copy staleness guard (Review Focus 4): generation from the
-      // recovered stride must equal the shipped recovery result.
+      // Recovery identity: window 0 succeeding means a recovered start
+      // equals bare generation byte-for-byte.
       expect(
         generateCaseWithRecovery(
           difficulty: Difficulty.standard,
           seed: 20310928,
         ).toJson(),
-        generateCase(difficulty: Difficulty.standard, seed: 20310968).toJson(),
+        generateCase(difficulty: Difficulty.standard, seed: 20310928).toJson(),
       );
     });
 
-    test('corridor rows are reported exactly once each (#71)', () {
+    test('the 2031-09-27..29 window carries no corridor rows post-#93', () {
       final rows = scanDates(
         DateTime.utc(2031, 9, 27),
         DateTime.utc(2031, 9, 29),
       );
-      expect(rows.where((r) => r.recoveredStride != null).length, 1);
-      expect(rows.singleWhere((r) => r.recoveredStride != null).seed, 20310928);
+      expect(rows.where((r) => r.recoveredStride != null).length, 0);
+      expect(rows.where((r) => r.recoveryExhausted).length, 0);
     });
   });
 
@@ -83,10 +85,29 @@ void main() {
     test(
       'formatCorridorRows prints only bare-exhaust dates with stride (#71)',
       () {
-        final rows = scanDates(
-          DateTime.utc(2031, 9, 27),
-          DateTime.utc(2031, 9, 29),
-        );
+        // Hand-built rows keep the formatter covered without depending on a
+        // natural corridor existing: the #93 interim configuration removed
+        // the historical 2031-09-28 exhaust (see the scanning group).
+        final rows = <CorridorOutcome>[
+          CorridorOutcome(
+            date: DateTime.utc(2031, 9, 27),
+            seed: 20310927,
+            recoveredStride: null,
+            recoveryExhausted: false,
+          ),
+          CorridorOutcome(
+            date: DateTime.utc(2031, 9, 28),
+            seed: 20310928,
+            recoveredStride: 20310968,
+            recoveryExhausted: false,
+          ),
+          CorridorOutcome(
+            date: DateTime.utc(2031, 9, 29),
+            seed: 20310929,
+            recoveredStride: null,
+            recoveryExhausted: false,
+          ),
+        ];
         expect(
           formatCorridorRows(rows),
           '2031-09-28 20310928 -> exhausts, recovers at 20310968',
@@ -106,10 +127,29 @@ void main() {
     });
 
     test('formatSummary counts ok/corridor/unrecovered (#71)', () {
-      final rows = scanDates(
-        DateTime.utc(2031, 9, 27),
-        DateTime.utc(2031, 9, 29),
-      );
+      // Hand-built rows (see formatCorridorRows above): the historical
+      // 2031 corridor is gone post-#93, so formatter coverage uses the
+      // same synthetic mix.
+      final rows = <CorridorOutcome>[
+        CorridorOutcome(
+          date: DateTime.utc(2031, 9, 27),
+          seed: 20310927,
+          recoveredStride: null,
+          recoveryExhausted: false,
+        ),
+        CorridorOutcome(
+          date: DateTime.utc(2031, 9, 28),
+          seed: 20310928,
+          recoveredStride: 20310968,
+          recoveryExhausted: false,
+        ),
+        CorridorOutcome(
+          date: DateTime.utc(2031, 9, 29),
+          seed: 20310929,
+          recoveredStride: null,
+          recoveryExhausted: false,
+        ),
+      ];
       expect(
         formatSummary(rows, 2031, 2031),
         'scanned 3 UTC dates 2031-2031: ok=2, corridor=1, unrecovered=0',

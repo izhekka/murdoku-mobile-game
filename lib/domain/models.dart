@@ -19,9 +19,14 @@ Pos posFromJson(List<dynamic> json) =>
 enum Difficulty { easy, standard, hard }
 
 extension DifficultyX on Difficulty {
+  /// Issue #93 board knob — easy 5, standard 7. Hard stays 7 in the interim
+  /// configuration (owner split decision 2026-11-27); the 9×9 hard leg is
+  /// deferred to issue #98. [CaseData.gridSize] does NOT derive from this
+  /// anymore: it reads [CaseData.rooms.length] so pre-change saves render
+  /// their stored grid.
   int get gridSize => switch (this) {
     Difficulty.easy => 5,
-    Difficulty.standard => 6,
+    Difficulty.standard => 7,
     Difficulty.hard => 7,
   };
 
@@ -29,12 +34,12 @@ extension DifficultyX on Difficulty {
   int get objectCount => occupiableCount + blockingCount;
   int get minClues => switch (this) {
     Difficulty.easy => 6,
-    Difficulty.standard => 8,
+    Difficulty.standard => 9,
     Difficulty.hard => 10,
   };
   int get maxClues => switch (this) {
     Difficulty.easy => 9,
-    Difficulty.standard => 12,
+    Difficulty.standard => 15,
     Difficulty.hard => 14,
   };
 
@@ -48,14 +53,14 @@ extension DifficultyX on Difficulty {
   /// Furniture a guest may sit on.
   int get occupiableCount => switch (this) {
     Difficulty.easy => 3,
-    Difficulty.standard => 4,
+    Difficulty.standard => 5,
     Difficulty.hard => 5,
   };
 
   /// Furniture that blocks its cell.
   int get blockingCount => switch (this) {
     Difficulty.easy => 5,
-    Difficulty.standard => 6,
+    Difficulty.standard => 8,
     Difficulty.hard => 9,
   };
 
@@ -485,13 +490,20 @@ class CaseData {
   final Difficulty difficulty;
   final List<RoomDef> rooms;
   final List<ObjectDef> objects;
-  final List<Suspect> suspects; // length == gridSize
+  final List<Suspect> suspects; // length == rooms.length == gridSize
+
   final Pos victimPos;
   final String murdererId;
   final List<Clue> clues;
   final Map<String, Pos> solution; // suspectId -> pos
 
-  int get gridSize => difficulty.gridSize;
+  /// Issue #93 save compatibility: the board size derives from the STORED
+  /// room layout, not the current difficulty knob — [DifficultyX.gridSize]
+  /// moved to 5/7/7 (and will move again in #98), so a pre-change save
+  /// (e.g. 6×6 rooms stamped `difficulty.standard`) must keep rendering on
+  /// its own grid. For generator output rooms.length always equals the
+  /// difficulty's board size.
+  int get gridSize => rooms.length;
 
   CaseData copyWith({
     int? seed,

@@ -115,19 +115,49 @@ CaseData _badgeAnchorCase() {
   );
 }
 
-/// Board room tiling: [layout]'s rooms plus a singleton filler room for
-/// every other cell of the G×G board, so same-room/boundary logic sees a
-/// fully tiled board like the generator produces.
+/// Board room tiling: [layout]'s rooms plus filler rooms covering every
+/// other cell of the G×G board, split into scan-order chunks so the list
+/// carries EXACTLY [g] rooms — `CaseData.gridSize` derives from
+/// `rooms.length` (issue 93), so a rendered case must be tiled with
+/// exactly g rooms. Same-room/boundary logic only needs a fully tiled
+/// board; which filler room a boundary cell belongs to is irrelevant
+/// (every non-[id] neighbor is a boundary either way).
 List<RoomDef> _roomsFor(int g, Map<String, List<Pos>> layout) {
   final named = layout.values.expand((cells) => cells).toSet();
-  return [
+  final rooms = [
     for (final entry in layout.entries)
       RoomDef(id: entry.key, name: entry.key, cells: entry.value),
+  ];
+  final rest = [
     for (var row = 0; row < g; row++)
       for (var col = 0; col < g; col++)
-        if (!named.contains(_p(row, col)))
-          RoomDef(id: 'f${row}_$col', name: 'filler', cells: [_p(row, col)]),
+        if (!named.contains(_p(row, col))) _p(row, col),
   ];
+  final fillerRooms = g - rooms.length;
+  // Layouts that already fill every cell, or that tile with g+ named rooms
+  // (the badge-anchor fixture), need no filler room at all; the tracer
+  // battery passes g explicitly and may leave fewer filler cells than
+  // filler-room slots — one combined filler room covers those. The render
+  // path (g-rooms-or-fewer is never pumped) always hits the chunked case.
+  if (rest.isEmpty || fillerRooms <= 0) return rooms;
+  if (rest.length <= fillerRooms) {
+    rooms.add(RoomDef(id: 'f0', name: 'filler', cells: rest));
+    return rooms;
+  }
+  final perChunk = rest.length ~/ fillerRooms;
+  var taken = 0;
+  for (var i = 0; i < fillerRooms; i++) {
+    final size = i == fillerRooms - 1 ? rest.length - taken : perChunk;
+    rooms.add(
+      RoomDef(
+        id: 'f$i',
+        name: 'filler',
+        cells: rest.sublist(taken, taken + size),
+      ),
+    );
+    taken += size;
+  }
+  return rooms;
 }
 
 /// The room's boundary edges, recomputed independently from the definition:
