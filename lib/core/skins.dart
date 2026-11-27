@@ -337,21 +337,27 @@ bool _allEqual(List<bool> checks) {
 /// with soft shadows.
 ///
 /// Issue 87 diverges the board tokens: `roomTints` are one shade deeper
-/// than the issue 23 mockup palette (every tint ≥ 1.5:1 vs the page; all
+/// than the issue 23 mockup palette (every tint ≥ 1.5:1 vs the white
+/// mortar plate they paint on — issue 97 split the sky page from that
+/// plate; all
 /// 28 pairs CIE76 ΔE ≥ 15, ≥ 12 under both Machado-0.6 deuteranopia and
 /// protanopia simulation — lavender/sky pulled further apart than the
 /// issue's starting pair, which collapsed to ΔE ~8 under both
-/// simulations), the victim pair separates from the page and cards, and
+/// simulations), the victim pair separates from the plate and cards, and
 /// `inkSoft` reaches AA — on white it must measure ≥ 4.5:1, and it is also
 /// the clue text color (onSurfaceVariant), so it is darkened past the
 /// issue's starting #5A66A0 until it clears AA on white (#505D9A: 6.23:1;
 /// the issue-87 chip it used to paint on was removed in issue 89). The
 /// white mortar, badge, card and sheet stay untouched — the deeper tints
-/// carry the board's visibility. Pinned by test/core/skins_contrast_test.dart.
+/// carry the board's visibility. Issue 97 returns the app page to the flat
+/// mockup sky `0xFF6FCBFF` (the owner-picked white-cloud schema, restoring
+/// the pre-#86 pageColor) so the white cloud-controls separate from the
+/// page without borders; every control surface keeps its landed colors.
+/// Pinned by test/core/skins_contrast_test.dart.
 const candyTokens = SkinTokens(
   skin: SkinSetting.candy,
   isCartoon: true,
-  appBackground: Color(0xFFFFFFFF),
+  appBackground: Color(0xFF6FCBFF),
   ink: Color(0xFF35406E),
   inkSoft: Color(0xFF505D9A),
   card: SkinCard(

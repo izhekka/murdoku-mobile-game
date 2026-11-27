@@ -1341,14 +1341,16 @@ void main() {
             (n ~/ 3, i),
             (2 * n ~/ 3, i),
           ]) {
-            // Canary sentinel: the board paints nothing canary. The old
-            // sentinel was the page color (issue 86 removed it); its
-            // substitute appBackground works for sticker/comic, but candy
-            // paints its paper white as its mortar — the board DOES paint
-            // it — so the never-painted sentinel is the canary.
+            // Never-painted sentinels: the board paints mortar + tints
+            // only. The canary travels with every skin as the belt. Issue
+            // 97 returned candy's page to the sky (≠ mortar ≠ tints), so
+            // the page color is a valid candy sentinel again — the
+            // issue-86 white page (== candy's white mortar) needed the
+            // canary-only blind-spot workaround; sticker/comic always had
+            // a distinct page sentinel.
             expect(
               _pixelAt(ring, x, y),
-              isNot(_canary.toARGB32()),
+              isNot(anyOf(_canary.toARGB32(), tokens.appBackground.toARGB32())),
               reason:
                   'no leak color may sit inside the border band at ($x, $y)',
             );

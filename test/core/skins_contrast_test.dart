@@ -175,17 +175,24 @@ void main() {
     );
   });
 
-  test('candy room tints separate from the page (issue 87)', () {
-    final page = candyTokens.appBackground;
+  test('candy room tints separate from the white plate (issue 87/97)', () {
+    // Issue 97: the page is the sky now, but the board's solid plate
+    // (solidRooms; the #83 closed-world scan battery) never exposes the
+    // page under a tile — the backdrop a tint actually paints against is
+    // the white mortar. The #87 bar bound appBackground when candy's page
+    // and mortar were both white; the sky reveals they are different
+    // surfaces, and this pairing is the one reachable in the render path.
+    // The numbers are unchanged from #87 (they always measured white).
     for (var i = 0; i < candyTokens.roomTints.length; i++) {
       final tint = candyTokens.roomTints[i];
-      final ratio = _contrastRatio(tint, page);
+      final ratio = _contrastRatio(tint, candyTokens.mortarColor);
       expect(
         ratio,
         greaterThanOrEqualTo(1.5),
         reason:
-            'candy room tint[$i] ${_hexOf(tint)} vs page '
-            '${_hexOf(page)} must reach 1.5:1, measured $ratio',
+            'candy room tint[$i] ${_hexOf(tint)} vs the mortar plate '
+            '${_hexOf(candyTokens.mortarColor)} must reach 1.5:1, '
+            'measured $ratio',
       );
     }
   });
@@ -231,15 +238,21 @@ void main() {
     }
   });
 
-  test('candy victim cell separates (issue 87)', () {
-    final page = candyTokens.appBackground;
-    final fill = _contrastRatio(candyTokens.victimFill, page);
+  test('candy victim cell separates from the plate (issue 87/97)', () {
+    // Issue 97: the victim tiles are painted inside the solid plate (the
+    // inset rect sits on the white mortar, issue 90), never on the page —
+    // the binding pair is fill vs mortar (number unchanged from #87,
+    // which measured the then-white page).
+    final fill = _contrastRatio(
+      candyTokens.victimFill,
+      candyTokens.mortarColor,
+    );
     expect(
       fill,
       greaterThanOrEqualTo(1.5),
       reason:
-          'candy victim fill ${_hexOf(candyTokens.victimFill)} vs page '
-          'must reach 1.5:1, measured $fill',
+          'candy victim fill ${_hexOf(candyTokens.victimFill)} vs the '
+          'mortar plate must reach 1.5:1, measured $fill',
     );
     final stripe = _contrastRatio(
       candyTokens.victimStripeColor,
@@ -256,5 +269,55 @@ void main() {
     );
     // The clue chip's surface-vs-card bar (issue 87) is gone with the pill
     // (issue 89): the sentences paint directly on the card.
+  });
+
+  test('candy control surfaces separate from the sky page (issue 97)', () {
+    final page = candyTokens.appBackground;
+    // The owner's flat-sky schema: white cards read as clouds on the sky
+    // only with the shadow's help — the raw color pair measures 1.80:1,
+    // far below the AA text bars, so ANY white-on-sky text is an instant
+    // AA failure. The app-shell walk (test/app_shell_test.dart) guards
+    // that no such text exists; a found case is flagged, not auto-fixed.
+    final cardVsSky = _contrastRatio(candyTokens.card.background, page);
+    expect(
+      cardVsSky,
+      greaterThanOrEqualTo(1.5),
+      reason:
+          'candy white cards ${_hexOf(candyTokens.card.background)} vs the '
+          'sky page must reach 1.5:1 (measured $cardVsSky; the shadow '
+          'carries the visible edge)',
+    );
+    expect(
+      _contrastRatio(_white, page),
+      lessThan(4.5),
+      reason: 'white on the sky is below AA text bars — see the walk bar',
+    );
+  });
+
+  test('candy ink on the sky page meets AA (issue 97)', () {
+    // The AppBar/page text paints the skin ink on the sky (measured
+    // 5.53:1); FilledButton onPrimary is the same pair reversed (sky
+    // glyphs on ink buttons).
+    final onSky = _contrastRatio(candyTokens.ink, candyTokens.appBackground);
+    expect(
+      onSky,
+      greaterThanOrEqualTo(4.5),
+      reason:
+          'candy ink ${_hexOf(candyTokens.ink)} on the sky page must reach '
+          'AA 4.5:1, measured $onSky',
+    );
+  });
+
+  test('candy sky is a never-painted sentinel for the scan battery '
+      '(issue 97)', () {
+    // sky ≠ mortar ≠ room tints: issue 86's white page equaled candy's
+    // white mortar, blinding the #83 page-leak sentinels on candy; the
+    // sky closes that class at the token level, so the border-band
+    // trip-wire in test/ui/widgets/board_view_painter_scan_test.dart may
+    // assert "no appBackground pixel" again.
+    expect(candyTokens.appBackground, isNot(candyTokens.mortarColor));
+    for (final tint in candyTokens.roomTints) {
+      expect(candyTokens.appBackground, isNot(tint));
+    }
   });
 }

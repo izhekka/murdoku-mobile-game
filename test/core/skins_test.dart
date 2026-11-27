@@ -44,7 +44,11 @@ void main() {
     // Issue 87 retune; #505D9A clears AA both on white and on the retuned
     // clue chip (the chip clue text color is onSurfaceVariant == inkSoft).
     expect(t.inkSoft, c(0xFF505D9A));
-    expect(t.appBackground, c(0xFFFFFFFF));
+    // Issue 97: the flat sky the candy mockup drew — the owner-picked
+    // white-cloud schema (restores the pre-#86 pageColor value) — so white
+    // cloud-controls separate from the page without borders. The card,
+    // border, mortar and shadow below keep their landed values.
+    expect(t.appBackground, c(0xFF6FCBFF));
     expect(t.card.background, c(0xFFFFFFFF));
     expect(t.card.borderColor, c(0xFFFFFFFF));
     expect(t.card.borderWidth, 4);

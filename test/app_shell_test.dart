@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data' show Uint8List;
 
 import 'package:flutter/rendering.dart' show RenderRepaintBoundary;
@@ -8,12 +9,17 @@ import 'package:material_ui/material_ui.dart';
 import 'package:murdoku/app.dart';
 import 'package:murdoku/core/skins.dart';
 import 'package:murdoku/core/theme.dart' show AppTheme;
+import 'package:murdoku/domain/models.dart';
 import 'package:murdoku/l10n/generated/app_localizations.dart';
+import 'package:murdoku/state/game_controller.dart';
 import 'package:murdoku/state/settings_controller.dart';
 import 'package:murdoku/storage/prefs_repository.dart';
 import 'package:murdoku/ui/screens/home_screen.dart';
 import 'package:murdoku/ui/screens/settings_screen.dart';
 import 'package:murdoku/ui/screens/stats_screen.dart';
+import 'package:murdoku/ui/widgets/skin_card.dart'
+    as skin_widgets
+    show SkinCard;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/seeded_overrides.dart';
@@ -268,6 +274,176 @@ void main() {
         reason: '$skin bottom-right corner pixel',
       );
     }
+  });
+
+  testWidgets('candy sky page: sky at the corners and card gaps, white '
+      'cards read, no white text on the page (issue 97)', (tester) async {
+    tester.view.physicalSize = phoneViewport; // 390x844 @ dpr 3
+    tester.view.devicePixelRatio = 3.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    SharedPreferences.setMockInitialValues({
+      'murdoku.settings': jsonEncode(
+        const Settings(skin: SkinSetting.candy).toJson(),
+      ),
+      'murdoku.tutorialSeen': true,
+    });
+    final prefs = await SharedPreferences.getInstance();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: seededOverrides(prefs),
+        child: RepaintBoundary(
+          key: const ValueKey('sky-page-capture'),
+          child: const MurdokuApp(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final tokens = SkinScope.maybeOf(tester.element(find.byType(HomeScreen)))!;
+    final sky = tokens.appBackground.toARGB32();
+    final cardWhite = tokens.card.background.toARGB32();
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(HomeScreen)),
+    );
+    final router = GoRouter.of(tester.element(find.byType(HomeScreen)));
+
+    // toImage submits to the real IO task queue, which the fake-async test
+    // zone forbids: run the capture in runAsync (same pattern as the
+    // issue-86 full-bleed test above).
+    Uint8List bytes = Uint8List(0);
+    var width = 0;
+    var height = 0;
+    await tester.runAsync(() async {
+      final boundary = tester.renderObject<RenderRepaintBoundary>(
+        find.byKey(const ValueKey('sky-page-capture')),
+      );
+      final image = await boundary.toImage(pixelRatio: 3.0);
+      width = image.width;
+      height = image.height;
+      bytes = Uint8List.fromList(
+        (await image.toByteData())!.buffer.asUint8List(),
+      );
+      image.dispose();
+    });
+
+    for (final (x, y, name) in [
+      (0, 0, 'top-left'),
+      (width - 1, 0, 'top-right'),
+      (0, height - 1, 'bottom-left'),
+      (width - 1, height - 1, 'bottom-right'),
+    ]) {
+      expect(
+        _pixelAt(bytes, width, x, y),
+        sky,
+        reason: '$name corner of the candy page must be the sky',
+      );
+    }
+
+    // SkinCard wraps its token container in 4-logical padding: the sample
+    // two logical px in from the outer left edge lands in the page gap
+    // band between cards, the center lands inside the white container.
+    Offset device(Offset logical) => Offset(
+      (logical.dx * 3).round().toDouble(),
+      (logical.dy * 3).round().toDouble(),
+    );
+    final card = tester.getRect(find.byType(skin_widgets.SkinCard).first);
+    // SkinCard wraps its token container in 4-logical padding: sample the
+    // container's interior by majority — the white cloud surface must
+    // dominate it (title/subtitle glyphs are the ink minorities), and the
+    // page gap two logical px in from the outer left edge must be sky.
+    final containerRect = card.deflate(4);
+    var whiteCount = 0;
+    var sampleCount = 0;
+    for (
+      var y = (containerRect.top * 3).round();
+      y < (containerRect.bottom * 3).round();
+      y += 3
+    ) {
+      for (
+        var x = (containerRect.left * 3).round();
+        x < (containerRect.right * 3).round();
+        x += 3
+      ) {
+        sampleCount++;
+        if (_pixelAt(bytes, width, x, y) == cardWhite) whiteCount++;
+      }
+    }
+    expect(
+      whiteCount,
+      greaterThanOrEqualTo(sampleCount * 2 ~/ 3),
+      reason: 'the card interior is dominated by the white cloud surface',
+    );
+    final pageGap = device(Offset(card.left + 2, card.center.dy));
+    expect(
+      _pixelAt(bytes, width, pageGap.dx.round(), pageGap.dy.round()),
+      sky,
+      reason: 'the page gap beside the card is the sky',
+    );
+
+    // No white text on any page: walk every Text on home, settings, stats
+    // and game; white answers are legal ONLY inside the danger accuse pill
+    // (game_screen.dart's _foreground). White on the sky measures 1.80:1
+    // (an AA failure — skins_contrast_test.dart); if a case is ever found
+    // here it is flagged to the issue, not auto-fixed here.
+    bool whiteTextOutsideAccuse() {
+      final whiteTexts = find.byType(Text).evaluate().where((el) {
+        final text = el.widget as Text;
+        final resolved =
+            text.style?.color ?? DefaultTextStyle.of(el).style.color;
+        return resolved?.toARGB32() == 0xFFFFFFFF;
+      }).toList();
+      for (final el in whiteTexts) {
+        final inAccuse = find
+            .ancestor(
+              of: find.byElementPredicate((e) => identical(e, el)),
+              matching: find.byKey(const Key('tool_accuse')),
+            )
+            .evaluate()
+            .isNotEmpty;
+        if (!inAccuse) return true;
+      }
+      return false;
+    }
+
+    expect(
+      whiteTextOutsideAccuse(),
+      isFalse,
+      reason: 'home: no white page text',
+    );
+    router.go('/settings');
+    await tester.pumpAndSettle();
+    expect(
+      whiteTextOutsideAccuse(),
+      isFalse,
+      reason: 'settings: no white page text',
+    );
+    router.go('/stats');
+    await tester.pumpAndSettle();
+    expect(
+      whiteTextOutsideAccuse(),
+      isFalse,
+      reason: 'stats: no white page text',
+    );
+    // Route-coverage pin (absorbed review P3, issue 97): the tutorial-like
+    // how-to-play page walks too — it renders text on the sky page directly.
+    router.go('/how-to-play');
+    await tester.pumpAndSettle();
+    expect(
+      whiteTextOutsideAccuse(),
+      isFalse,
+      reason: 'how-to-play: no white page text',
+    );
+    container
+        .read(gameControllerProvider.notifier)
+        .startNewCase(Difficulty.easy, seed: 3);
+    router.go('/game');
+    await tester.pumpAndSettle();
+    expect(
+      whiteTextOutsideAccuse(),
+      isFalse,
+      reason: 'game: no white page text',
+    );
   });
 }
 
