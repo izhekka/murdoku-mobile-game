@@ -196,5 +196,33 @@ run_guard "$r"
 [ "$rc" -eq 0 ] && report ok "case 10b: body color lines compare literally once fresh" \
 	|| report fail "case 10b: body color lines compare literally once fresh" "exit $rc: $out"
 
+# Case 11: model:/thoughtLevel: frontmatter (issue #110) — the zcode
+# projection keeps both lines, the claude projection drops them; a repo in
+# that shape is in sync.
+new_repo
+awk 'NR==4{print; print "model: account:zai-individual-coding-plan/GLM-5.3-Flash"; print "thoughtLevel: high"; next} {print}' \
+	"$r/.agents/agents/demo.md" > "$r/z.tmp" && mv "$r/z.tmp" "$r/.agents/agents/demo.md"
+git -C "$r" add .agents/agents/demo.md
+
+	cat > "$r/.zcode/agents/demo.md" <<'EOF'
+---
+name: "demo"
+description: "demo agent"
+tools: [Read, Edit]
+model: account:zai-individual-coding-plan/GLM-5.3-Flash
+thoughtLevel: high
+color: green
+---
+Body line one.
+EOF
+
+run_guard "$r"
+[ "$rc" -eq 0 ] && report ok "case 11: model/thoughtLevel kept for zcode, dropped for claude" \
+	|| report fail "case 11: model/thoughtLevel kept for zcode, dropped for claude" "exit $rc: $out"
+regen
+run_guard "$r"
+[ "$rc" -eq 0 ] && report ok "case 11b: regen keeps model/thoughtLevel in sync" \
+	|| report fail "case 11b: regen keeps model/thoughtLevel in sync" "exit $rc: $out"
+
 echo "cases: $case_n group(s), failures: $fails"
 [ "$fails" -eq 0 ] || exit 1

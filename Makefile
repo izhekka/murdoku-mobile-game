@@ -1,11 +1,13 @@
 # Agent factory
 #
 # Canonical agent definitions live in .agents/agents/ (portable core: name,
-# description, optional tools, body). `make init <zcode|claude>` projects them
-# into each harness's native directory:
+# description, optional tools, optional model/thoughtLevel, body). `make init
+# <zcode|claude>` projects them into each harness's native directory:
 #
-#   make init zcode  -> .zcode/agents/   (adds ZCode-only `color` chip)
-#   make init claude -> .claude/agents/  (tools array -> Claude's comma form)
+#   make init zcode  -> .zcode/agents/   (keeps model:/thoughtLevel: (issue
+#                                         #110); adds ZCode-only `color` chip)
+#   make init claude -> .claude/agents/  (tools array -> Claude's comma form;
+#                                         drops model:/thoughtLevel:)
 #
 # Both projections are regenerated local files, not symlinks and not tracked:
 # git ignores /.zcode/ and /.claude/ entirely, and a fresh clone has neither
@@ -53,7 +55,7 @@ zcode: ## project canonical agents into .zcode/agents/
 		for kv in $(ZCODE_COLORS); do \
 			[ "$${kv%%=*}" = "$$n" ] && c="$${kv##*=}"; \
 		done; \
-		awk -v color="$$c" 'BEGIN{fm=0;cl=0} !cl && /^---[[:space:]]*$$/{if(fm){if(color!="")print "color: " color; print "---"; cl=1; next} fm=1; print "---"; next} !cl && fm {if($$1=="name:"||$$1=="description:"||$$1=="tools:")print; next} {print}' "$$f" > "$(ZCODE_DST)/$$n.md" || exit 1; \
+		awk -v color="$$c" 'BEGIN{fm=0;cl=0} !cl && /^---[[:space:]]*$$/{if(fm){if(color!="")print "color: " color; print "---"; cl=1; next} fm=1; print "---"; next} !cl && fm {if($$1=="name:"||$$1=="description:"||$$1=="tools:"||$$1=="model:"||$$1=="thoughtLevel:")print; next} {print}' "$$f" > "$(ZCODE_DST)/$$n.md" || exit 1; \
 		echo "  zcode: $$n.md"; \
 	done; \
 	[ "$$found" = 1 ] || { echo "no agents found in $(AGENTS_SRC)/" >&2; exit 1; }
