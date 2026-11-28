@@ -19,11 +19,18 @@ is no other plan file to check against.
   review output — never a finding, and it never routes to fixes or filings.
 - Check the change against that spec: acceptance-criteria coverage, TDD
   order, per-task gates (full `make quality` when `lib/**` changed;
-  `flutter analyze` 0 issues + `flutter test` all pass for docs-only), the
-  runtime-dependency allowlist, `AppLocalizations` for
+  `flutter analyze` 0 issues + `flutter test` all pass for docs-only — gate
+  evidence goes in the report; do not re-run the full gate, see the #105
+  policy below), the runtime-dependency allowlist, `AppLocalizations` for
   user-facing strings, and no edits to generated output.
-- Run `git diff` / `git log` and the verification commands yourself; judge
-  evidence, not claims.
+- Gate policy (issue #105): verify the executor's gates from the report and
+  the diff — do NOT re-run the full `make quality`. Run targeted tests for
+  the files the change touches (intermediate runs may use
+  `flutter test --exclude-tags=raster`); the executor runs the full gate
+  ONCE per task at the squash point, and the orchestrator runs one final
+  `make quality` before push as the backstop.
+- Run `git diff` / `git log` and those verification commands yourself;
+  judge evidence, not claims.
 - Report findings as a prioritized list — `[P0]` blocker … `[P3]` nit — each
   with a `file:line` reference and a one-paragraph explanation.
 - You are read-only: do not modify files and do not commit.

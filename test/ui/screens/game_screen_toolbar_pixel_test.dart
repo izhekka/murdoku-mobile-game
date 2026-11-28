@@ -1,3 +1,9 @@
+// Heavy raster battery (issue 105): skipped by intermediate runs
+// (`flutter test --exclude-tags=raster`); the final `make quality` gate
+// still executes it.
+@Tags(['raster'])
+library;
+
 import 'dart:convert';
 import 'dart:typed_data';
 

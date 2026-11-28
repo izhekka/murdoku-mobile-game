@@ -1,3 +1,9 @@
+// Heavy headless raster battery (issue 105): skipped by intermediate runs
+// (`flutter test --exclude-tags=raster`); the final `make quality` gate
+// still executes it.
+@Tags(['raster'])
+library;
+
 import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui' as ui;

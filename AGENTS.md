@@ -41,6 +41,7 @@ flutter pub get                                           # fetch dependencies
 flutter run                                               # run on an attached device/emulator
 flutter analyze                                           # static analysis — must report 0 issues
 flutter test                                              # unit + widget tests — all must pass
+flutter test --exclude-tags=raster                        # intermediate runs: skips the heavy tagged raster batteries (issue 105)
 flutter test integration_test/smoke_test.dart -d <device> # full-loop smoke test
 bash tool/build_item_icons.sh                             # rebuild the item sprites in assets/items/
 dart run tool/gen_icon.dart                               # regenerate the launcher icon

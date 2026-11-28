@@ -22,12 +22,17 @@ labeled `task` whose dependencies (if any) are already closed.
    off-screen, rasterize it to an image, assert on raw pixels) proving the
    fix before the review round: prose or screenshot claims do not prove a
    painter fix.
-5. Gate after every task: when `lib/**` changes, the task gate is the FULL
-   `make quality` (format + analyze + locked coverage + CRAP ratchet), not
-   analyze+test — a failing leg on any of `make quality`'s steps fails the
-   task; analyze+test alone remains valid only for docs-only changes
-   (`flutter analyze` 0 issues, `flutter test` all pass). Then commit on the
-   branch per the git workflow.
+5. Gate policy (issue #105): during work, run `flutter analyze` plus the
+   touched test files; exclude the heavy pixel batteries from intermediate
+   test runs with `flutter test --exclude-tags=raster` (the painter-scan,
+   generated-case sweep and *_pixel_test suites carry `@Tags(['raster'])`;
+   documented in AGENTS.md). Run the FULL `make quality` (format + analyze +
+   locked coverage + CRAP ratchet — raster batteries included) ONCE per
+   task, at the squash/review-marker point; a failing leg on any of
+   `make quality`'s steps fails the task. Analyze+test alone remains valid
+   for docs-only changes (`flutter analyze` 0 issues, `flutter test` all
+   pass). The orchestrator's pre-push `make quality` is the final backstop.
+   Then commit on the branch per the git workflow.
 6. Review round between the gates and the squash. When the last task's gates
    have passed and all work is committed on the branch (pre-squash), run one
    review round:
