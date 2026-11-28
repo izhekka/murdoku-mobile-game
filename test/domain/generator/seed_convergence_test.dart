@@ -21,6 +21,10 @@ import 'package:murdoku/domain/models.dart';
 /// with a fresh `dart run tool/probe_convergence.dart map` run (transcribe
 /// its `map` output) — never by hand, and only in the same change as the
 /// regenerated golden digests (§13).
+///
+/// Re-measured 2026-11-28 for issue #106 (deduction-chain gate): the table
+/// is byte-identical — every pinned seed still converges on attempt 0, no
+/// exhaust in 0..60 — so all values stand as transcribed above.
 const _convergence = {
   'easy': {
     0: 0,

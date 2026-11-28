@@ -1,8 +1,8 @@
 import 'dart:math';
 
+import 'package:murdoku/domain/deducer.dart';
 import 'package:murdoku/domain/generator/rooms.dart';
 import 'package:murdoku/domain/models.dart';
-import 'package:murdoku/domain/solver.dart';
 
 /// Curated name pools (content data, not UI strings).
 const _suspectNames = [
@@ -80,9 +80,9 @@ const roomNamePool = _roomNames;
 
 /// Deterministic: same [difficulty] and [seed] produce an identical case.
 /// Tries the [seed]-derived attempt seeds of one 40-attempt window; if none
-/// yields a unique puzzle inside the difficulty's clue window, widens the
-/// window's max by +1 and retries the whole budget (up to 4 widenings),
-/// then throws [StateError].
+/// yields a chain-solvable puzzle (issue #106) inside the difficulty's clue
+/// window, widens the window's max by +1 and retries the whole budget (up
+/// to 4 widenings), then throws [StateError].
 ///
 /// Each attempt derives its rng seed from (requested seed, attempt index)
 /// via [_derivedSeed] (issue 61): nearby requested seeds spread their
@@ -102,7 +102,8 @@ CaseData generateCase({required Difficulty difficulty, required int seed}) {
     }
   }
   throw StateError(
-    'no unique case found for $difficulty within budget (seed $seed)',
+    'no deduction-chain case found for $difficulty within budget '
+    '(seed $seed)',
   );
 }
 
@@ -206,7 +207,7 @@ _Prepared? _prepare(Difficulty difficulty, int widen, Random rng) {
 
   // 4. furniture. Occupiable items may sit on empty cells or under solution
   // guests (a guest on a chair); blocking items only on empty cells — the
-  // solution itself never uses one, so uniqueness machinery is unaffected.
+  // solution itself never uses one, so the chain gate is unaffected.
   // Never on the victim cell, at most one item per cell.
   final objects = _buildObjects(difficulty, rooms, solution, victimPos, rng);
   if (objects == null) return null;
@@ -357,9 +358,10 @@ void _placeBlocking(
   }
 }
 
-/// Attempts 5-6 of the original inline flow: clue pool, minimize to unique,
-/// prune, per-suspect coverage, clue-window fill and the negated top-up.
-/// Returns null when the attempt cannot meet the difficulty's clue window.
+/// Attempts 5-6 of the original inline flow: clue pool, minimize to a
+/// deduction chain, prune, per-suspect coverage, clue-window fill and the
+/// negated top-up. Returns null when the attempt cannot meet the
+/// difficulty's clue window under its tier's chain gate (issue #106).
 List<Clue>? _buildClueSet(
   Difficulty difficulty,
   _Prepared prep,
@@ -368,6 +370,7 @@ List<Clue>? _buildClueSet(
 ) {
   final g = difficulty.gridSize;
   final maxClues = difficulty.maxClues + widen;
+  final tier = deduceTierFor(difficulty);
   // Issue #93 leak-rule anchor: the room the victim stands in. The murderer
   // rule ("one guest shares a room with the victim") makes every positive
   // reference to that room a killer-naming card, so the pool builders below
@@ -387,23 +390,59 @@ List<Clue>? _buildClueSet(
     rng,
   );
 
-  // 6. minimize to unique, then enforce the clue window.
-  final minimized = _minimizeToUnique(
+  // 6. minimize to a chain-solvable set, then enforce the clue window.
+  final minimized = _minimizeToChain(
     pool,
     g,
     prep.rooms,
     suspectIds(prep.suspects),
     prep.victimPos,
     prep.objects,
+    tier,
   );
   if (minimized == null) return null;
+  final picked = _fittedClueSet(
+    difficulty,
+    prep,
+    pool,
+    minimized,
+    maxClues,
+    tier,
+    victimRoomId,
+  );
+  if (picked == null) return null;
+  ensureChainSolvable(
+    g: g,
+    rooms: prep.rooms,
+    clues: picked,
+    ids: suspectIds(prep.suspects),
+    victimPos: prep.victimPos,
+    objects: prep.objects,
+    tier: tier,
+  );
+  return picked;
+}
+
+/// Prune, coverage, clue-window fill and the negated top-up: everything the
+/// minimized set needs to fit the difficulty's window. Returns null when
+/// the window cannot be met.
+List<Clue>? _fittedClueSet(
+  Difficulty difficulty,
+  _Prepared prep,
+  List<Clue> pool,
+  List<Clue> minimized,
+  int maxClues,
+  DeduceTier tier,
+  String victimRoomId,
+) {
   final pruned = _prune(
     minimized,
-    g,
+    difficulty.gridSize,
     prep.rooms,
     suspectIds(prep.suspects),
     prep.victimPos,
     prep.objects,
+    tier,
   );
   var picked = _ensureCoverage(
     pruned,
@@ -419,14 +458,73 @@ List<Clue>? _buildClueSet(
   if (picked.length < difficulty.minClues || picked.length > maxClues) {
     return null;
   }
-
   _topUpNegated(picked, pool, difficulty, maxClues);
   return picked;
 }
 
+/// Issue #106 hard final gate: the EXACT shipped clue set must chain-solve.
+/// Every selection stage only adds solution-true clues (monotone for the
+/// chain), so the throw cannot fire in correct code — it is the acceptance
+/// anchor: any regression that ships an unchainable set crashes loudly.
+///
+/// Public seam (plainly public, like [coverageFallbackClue]; no
+/// @visibleForTesting so this pure-Dart file stays flutter/meta-free): the
+/// throw branch never fires in generated cases, and the CRAP gate requires
+/// every decision branch covered — the unit test calls this directly with
+/// a dead clue set to pin the throw.
+void ensureChainSolvable({
+  required int g,
+  required List<RoomDef> rooms,
+  required List<Clue> clues,
+  required List<String> ids,
+  required Pos victimPos,
+  required List<ObjectDef> objects,
+  required DeduceTier tier,
+}) {
+  if (_chainSolvable(
+    g: g,
+    rooms: rooms,
+    clues: clues,
+    ids: ids,
+    victimPos: victimPos,
+    objects: objects,
+    tier: tier,
+  )) {
+    return;
+  }
+  throw StateError(
+    'deduction chain failed on the shipped clue set '
+    '(${clues.length} clues) — generator regression',
+  );
+}
+
+/// True when [clues] fully solve by a deduction chain under [tier] — the
+/// clue-selection gate predicate (issue #106). A null trace means the
+/// attempt cannot ship this set.
+bool _chainSolvable({
+  required int g,
+  required List<RoomDef> rooms,
+  required List<Clue> clues,
+  required List<String> ids,
+  required Pos victimPos,
+  required List<ObjectDef> objects,
+  required DeduceTier tier,
+}) =>
+    Deducer(
+      gridSize: g,
+      rooms: rooms,
+      clues: clues,
+      suspectIds: ids,
+      victimPos: victimPos,
+      objects: objects,
+      tier: tier,
+    ).solve() !=
+    null;
+
 /// Coverage: no suspect may end up without a clue (empty cards confuse
 /// players). Pool clues are all true of the solution, so additions are
-/// uniqueness-safe. InRoom(s, own room) always exists as a fallback shape,
+/// chain-safe (issue #106: they never un-solve a chain-solvable set).
+/// InRoom(s, own room) always exists as a fallback shape,
 /// so the firstWhere orElse below is a defensive fallback only.
 ///
 /// Issue #93: the fallback must not name the killer. For a suspect whose own
@@ -506,7 +604,7 @@ Clue coverageFallbackClue(
 /// Tops up a sub-window pick with pool candidates, preferring clue types the
 /// case doesn't have yet so every type (e.g. the same-room item clue,
 /// UX-8/ADR 0004) can appear on cards even when it never contributes to
-/// uniqueness (a same-room BesideObject is logically an InRoom clue: one
+/// the chain (a same-room BesideObject is logically an InRoom clue: one
 /// guest per room). Returns the same list, mutated in place.
 List<Clue> _fillToMinClues(List<Clue> picked, List<Clue> pool, int minClues) {
   if (picked.length >= minClues) return picked;
@@ -518,14 +616,14 @@ List<Clue> _fillToMinClues(List<Clue> picked, List<Clue> pool, int minClues) {
   ];
   for (final clue in ordered) {
     if (picked.length >= minClues) break;
-    picked.add(clue); // adding clues preserves uniqueness
+    picked.add(clue); // adding clues preserves chain solvability
   }
   return picked;
 }
 
 /// Issue #10: top the picked set up to the difficulty's negated cap with
 /// remaining pool candidates. Additions only: pool negated entries are true
-/// of the solution, so uniqueness is preserved, and the clue window bounds
+/// of the solution, so chain solvability is preserved, and the clue window bounds
 /// how many fit (attempts above maxClues were already rejected above).
 void _topUpNegated(
   List<Clue> picked,
@@ -668,7 +766,7 @@ List<Clue> _cluePool(
   // case the smaller pool generated; it only rescued attempts that
   // exhausted. Measured at the 9×9 board with the killer-naming exclusions
   // applied, cap 10 (the historical value) and cap 18 both starve the
-  // uniqueness search — [_minimizeToUnique] needs prefixes 41-100 clues
+  // uniqueness search — the minimize loop needs prefixes 41-100 clues
   // deep (hard seeds 1/3/5 measured) — so the pool keeps every shuffled
   // candidate. 5×5 output stays byte-identical to the cap-10 pool because
   // only post-prefix candidates are appended.
@@ -1037,36 +1135,39 @@ void _negatedObjects(
   }
 }
 
-List<Clue>? _minimizeToUnique(
+List<Clue>? _minimizeToChain(
   List<Clue> pool,
   int g,
   List<RoomDef> rooms,
   List<String> ids,
   Pos victimPos,
   List<ObjectDef> objects,
+  DeduceTier tier,
 ) {
-  // Plain greedy: add pool clues one by one until the count hits 1; the
+  // Plain greedy: add pool clues one by one until the set chain-solves; the
   // pruning pass afterwards removes redundancy. (The capped count cannot be
   // used to measure progress — cap hides reductions — so no smart skipping.)
   var picked = <Clue>[];
   for (final clue in pool) {
     picked.add(clue);
-    if (countSolutions(
-          gridSize: g,
-          rooms: rooms,
-          clues: picked,
-          suspectIds: ids,
-          victimPos: victimPos,
-          objects: objects,
-        ) ==
-        1) {
+    if (_chainSolvable(
+      g: g,
+      rooms: rooms,
+      clues: picked,
+      ids: ids,
+      victimPos: victimPos,
+      objects: objects,
+      tier: tier,
+    )) {
       return picked;
     }
   }
-  return null; // pool exhausted without reaching uniqueness
+  return null; // pool exhausted without reaching a solvable chain
 }
 
-/// One pruning pass: dropping a clue that keeps uniqueness stays dropped.
+/// One pruning pass: dropping a clue that keeps the set chain-solvable
+/// stays dropped (issue #106: the trial predicate is chain solvability, not
+/// bare uniqueness).
 List<Clue> _prune(
   List<Clue> picked,
   int g,
@@ -1074,22 +1175,22 @@ List<Clue> _prune(
   List<String> ids,
   Pos victimPos,
   List<ObjectDef> objects,
+  DeduceTier tier,
 ) {
   var kept = [...picked];
   var i = 0;
   while (i < kept.length) {
     final trial = [...kept]..removeAt(i);
-    final unique =
-        countSolutions(
-          gridSize: g,
-          rooms: rooms,
-          clues: trial,
-          suspectIds: ids,
-          victimPos: victimPos,
-          objects: objects,
-        ) ==
-        1;
-    if (unique) {
+    final solvable = _chainSolvable(
+      g: g,
+      rooms: rooms,
+      clues: trial,
+      ids: ids,
+      victimPos: victimPos,
+      objects: objects,
+      tier: tier,
+    );
+    if (solvable) {
       kept = trial;
     } else {
       i++;

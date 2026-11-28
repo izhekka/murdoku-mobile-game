@@ -150,15 +150,15 @@ void expectNameParagraphInFull(
 void main() {
   testWidgets('ru library clue sentence wraps without mid-word fragments at '
       'the phone viewport (issue 76, bare text since 89)', (tester) async {
-    // Seed re-pinned for the issue-#93 generator pool (interim config):
-    // the old seed-3 easy case no longer ships a Library clue — seed 9 is
-    // probe-measured (2026-11-27) to ship an InRoom(…poolIndex 1…) card, so
+    // Seed re-pinned for the issue-#106 deduction-chain gate: the old
+    // seed-9 easy case no longer ships a Library clue — seed 61 is
+    // probe-measured (2026-11-28) to ship an InRoom(…poolIndex 1…) card, so
     // the long ru word «библиотек…» still exercises the wrap behavior.
     await pumpGame(
       tester,
       size: const Size(402, 874),
       tutorialSeen: true,
-      seed: 9,
+      seed: 61,
     );
     final paragraph = tester.renderObject<RenderParagraph>(
       find.descendant(

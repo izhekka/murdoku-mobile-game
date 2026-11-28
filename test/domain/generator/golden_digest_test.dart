@@ -31,15 +31,20 @@ String digestCase(CaseData c) {
 /// knobs (the 9×9 leg is deferred to #98). Regenerated with
 /// `dart run tool/probe_convergence.dart digests`. The digest-literal-copy
 /// in test/tool/probe_convergence_test.dart moves together with this map.
+///
+/// Re-pinned 2026-11-28 for issue #106 (deduction-chain gate): exactly
+/// four easy digests moved (easy/101, /301, /23, /29 — the chain gate
+/// picked a different clue set there); every other entry, the convergence
+/// table and all stored attempt seeds measured unchanged.
 const golden = {
   'easy/1': '4573f6db2f8b1c6c',
-  'easy/101': '4a721ccb2f6b29c1',
+  'easy/101': 'eefc7ef8dcefa23f',
   'easy/201': '5825c777b958015d',
-  'easy/301': 'e10c88c0350a84f2',
+  'easy/301': 'd89f648866a0c533',
   'easy/11': '07dedcdaabe48941',
   'easy/17': 'cc078c577799cbb5',
-  'easy/23': 'd1499e9ea8ee1f2c',
-  'easy/29': 'f70d1b2ebf04e4fe',
+  'easy/23': 'd475caba5bb268dd',
+  'easy/29': '05e56c704d273c7f',
   'standard/1': 'f3d910d0baed9b76',
   'standard/101': 'e872ccda37f5b18f',
   'standard/201': '9cfaf0014587c3d1',

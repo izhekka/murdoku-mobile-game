@@ -67,5 +67,6 @@ itself.
 |---|-------|------|--------|
 | 0004 | BesideObject clues mean the same room | 2026-11-21 | accepted |
 | 0006 | Quality gate pipeline (format, lints, CRAP ratchet) | 2026-11-22 | accepted |
+| 0007 | Deduction-chain case verification | 2026-11-28 | accepted |
 
 Scope narrowed 2026-11-22: non-architecture records 0001–0003 and 0005–0007 were removed — recoverable from git history.
