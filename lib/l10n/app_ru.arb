@@ -37,33 +37,28 @@
   "dirSouth": "южнее",
   "dirEast": "восточнее",
   "dirWest": "западнее",
-  "clueInRoom": "— {room}.",
-  "clueInRoomNot": "— не {room}.",
-  "clueSameRow": "— на том же этаже, что и {target}.",
-  "clueSameRowNot": "— не на том же этаже, что и {target}.",
-  "clueSameCol": "— в том же коридоре, что и {target}.",
-  "clueSameColNot": "— не в том же коридоре, что и {target}.",
-  "clueDirection": "— {direction} {target}.",
-  "clueDirectionNot": "— не {direction} {target}.",
-  "clueBeside": "— около {target}.",
-  "clueBesideNot": "— не около {target}.",
-  "clueBesideObject": "— в комнате {object}.",
-  "clueBesideObjectNot": "— не в комнате {object}.",
+  "clueInRoom": "— {room}",
+  "clueInRoomNot": "— не {room}",
+  "clueSameRow": "— на том же этаже, что и {target}",
+  "clueSameRowNot": "— не на том же этаже, что и {target}",
+  "clueSameCol": "— в том же коридоре, что и {target}",
+  "clueSameColNot": "— не в том же коридоре, что и {target}",
+  "clueDirection": "— {direction} {target}",
+  "clueDirectionNot": "— не {direction} {target}",
+  "clueBeside": "— около {target}",
+  "clueBesideNot": "— не около {target}",
+  "clueBesideObject": "— в комнате {object}",
+  "clueBesideObjectNot": "— не в комнате {object}",
   "accuse": "Обвинить",
   "accuseTitle": "Кто убийца?",
   "toolPlace": "Поставить",
   "toolMark": "Крестик",
-  "toolErase": "Стереть",
-  "toolUndo": "Отменить",
-  "toolCheck": "Проверить",
   "toolHint": "Подсказка",
   "toolAccuse": "Обвинить",
-  "toolCheckTooltip": "Проверить расстановку гостей",
   "toolMarkTooltip": "Пометить клетку как пустую",
   "toolHintTooltip": "Получить подсказку",
   "timerSemantics": "{difficulty}, прошло {time}",
   "alibi": "У {name} железное алиби.",
-  "checkResult": "{n} из {total} гостей на своих местах.",
   "victoryTitle": "Дело закрыто!",
   "victoryTime": "Время: {time}",
   "victoryMistakes": "Ошибок: {count}",
@@ -139,16 +134,6 @@
     "placeholders": {
       "name": {
         "type": "String"
-      }
-    }
-  },
-  "@checkResult": {
-    "placeholders": {
-      "n": {
-        "type": "int"
-      },
-      "total": {
-        "type": "int"
       }
     }
   },

@@ -1,7 +1,7 @@
 import 'package:murdoku/domain/models.dart';
 
 /// Which board interaction is active.
-enum Tool { place, markX, erase }
+enum Tool { place, markX }
 
 /// True when [pos] can host [suspectId] right now: the cell must be free of
 /// other guests and must not be the victim's cell.
@@ -26,15 +26,6 @@ bool _blockedByObject(List<ObjectDef> objects, Pos pos) {
     if (item.pos == pos && !item.occupiable) return true;
   }
   return false;
-}
-
-/// Number of guests sitting at their true solution position.
-int correctCount(CaseData c, Map<String, Pos> placed) {
-  var n = 0;
-  for (final entry in placed.entries) {
-    if (c.solution[entry.key] == entry.value) n++;
-  }
-  return n;
 }
 
 /// True when every guest is placed and every placement is exact.

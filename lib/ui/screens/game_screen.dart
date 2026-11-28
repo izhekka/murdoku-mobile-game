@@ -91,9 +91,9 @@ class _GameScreenState extends ConsumerState<GameScreen>
             onPressed: () => showLegendSheet(context, state.caseData),
           ),
           IconButton(
-            icon: const Icon(Icons.visibility),
-            tooltip: l10n.revealSolution,
-            onPressed: () => _confirmReveal(l10n),
+            icon: const Icon(Icons.pause),
+            tooltip: l10n.pauseMenuTitle,
+            onPressed: () => _showPauseMenu(l10n),
           ),
         ],
       ),
@@ -106,7 +106,12 @@ class _GameScreenState extends ConsumerState<GameScreen>
             // construct a widget the landscape tree discards every build.
             final panel = _panel(state, showHeader: !wide);
             if (wide) {
-              return Column(
+              // Issue 107: the toolbar is a vertical strip on the right
+              // edge, OUTSIDE the board slot's LayoutBuilder — the slot's
+              // maxWidth/maxHeight already exclude the strip, so the board
+              // square formula below needs no strip-width constant and the
+              // map grows by the old bottom toolbar's height.
+              return Row(
                 children: [
                   Expanded(
                     child: LayoutBuilder(
@@ -114,10 +119,8 @@ class _GameScreenState extends ConsumerState<GameScreen>
                         // Issue 103: the board's square footprint pins to
                         // the slot's bottom-LEFT edge (the 8px padding stays
                         // the left seam — no dead band) and the suspects
-                        // panel takes ALL remaining width, header-less. The
-                        // square side follows the narrow branch's pattern:
-                        // the slot height, capped so the panel never loses
-                        // its minimum width (tall desktop windows).
+                        // panel takes the remaining width up to its minimum,
+                        // header-less.
                         final boardSide = math.max(
                           0.0,
                           math.min(
@@ -148,7 +151,7 @@ class _GameScreenState extends ConsumerState<GameScreen>
                       },
                     ),
                   ),
-                  _toolbar(l10n, state),
+                  _toolbarStrip(l10n, state),
                 ],
               );
             }
@@ -280,7 +283,11 @@ class _GameScreenState extends ConsumerState<GameScreen>
     );
   }
 
-  Widget _toolbar(AppLocalizations l10n, GameState state) {
+  /// The four labeled toolbar buttons, un-wrapped: [Place, Mark X, Hint,
+  /// Accuse] (issue 107 — Erase/Undo/Check are gone, Menu lives in the app
+  /// bar). The portrait row wraps each in Expanded; the landscape strip
+  /// stacks them vertically.
+  List<Widget> _toolbarButtons(AppLocalizations l10n, GameState state) {
     final notifier = ref.read(gameControllerProvider.notifier);
     final hintsLeft = 2 - state.hintsUsed;
     // Cartoon skins color every toolbar action (issue 23); classic keeps
@@ -305,116 +312,80 @@ class _GameScreenState extends ConsumerState<GameScreen>
       onPressed: () => notifier.setTool(tool),
     );
 
-    // Issue 88: board-interaction tools share the first row, case-level
-    // actions the second — the split is semantic, not arbitrary.
-    final tools = <Widget>[
-      Expanded(
-        child: toolButton(
-          Tool.place,
-          Icons.person,
-          l10n.toolPlace,
-          tooltip: l10n.toolPlace,
-          pillColor: _actionColor(actions, (a) => a.place),
-        ),
+    return [
+      toolButton(
+        Tool.place,
+        Icons.person,
+        l10n.toolPlace,
+        tooltip: l10n.toolPlace,
+        pillColor: _actionColor(actions, (a) => a.place),
       ),
-      Expanded(
-        child: toolButton(
-          Tool.markX,
-          Icons.close,
-          l10n.toolMark,
-          tooltip: l10n.toolMarkTooltip,
-          pillColor: _actionColor(actions, (a) => a.mark),
-        ),
+      toolButton(
+        Tool.markX,
+        Icons.close,
+        l10n.toolMark,
+        tooltip: l10n.toolMarkTooltip,
+        pillColor: _actionColor(actions, (a) => a.mark),
       ),
-      Expanded(
-        child: toolButton(
-          Tool.erase,
-          Icons.auto_fix_normal,
-          l10n.toolErase,
-          tooltip: l10n.toolErase,
-          pillColor: _actionColor(actions, (a) => a.erase),
-        ),
+      _MiniButton(
+        icon: Icons.lightbulb,
+        label: l10n.toolHint,
+        tooltip: l10n.toolHintTooltip,
+        keyName: 'tool_hint',
+        pillColor: _actionColor(actions, (a) => a.hint),
+        tokens: tokens,
+        onPressed: () => _showHintSheet(l10n, hintsLeft),
       ),
-      Expanded(
-        child: _MiniButton(
-          icon: Icons.undo,
-          label: l10n.toolUndo,
-          tooltip: l10n.toolUndo,
-          keyName: 'tool_undo',
-          pillColor: _actionColor(actions, (a) => a.undo),
-          tokens: tokens,
-          onPressed: notifier.undo,
-        ),
+      _MiniButton(
+        icon: Icons.gavel,
+        label: l10n.toolAccuse,
+        tooltip: l10n.accuse,
+        keyName: 'tool_accuse',
+        pillColor: _actionColor(actions, (a) => a.accuse),
+        tokens: tokens,
+        onPressed: showAccuseSheet,
       ),
     ];
-    final meta = <Widget>[
-      Expanded(
-        child: _MiniButton(
-          icon: Icons.fact_check,
-          label: l10n.toolCheck,
-          tooltip: l10n.toolCheckTooltip,
-          keyName: 'tool_check',
-          pillColor: _actionColor(actions, (a) => a.check),
-          tokens: tokens,
-          onPressed: () => _runCheck(l10n),
-        ),
-      ),
-      Expanded(
-        child: _MiniButton(
-          icon: Icons.lightbulb,
-          label: l10n.toolHint,
-          tooltip: l10n.toolHintTooltip,
-          keyName: 'tool_hint',
-          pillColor: _actionColor(actions, (a) => a.hint),
-          tokens: tokens,
-          onPressed: () => _showHintSheet(l10n, hintsLeft),
-        ),
-      ),
-      Expanded(
-        child: _MiniButton(
-          icon: Icons.gavel,
-          label: l10n.toolAccuse,
-          tooltip: l10n.accuse,
-          keyName: 'tool_accuse',
-          pillColor: _actionColor(actions, (a) => a.accuse),
-          tokens: tokens,
-          onPressed: showAccuseSheet,
-        ),
-      ),
-      Expanded(
-        child: _MiniButton(
-          icon: Icons.pause,
-          label: l10n.pauseMenuTitle,
-          tooltip: l10n.pauseMenuTitle,
-          keyName: 'tool_menu',
-          pillColor: _actionColor(actions, (a) => a.menu),
-          tokens: tokens,
-          onPressed: () => _showPauseMenu(l10n),
-        ),
-      ),
-    ];
+  }
 
-    // The LayoutBuilder sits OUTSIDE the horizontal padding so maxWidth is
-    // the toolbar's full available width (= the logical viewport width in
-    // both body branches) and the _toolbarWrapWidth threshold means
-    // viewport px.
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final narrow = constraints.maxWidth < _toolbarWrapWidth;
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          child: narrow
-              ? Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _toolbarRow(tools),
-                    const SizedBox(height: 8),
-                    _toolbarRow(meta),
-                  ],
-                )
-              : _toolbarRow([...tools, ...meta]),
-        );
-      },
+  /// The portrait bottom toolbar: ONE row of the four buttons at every
+  /// width (issue 107) — 4×48 + 3×4 + 16 = 212px fits the 320px minimum
+  /// viewport, so the issue-88 two-row wrap is gone.
+  Widget _toolbar(AppLocalizations l10n, GameState state) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      child: _toolbarRow([
+        for (final button in _toolbarButtons(l10n, state))
+          Expanded(child: button),
+      ]),
+    );
+  }
+
+  /// The landscape toolbar strip (issue 107): the same four labeled pills
+  /// stacked top-to-bottom on the right edge, with the row's ≥4px seam
+  /// pattern turned vertical, a fixed width, and every pill stretched to
+  /// fill it. The stack's natural height (4×52 pills + 3×4 seams = 220)
+  /// exceeds a legally short desktop body, so the Column scrolls instead of
+  /// clipping Accuse — every pill keeps its 44pt target (review, issue 107).
+  Widget _toolbarStrip(AppLocalizations l10n, GameState state) {
+    final buttons = _toolbarButtons(l10n, state);
+    return Padding(
+      padding: const EdgeInsets.all(8),
+      child: SizedBox(
+        width: _toolbarStripWidth,
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (var i = 0; i < buttons.length; i++) ...[
+                if (i > 0) const SizedBox(height: 4),
+                buttons[i],
+              ],
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -481,13 +452,6 @@ class _GameScreenState extends ConsumerState<GameScreen>
     if (mounted) context.go('/');
   }
 
-  void _runCheck(AppLocalizations l10n) {
-    final result = ref.read(gameControllerProvider.notifier).runCheck();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(l10n.checkResult(result.correct, result.total))),
-    );
-  }
-
   void _showHintSheet(AppLocalizations l10n, int hintsLeft) {
     final notifier = ref.read(gameControllerProvider.notifier);
     showModalBottomSheet<void>(
@@ -514,6 +478,14 @@ class _GameScreenState extends ConsumerState<GameScreen>
               onTap: () {
                 Navigator.of(sheetContext).pop();
                 notifier.hintEliminate();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.visibility),
+              title: Text(l10n.revealSolution),
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                _confirmReveal(l10n);
               },
             ),
           ],
@@ -657,23 +629,18 @@ Widget _toolbarRow(List<Widget> buttons) => Row(
   ],
 );
 
-/// Viewport width below which the toolbar wraps to two rows of 4 (issue 88).
-/// Two constraints point at the same 472: (1) targets — a single row needs
-/// 8 × 48px + 7 × 4px seams + 16px padding = 428px; (2) the 9px label floor —
-/// the widest ru label («Подсказка», Roboto ideal ≈50.5px at 10px) needs a
-/// (W − 108)/8 paint box ≥ 0.9 × 50.5px, which recovers at W ≈ 472, so the
-/// 440–471px band stays on two rows to keep every label ≥9px effective.
-/// The wrap is computed from width only, so every skin shares the geometry.
-const double _toolbarWrapWidth = 472;
+/// The landscape toolbar strip's fixed width (issue 107), mirroring the
+/// `_panelMinWidth` discipline: one labeled pill column. 56 = the 48dp
+/// touch target plus room so the widest ru label («Подсказка», Roboto
+/// ideal ≈50.5px at the 10px label font) keeps a ≥9px effective size in its
+/// (56 − 8)px paint box — the issue-88 label floor carried to the strip.
+const double _toolbarStripWidth = 56;
 
 /// The suspect panel's minimum content height on phones (issue 95): the
 /// suspects header plus a scrollable sliver of its grid (issue 39's pinned
-/// branch clamps and scrolls under the header). Sized to keep the
-/// full-width board square on the narrow reference range down to 320×568,
-/// where 568 − app bar − two-row toolbar − the 320-wide square leaves
-/// exactly this much under the board; when the leftover above the toolbar
-/// is tighter, the board shrinks to fit instead (overflow is never
-/// allowed).
+/// branch clamps and scrolls under the header). When the leftover above the
+/// single-row toolbar (issue 107) is tighter than this, the board shrinks
+/// to fit instead (overflow is never allowed).
 const double _panelMinHeight = 72;
 
 /// The suspect panel's minimum width in the wide game branch (issue 103):
@@ -686,7 +653,6 @@ const double _panelMinWidth = 300;
 String _toolKeyName(Tool tool) => switch (tool) {
   Tool.place => 'tool_place',
   Tool.markX => 'tool_mark',
-  Tool.erase => 'tool_erase',
 };
 
 /// The skin's color for one toolbar action; null keeps the classic scheme.

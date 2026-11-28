@@ -293,21 +293,6 @@ void main() {
     expect(state.phase, GamePhase.playing);
   });
 
-  testWidgets('check tool reports correct count via snackbar', (tester) async {
-    await pumpGame(tester);
-    final l10n = l10nOf(tester);
-    final notifier = container.read(gameControllerProvider.notifier);
-
-    final first = fixedCase.solution.entries.first;
-    notifier.selectSuspect(first.key);
-    await tester.pumpAndSettle();
-    await tapCell(tester, first.value.row, first.value.col);
-
-    await tester.tap(find.byIcon(Icons.fact_check));
-    await tester.pumpAndSettle();
-    expect(find.text(l10n.checkResult(1, 5)), findsOneWidget);
-  });
-
   testWidgets('lifecycle hidden pauses the timer; visible resumes', (
     tester,
   ) async {
@@ -335,28 +320,29 @@ void main() {
     );
   });
 
-  testWidgets('undo button reverses a placement', (tester) async {
-    await pumpGame(tester);
-    final notifier = container.read(gameControllerProvider.notifier);
-    final first = fixedCase.solution.entries.first;
-    notifier.selectSuspect(first.key);
-    await tester.pumpAndSettle();
-    await tapCell(tester, first.value.row, first.value.col);
-    expect(container.read(gameControllerProvider)!.placed.length, 1);
-
-    await tester.tap(find.byIcon(Icons.undo));
-    await tester.pumpAndSettle();
-    expect(container.read(gameControllerProvider)!.placed, isEmpty);
-  });
-
-  testWidgets('reveal via toolbar forfeits and shows the truth', (
-    tester,
-  ) async {
+  testWidgets('reveal via the hint sheet forfeits and shows the truth '
+      '(issue 107)', (tester) async {
     await pumpGame(tester);
     final l10n = l10nOf(tester);
 
-    await tester.tap(find.byIcon(Icons.visibility));
+    expect(
+      find.byIcon(Icons.visibility),
+      findsNothing,
+      reason: 'the app bar has no reveal action anymore',
+    );
+    await tester.tap(find.byKey(const Key('tool_hint')));
     await tester.pumpAndSettle();
+    expect(find.text(l10n.hintPlace), findsOneWidget);
+    expect(find.text(l10n.hintEliminate), findsOneWidget);
+    expect(find.text(l10n.revealSolution), findsOneWidget);
+
+    await tester.tap(find.text(l10n.revealSolution));
+    await tester.pumpAndSettle();
+    expect(
+      find.text(l10n.revealConfirmTitle),
+      findsOneWidget,
+      reason: 'reveal still asks for confirmation',
+    );
     await tester.tap(find.text(l10n.revealSolution).last);
     await tester.pumpAndSettle();
 
@@ -371,9 +357,6 @@ void main() {
     for (final label in [
       l10n.toolPlace,
       l10n.toolMark,
-      l10n.toolErase,
-      l10n.toolUndo,
-      l10n.toolCheck,
       l10n.toolHint,
       l10n.toolAccuse,
     ]) {
@@ -581,8 +564,10 @@ void main() {
     final smallPanel = tester.getRect(find.byType(SuspectPanel));
     expect(
       smallPanel.height,
-      closeTo(72, 0.5),
-      reason: 'the panel keeps its minimum content height',
+      closeTo(132, 0.5),
+      reason:
+          'issue 107: the single-row toolbar frees the old second row — '
+          'the panel grows from 72 to 132',
     );
   });
 
@@ -593,8 +578,10 @@ void main() {
     final boardRect = tester.getRect(find.byKey(const Key('board_view')));
     expect(
       boardRect.width,
-      closeTo(196, 1.0),
-      reason: 'leftover 284 − panel min 72 = 212 slot ⇒ square 196',
+      closeTo(256, 1.0),
+      reason:
+          'leftover 344 − panel min 72 = 272 slot ⇒ square 256 '
+          '(issue 107: one toolbar row, not two)',
     );
     final panelRect = tester.getRect(find.byType(SuspectPanel));
     expect(
@@ -609,7 +596,8 @@ void main() {
     await pumpGame(tester, size: const Size(1024, 768), tutorialSeen: true);
     expect(tester.takeException(), isNull);
     final boardRect = tester.getRect(find.byKey(const Key('board_view')));
-    // Row slot 768 − app bar 56 − toolbar 60 = 652 ⇒ plate 652 − 16 = 636.
+    // Row slot 768 − app bar 56 = 712 tall × (1024 − strip 72) = 952 wide:
+    // min(712, 952 − 300) = 652 ⇒ plate 652 − 16 = 636 (issue 107).
     expect(boardRect.width, closeTo(636, 0.5));
     expect(boardRect.height, closeTo(636, 0.5));
     expect(
@@ -620,8 +608,10 @@ void main() {
     final panelRect = tester.getRect(find.byType(SuspectPanel));
     expect(
       panelRect.width,
-      closeTo(1024 - 652, 0.5),
-      reason: 'the panel takes all width right of the board',
+      closeTo(300, 0.5),
+      reason:
+          'the panel keeps its minimum width; the strip takes the rest '
+          '(issue 107)',
     );
     expect(
       find.byKey(suspectsPanelHeaderKey),
@@ -634,15 +624,18 @@ void main() {
     expect(find.byKey(suspectsPanelHeaderKey), findsOneWidget);
   });
 
-  testWidgets('852x393 reference: board footprint 277 at the left edge, '
-      'panel 575 wide, no header (issue 103)', (tester) async {
+  testWidgets('852x393 reference: board footprint 321 at the left edge, '
+      'panel between board and strip, no header (issue 103/107)', (
+    tester,
+  ) async {
     await pumpGame(tester, size: const Size(852, 393), tutorialSeen: true);
     expect(tester.takeException(), isNull);
     final boardRect = tester.getRect(find.byKey(const Key('board_view')));
-    // Row slot 393 − app bar 56 − toolbar 60 = 277 ⇒ plate 261 inside the
-    // 8px padding, pinned to the left edge.
-    expect(boardRect.width, closeTo(261, 0.5));
-    expect(boardRect.height, closeTo(261, 0.5));
+    // Row slot 393 − app bar 56 = 337 tall × (852 − strip 72) = 780 wide:
+    // min(337, 780 − 300) = 337 ⇒ plate 321 inside the 8px padding, pinned
+    // to the left edge (issue 107 removes the bottom toolbar's 60px).
+    expect(boardRect.width, closeTo(321, 0.5));
+    expect(boardRect.height, closeTo(321, 0.5));
     expect(boardRect.left, closeTo(8, 0.5));
     expect(
       boardRect.top,
@@ -650,9 +643,14 @@ void main() {
       reason: 'app bar 56 + the 8px seam',
     );
     final panelRect = tester.getRect(find.byType(SuspectPanel));
-    expect(panelRect.left, closeTo(277, 0.5));
-    expect(panelRect.width, closeTo(575, 0.5));
-    expect(panelRect.height, closeTo(277, 0.5));
+    expect(panelRect.left, closeTo(337, 0.5));
+    expect(panelRect.width, closeTo(443, 0.5));
+    expect(panelRect.height, closeTo(337, 0.5));
+    expect(
+      panelRect.right,
+      closeTo(852 - 72, 0.5),
+      reason: 'the strip (56 + 2×8 padding) takes the right edge (issue 107)',
+    );
     expect(
       find.text('Подозреваемые'),
       findsNothing,
@@ -665,10 +663,11 @@ void main() {
     await pumpGame(tester, size: const Size(600, 1000), tutorialSeen: true);
     expect(tester.takeException(), isNull);
     final boardRect = tester.getRect(find.byKey(const Key('board_view')));
-    // Slot height 1000 − 56 − 60 = 884 exceeds the width the panel shares:
-    // the board cedes the 300px panel minimum ⇒ 600 − 300 = 300 square.
-    expect(boardRect.width, closeTo(284, 0.5));
-    expect(boardRect.height, closeTo(284, 0.5));
+    // Slot 1000 − 56 = 944 tall × (600 − strip 72) = 528 wide: the board
+    // cedes the 300px panel minimum ⇒ min(944, 528 − 300) = 228 square
+    // (issue 107: the strip narrows the width-limited case).
+    expect(boardRect.width, closeTo(212, 0.5));
+    expect(boardRect.height, closeTo(212, 0.5));
     expect(boardRect.left, closeTo(8, 0.5));
     final panelRect = tester.getRect(find.byType(SuspectPanel));
     expect(panelRect.width, closeTo(300, 0.5));
@@ -702,16 +701,18 @@ void main() {
     );
   });
 
-  testWidgets('every RU clue sentence of the generated corpus fits one line '
-      'at the landscape card text width (issue 103)', (tester) async {
+  testWidgets('every RU clue sentence of the generated corpus stays within '
+      'two lines at the landscape card text width (issue 103, two since '
+      '107)', (tester) async {
     await pumpGame(tester, size: const Size(852, 393), tutorialSeen: true);
     final context = tester.element(find.byType(Scaffold).first);
     final l10n = AppLocalizations.of(context)!;
     expect(l10n.localeName, 'ru');
 
-    // The landscape card's text width at the reference panel: tile
-    // (575 − 2·4 − 4)/2 = 281.5 minus the card insets 2·(4 + 8 + border 3).
-    const cardTextWidth = (575 - 2 * 4 - 1 * 4) / 2 - 2 * (4 + 8 + 3);
+    // The landscape card's text width at the reference panel (443 wide
+    // since issue 107): tile (443 − 2·4 − 4)/2 = 215.5 minus the card
+    // insets 2·(4 + 8 + border 3).
+    const cardTextWidth = (443 - 2 * 4 - 1 * 4) / 2 - 2 * (4 + 8 + 3);
     // Measured with production Roboto metrics (the fixed-advance test font
     // inflates widths) in the card's own merged bodySmall style.
     final style = DefaultTextStyle.of(context).style
@@ -724,6 +725,9 @@ void main() {
     // sentence the generator can produce (code-review round, issue 103).
     // Lines are counted by height, not width — a wrapped paragraph reports
     // its widest line, which can sit under the limit.
+    // Issue 107 bounds it to TWO lines: the right-edge strip narrows the
+    // reference card to 185.5px and the longest RU sentences wrap to two
+    // lines there (cards grow, the grid scrolls — no clipping).
     for (final difficulty in Difficulty.values) {
       for (var seed = 1; seed <= 20; seed++) {
         final c = generateCase(difficulty: difficulty, seed: seed);
@@ -732,10 +736,10 @@ void main() {
           final text = describeClue(clue, c, l10n, names);
           expect(
             _measureIdealHeight(text, style, cardTextWidth),
-            lessThan(32),
+            lessThan(48),
             reason:
-                'RU sentence "$text" ($difficulty seed $seed) fits one line '
-                'at $cardTextWidth px (two lines measure ≥32px)',
+                'RU sentence "$text" ($difficulty seed $seed) stays within '
+                'two lines at $cardTextWidth px (three lines measure ≥48px)',
           );
         }
       }
@@ -967,7 +971,7 @@ void main() {
       await placeFirstGuest(tester);
       expect(container.read(gameControllerProvider)!.placed.length, 1);
 
-      await tester.tap(find.text(l10n.pauseMenuTitle).first);
+      await tester.tap(find.byIcon(Icons.pause));
       await tester.pumpAndSettle();
       expect(find.text(l10n.resume), findsOneWidget);
       expect(find.text(l10n.howToPlayTitle), findsOneWidget);
@@ -1002,7 +1006,7 @@ void main() {
       final l10n = l10nOf(tester);
       await placeFirstGuest(tester);
 
-      await tester.tap(find.text(l10n.pauseMenuTitle).first);
+      await tester.tap(find.byIcon(Icons.pause));
       await tester.pumpAndSettle();
       await tester.tap(find.text(l10n.howToPlayTitle));
       await tester.pumpAndSettle();
@@ -1021,7 +1025,7 @@ void main() {
         reason: 'Back returns to the game with board placement intact',
       );
       expect(
-        find.text(l10n.pauseMenuTitle),
+        find.byIcon(Icons.pause),
         findsOneWidget,
         reason: 'the game screen is back on top',
       );
@@ -1036,7 +1040,7 @@ void main() {
       final l10n = l10nOf(tester);
       await placeFirstGuest(tester);
 
-      await tester.tap(find.text(l10n.pauseMenuTitle).first);
+      await tester.tap(find.byIcon(Icons.pause));
       await tester.pumpAndSettle();
       await tester.tap(find.text(l10n.settingsTitle));
       await tester.pumpAndSettle();
@@ -1065,7 +1069,7 @@ void main() {
       final l10n = l10nOf(tester);
       await placeFirstGuest(tester);
 
-      await tester.tap(find.text(l10n.pauseMenuTitle).first);
+      await tester.tap(find.byIcon(Icons.pause));
       await tester.pumpAndSettle();
       await tester.tap(find.text(l10n.abandonCase));
       await tester.pumpAndSettle();
@@ -1094,7 +1098,7 @@ void main() {
     final l10n = l10nOf(tester);
     await placeFirstGuest(tester);
 
-    await tester.tap(find.text(l10n.pauseMenuTitle).first);
+    await tester.tap(find.byIcon(Icons.pause));
     await tester.pumpAndSettle();
     await tester.tap(find.text(l10n.abandonCase));
     await tester.pumpAndSettle();
@@ -1134,21 +1138,6 @@ void main() {
         reason: 'Mark has a dedicated tooltip ($language)',
       );
       expect(
-        tooltipOf(l10n.toolErase),
-        l10n.toolErase,
-        reason: 'Erase announces its own action ($language)',
-      );
-      expect(
-        tooltipOf(l10n.toolUndo),
-        l10n.toolUndo,
-        reason: 'Undo announces its own action ($language)',
-      );
-      expect(
-        tooltipOf(l10n.toolCheck),
-        l10n.toolCheckTooltip,
-        reason: 'Check has a dedicated tooltip ($language)',
-      );
-      expect(
         tooltipOf(l10n.toolHint),
         l10n.toolHintTooltip,
         reason: 'Hint has a dedicated tooltip ($language)',
@@ -1157,11 +1146,6 @@ void main() {
         tooltipOf(l10n.toolAccuse),
         l10n.accuse,
         reason: 'Accuse announces its own action ($language)',
-      );
-      expect(
-        tooltipOf(l10n.pauseMenuTitle),
-        l10n.pauseMenuTitle,
-        reason: 'Pause announces its own action ($language)',
       );
     }
   });
@@ -1356,12 +1340,8 @@ void main() {
 
     expect(pillColor(const Key('tool_place')), stickerTokens.actions.place);
     expect(pillColor(const Key('tool_mark')), stickerTokens.actions.mark);
-    expect(pillColor(const Key('tool_erase')), stickerTokens.actions.erase);
-    expect(pillColor(const Key('tool_undo')), stickerTokens.actions.undo);
-    expect(pillColor(const Key('tool_check')), stickerTokens.actions.check);
     expect(pillColor(const Key('tool_hint')), stickerTokens.actions.hint);
     expect(pillColor(const Key('tool_accuse')), stickerTokens.actions.accuse);
-    expect(pillColor(const Key('tool_menu')), stickerTokens.actions.menu);
   });
 
   testWidgets('toolbar glyphs render skin ink on pastel pills, white on '
@@ -1386,15 +1366,7 @@ void main() {
           .style!
           .color;
 
-      for (final key in const [
-        'tool_place',
-        'tool_mark',
-        'tool_erase',
-        'tool_undo',
-        'tool_check',
-        'tool_hint',
-        'tool_menu',
-      ]) {
+      for (final key in const ['tool_place', 'tool_mark', 'tool_hint']) {
         expect(
           iconColor(Key(key)),
           tokens.ink,
@@ -1569,6 +1541,45 @@ void main() {
       expect(find.text(l10n.legendRooms), findsOneWidget);
     });
 
+    testWidgets('app bar actions are exactly Legend then Menu; the toolbar has '
+        'no menu button (issue 107)', (tester) async {
+      await pumpGame(tester);
+      final l10n = l10nOf(tester);
+
+      await tester.tap(find.byIcon(Icons.pause));
+      await tester.pumpAndSettle();
+      expect(
+        find.text(l10n.resume),
+        findsOneWidget,
+        reason: 'the app-bar Menu icon opens the pause sheet',
+      );
+      await tester.tap(find.text(l10n.resume));
+      await tester.pumpAndSettle();
+
+      expect(
+        tester.widget<AppBar>(find.byType(AppBar).first).actions!.length,
+        2,
+        reason: 'the actions are exactly [Legend, Menu]',
+      );
+      final legendRect = tester.getRect(find.byIcon(Icons.menu_book));
+      final menuRect = tester.getRect(find.byIcon(Icons.pause));
+      expect(
+        legendRect.right <= menuRect.left,
+        isTrue,
+        reason: 'Legend sits left of Menu in the actions row',
+      );
+      expect(
+        find.byTooltip(l10n.pauseMenuTitle),
+        findsOneWidget,
+        reason: 'the Menu icon announces itself as the pause menu',
+      );
+      expect(
+        find.byKey(const Key('tool_menu')),
+        findsNothing,
+        reason: 'the toolbar no longer carries a Menu button',
+      );
+    });
+
     testWidgets('hint toolbar button opens the hint sheet', (tester) async {
       await pumpGame(tester);
       final l10n = l10nOf(tester);
@@ -1639,102 +1650,30 @@ void main() {
     expect(containerColor(const Key('tool_mark')), Colors.transparent);
   });
 
-  group('toolbar two-row wrap (issue 88)', () {
-    testWidgets('toolbar wraps to two rows of 4 at 402x874 (issue 88)', (
-      tester,
-    ) async {
-      await pumpGame(
-        tester,
-        size: const Size(402, 874),
-        skin: SkinSetting.classic,
-        tutorialSeen: true,
-      );
-      expect(tester.takeException(), isNull);
-      expectToolbarTwoRows(tester);
-    });
+  group('portrait toolbar: one row of 4 at every width (issue 107)', () {
+    final viewports = [
+      (320, 568),
+      (402, 874),
+      (471, 800),
+      (472, 800),
+      (599, 800),
+    ];
+    for (final (w, h) in viewports) {
+      testWidgets('one row of [Place, Mark X, Hint, Accuse] at ${w}x$h '
+          '(issue 107)', (tester) async {
+        await pumpGame(
+          tester,
+          size: Size(w.toDouble(), h.toDouble()),
+          skin: SkinSetting.classic,
+          tutorialSeen: true,
+        );
+        expect(tester.takeException(), isNull);
+        expectToolbarOneRowOf4(tester);
+      });
+    }
 
-    testWidgets('toolbar wraps to two rows at 320x568 with readable labels '
-        '(issue 88)', (tester) async {
-      await pumpGame(
-        tester,
-        size: const Size(320, 568),
-        skin: SkinSetting.classic,
-        tutorialSeen: true,
-      );
-      expect(tester.takeException(), isNull);
-      expectToolbarTwoRows(tester);
-
-      // The widest ru label («Подсказка») must stay readable: the FittedBox
-      // scales the ideal paragraph down to fit its slot, and the label may
-      // not render below 9px effective at the narrowest supported viewport.
-      // Flutter's default text family is Roboto, but widget tests render
-      // every glyph with the fixed-advance FlutterTest font instead (1.02em
-      // per glyph: this very label measures an inflated 92.25px at 10px), so
-      // the floor is measured with the SDK's bundled production Roboto.
-      final effectiveFont = await hintLabelEffectiveFont(tester);
-      expect(
-        effectiveFont,
-        greaterThanOrEqualTo(9.0),
-        reason:
-            'the widest ru label renders at $effectiveFont px effective, '
-            'below the 9px floor (issue 88)',
-      );
-    });
-
-    testWidgets('toolbar wraps at 471, just below the single-row threshold '
-        '(issue 88)', (tester) async {
-      await pumpGame(
-        tester,
-        size: const Size(471, 800),
-        skin: SkinSetting.classic,
-        tutorialSeen: true,
-      );
-      expect(tester.takeException(), isNull);
-      expectToolbarTwoRows(tester);
-      expect(
-        await hintLabelEffectiveFont(tester),
-        greaterThanOrEqualTo(9.0),
-        reason:
-            'just below the threshold the two-row layout keeps the '
-            'widest ru label ≥9px effective (issue 88)',
-      );
-    });
-
-    testWidgets('toolbar keeps one row of 8 at exactly the 472px threshold '
-        '(issue 88)', (tester) async {
-      await pumpGame(
-        tester,
-        size: const Size(472, 800),
-        skin: SkinSetting.classic,
-        tutorialSeen: true,
-      );
-      expect(tester.takeException(), isNull);
-      expectToolbarOneRow(tester);
-      expect(
-        await hintLabelEffectiveFont(tester),
-        greaterThanOrEqualTo(9.0),
-        reason:
-            'the tightest single-row slot still keeps the widest ru '
-            'label ≥9px effective — pinning the wrap threshold (issue 88)',
-      );
-    });
-
-    testWidgets('toolbar keeps one row of 8 at 1024x768 (issue 88)', (
-      tester,
-    ) async {
-      await pumpGame(
-        tester,
-        size: const Size(1024, 768),
-        skin: SkinSetting.classic,
-        tutorialSeen: true,
-      );
-      expect(tester.takeException(), isNull);
-      expectToolbarOneRow(tester);
-    });
-
-    testWidgets('two-row wrap holds on a cartoon skin at 402x874 (issue 88)', (
-      tester,
-    ) async {
+    testWidgets('one row of 4 holds on a cartoon skin at 402x874 '
+        '(issue 107)', (tester) async {
       await pumpGame(
         tester,
         size: const Size(402, 874),
@@ -1742,37 +1681,78 @@ void main() {
         tutorialSeen: true,
       );
       expect(tester.takeException(), isNull);
-      expectToolbarTwoRows(tester);
+      expectToolbarOneRowOf4(tester);
     });
   });
-}
 
-/// The effective (post-`FittedBox` scale-down) font size of the hint
-/// button's ru label, measured with the production Roboto metrics instead of
-/// the fixed-advance FlutterTest font. The base size is read off the
-/// rendered label's own style rather than a literal, so the ≥9px floor stays
-/// absolute in px even if production recalibrates the font size.
-Future<double> hintLabelEffectiveFont(WidgetTester tester) async {
-  final hintButton = find.byKey(const Key('tool_hint'));
-  final fittedFinder = find.descendant(
-    of: hintButton,
-    matching: find.byType(FittedBox),
-  );
-  final fitted = tester.renderObject<RenderFittedBox>(fittedFinder);
-  await _ensureRobotoLoaded(tester);
-  final label = tester.widget<Text>(
-    find.descendant(of: fittedFinder, matching: find.byType(Text)),
-  );
-  final fontSize = label.style!.fontSize!;
-  final robotoIdealWidth = _measureWithRoboto(
-    l10nOf(tester).toolHint,
-    fontSize,
-  );
-  final paintBox = fitted.constraints.maxWidth;
-  final scale = paintBox >= robotoIdealWidth
-      ? 1.0
-      : paintBox / robotoIdealWidth;
-  return fontSize * scale;
+  testWidgets('landscape: the toolbar is a vertical strip on the right edge '
+      'and the board takes the full body height (issue 107)', (tester) async {
+    await pumpGame(tester, size: const Size(800, 360), tutorialSeen: true);
+    expect(tester.takeException(), isNull);
+
+    final boardRect = tester.getRect(find.byKey(const Key('board_view')));
+    // Body height 360 − app bar 56 = the 304px slot — the full body height,
+    // with no toolbar docked under it anymore; the board's own 8px padding
+    // pair leaves the 288px plate. (Pre-change the bottom toolbar capped the
+    // slot at 244px.)
+    expect(boardRect.width, closeTo(288, 0.5));
+    expect(boardRect.height, closeTo(288, 0.5));
+    expect(boardRect.top, closeTo(64, 0.5), reason: 'app bar 56 + 8 seam');
+    expect(boardRect.bottom, closeTo(352, 0.5), reason: '8px bottom padding');
+
+    final panelRect = tester.getRect(find.byType(SuspectPanel));
+    final placeRect = tester.getRect(find.byKey(const Key('tool_place')));
+    expect(
+      panelRect.right <= placeRect.left,
+      isTrue,
+      reason: 'the panel sits between the board and the strip',
+    );
+    expect(
+      placeRect.left,
+      closeTo(800 - 8 - 56, 0.5),
+      reason: 'strip: 8px outer padding + the 56px fixed width',
+    );
+    expect(
+      placeRect.right,
+      closeTo(800 - 8, 0.5),
+      reason: 'the strip hugs the right edge',
+    );
+    expectToolbarStrip(tester);
+  });
+
+  testWidgets('landscape strip scrolls instead of overflowing on a short '
+      'wide window (review render-proof, issue 107)', (tester) async {
+    await pumpGame(tester, size: const Size(600, 280), tutorialSeen: true);
+    // The stack's natural height (4×52 + 3×4 = 220) exceeds the 208px
+    // content area under the app bar; any RenderFlex overflow would throw
+    // here — the strip must scroll instead.
+    expect(tester.takeException(), isNull);
+    final accuseRect = tester.getRect(find.byKey(const Key('tool_accuse')));
+    expect(
+      accuseRect.height,
+      greaterThanOrEqualTo(44),
+      reason: 'pills keep their 44pt targets while scrolling',
+    );
+
+    // The accuse pill starts below the fold; scrolling the strip reveals
+    // it fully.
+    await tester.drag(
+      find.byKey(const Key('tool_accuse')),
+      const Offset(0, -120),
+    );
+    await tester.pumpAndSettle();
+    final revealed = tester.getRect(find.byKey(const Key('tool_accuse')));
+    expect(
+      revealed.top,
+      greaterThanOrEqualTo(56),
+      reason: 'the revealed pill stays inside the body',
+    );
+    expect(
+      revealed.bottom,
+      lessThanOrEqualTo(280 - 8 + 0.5),
+      reason: 'the whole accuse pill is reachable by scrolling the strip',
+    );
+  });
 }
 
 /// Loads the Flutter SDK's bundled Roboto-Regular.ttf (the production font
@@ -1814,21 +1794,6 @@ Future<void> _ensureRobotoLoaded(WidgetTester tester) async {
   await tester.runAsync(loader.load);
 }
 
-/// The ideal single-line width [text] needs at [fontSize]px in Roboto —
-/// the width a device lays out for it.
-double _measureWithRoboto(String text, double fontSize) {
-  final painter = TextPainter(
-    text: TextSpan(
-      text: text,
-      style: TextStyle(fontSize: fontSize, fontFamily: 'Roboto'),
-    ),
-    textDirection: TextDirection.ltr,
-  )..layout();
-  final width = painter.width;
-  painter.dispose();
-  return width;
-}
-
 /// The wrapped height [text] needs at [maxWidth] in the merged [style]
 /// (production-font family expected, e.g. Roboto): one line of the card's
 /// bodySmall measures 16px, two lines 32px.
@@ -1853,59 +1818,11 @@ void assertSeams(List<Rect> row, String rowName) {
   }
 }
 
-/// Issue 88 two-row wrap geometry: every button ≥44×44, the 4 tool buttons
-/// (place/mark/erase/undo) share one row, the 4 meta buttons
-/// (check/hint/accuse/menu) share a second row at least one pill+seam below,
-/// and adjacent pills in both rows are ≥4px apart.
-void expectToolbarTwoRows(WidgetTester tester) {
-  const toolKeys = ['tool_place', 'tool_mark', 'tool_erase', 'tool_undo'];
-  const metaKeys = ['tool_check', 'tool_hint', 'tool_accuse', 'tool_menu'];
-  Rect rect(String key) => tester.getRect(find.byKey(Key(key)));
-  final row1 = [for (final k in toolKeys) rect(k)];
-  final row2 = [for (final k in metaKeys) rect(k)];
-  for (var i = 0; i < 4; i++) {
-    expect(row1[i].width, greaterThanOrEqualTo(44), reason: toolKeys[i]);
-    expect(row1[i].height, greaterThanOrEqualTo(44), reason: toolKeys[i]);
-    expect(row2[i].width, greaterThanOrEqualTo(44), reason: metaKeys[i]);
-    expect(row2[i].height, greaterThanOrEqualTo(44), reason: metaKeys[i]);
-    expect(
-      (row1[i].top - row1[0].top).abs(),
-      lessThan(0.01),
-      reason: 'tool row: ${toolKeys[i]} shares one y with tool_place',
-    );
-    expect(
-      (row2[i].top - row2[0].top).abs(),
-      lessThan(0.01),
-      reason: 'meta row: ${metaKeys[i]} shares one y with tool_check',
-    );
-    expect(
-      row2[i].top - row1[i].top,
-      greaterThanOrEqualTo(60),
-      reason: 'meta row sits at least one pill+seam below the tool row',
-    );
-  }
-  assertSeams(row1, 'tool row');
-  assertSeams(row2, 'meta row');
-  expect(
-    row2[0].top - row1[0].bottom,
-    greaterThanOrEqualTo(4),
-    reason: 'the two rows must not touch',
-  );
-}
-
-/// Issue 88 wide-viewport geometry: all 8 buttons on one shared row, ≥44×44
-/// each, ≥4px seams between adjacent pills.
-void expectToolbarOneRow(WidgetTester tester) {
-  const keys = [
-    'tool_place',
-    'tool_mark',
-    'tool_erase',
-    'tool_undo',
-    'tool_check',
-    'tool_hint',
-    'tool_accuse',
-    'tool_menu',
-  ];
+/// Issue 107 portrait toolbar geometry: exactly the four buttons
+/// (place/mark/hint/accuse) on one shared row, ≥44×44 each, ≥4px seams
+/// between adjacent pills.
+void expectToolbarOneRowOf4(WidgetTester tester) {
+  const keys = ['tool_place', 'tool_mark', 'tool_hint', 'tool_accuse'];
   final row = [for (final k in keys) tester.getRect(find.byKey(Key(k)))];
   for (var i = 0; i < keys.length; i++) {
     expect(row[i].width, greaterThanOrEqualTo(44), reason: keys[i]);
@@ -1918,3 +1835,30 @@ void expectToolbarOneRow(WidgetTester tester) {
   }
   assertSeams(row, 'toolbar');
 }
+
+/// Issue 107 landscape strip geometry: the four buttons stacked
+/// top-to-bottom (place/mark/hint/accuse), each stretched to the strip's
+/// fixed 56px width (uniform stack), ≥44 tall, ≥4px vertical seams.
+void expectToolbarStrip(WidgetTester tester) {
+  const keys = ['tool_place', 'tool_mark', 'tool_hint', 'tool_accuse'];
+  final strip = [for (final k in keys) tester.getRect(find.byKey(Key(k)))];
+  for (var i = 0; i < keys.length; i++) {
+    expect(
+      strip[i].width,
+      closeTo(_toolbarStripTestWidth, 0.1),
+      reason: '${keys[i]} fills the fixed strip width (uniform stack)',
+    );
+    expect(strip[i].height, greaterThanOrEqualTo(44), reason: keys[i]);
+    if (i > 0) {
+      expect(
+        strip[i].top - strip[i - 1].bottom,
+        greaterThanOrEqualTo(4),
+        reason: '${keys[i]} sits at least 4px below ${keys[i - 1]}',
+      );
+    }
+  }
+}
+
+/// The strip width the geometry assertions pin; mirrors production's
+/// `_toolbarStripWidth` (tests cannot reach a private lib constant).
+const double _toolbarStripTestWidth = 56;

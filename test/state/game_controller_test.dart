@@ -138,7 +138,8 @@ void main() {
     expect(after.placed, before.placed);
   });
 
-  test('X marks toggle with the markX tool; erase clears', () async {
+  test('X marks toggle with the markX tool (issue 107 removes the erase '
+      'tool; tapping again clears)', () async {
     final container = await makeContainer();
     addTearDown(container.dispose);
     final notifier = container.read(gameControllerProvider.notifier);
@@ -148,30 +149,6 @@ void main() {
     notifier.tapCell(p(4, 0));
     expect(container.read(gameControllerProvider)!.xMarks, {p(4, 0)});
     notifier.tapCell(p(4, 0));
-    expect(container.read(gameControllerProvider)!.xMarks, isEmpty);
-
-    notifier.tapCell(p(4, 0));
-    notifier.setTool(Tool.erase);
-    notifier.tapCell(p(4, 0));
-    expect(container.read(gameControllerProvider)!.xMarks, isEmpty);
-  });
-
-  test('undo reverses placement and X toggles', () async {
-    final container = await makeContainer();
-    addTearDown(container.dispose);
-    final notifier = container.read(gameControllerProvider.notifier);
-    notifier.startNewCase(Difficulty.easy, seed: 3);
-
-    notifier.selectSuspect('s0');
-    notifier.tapCell(fixedCase.solution['s0']!);
-    expect(container.read(gameControllerProvider)!.placed.length, 1);
-    notifier.undo();
-    expect(container.read(gameControllerProvider)!.placed, isEmpty);
-
-    notifier.setTool(Tool.markX);
-    notifier.tapCell(p(4, 0));
-    expect(container.read(gameControllerProvider)!.xMarks, {p(4, 0)});
-    notifier.undo();
     expect(container.read(gameControllerProvider)!.xMarks, isEmpty);
   });
 
@@ -333,19 +310,6 @@ void main() {
       expect(state.placed['s1'], fixedCase.solution['s0']);
     },
   );
-
-  test('runCheck reports correct/total', () async {
-    final container = await makeContainer();
-    addTearDown(container.dispose);
-    final notifier = container.read(gameControllerProvider.notifier);
-    notifier.startNewCase(Difficulty.easy, seed: 3);
-
-    expect(notifier.runCheck(), (correct: 0, total: 5));
-    final first = fixedCase.solution.entries.first;
-    notifier.selectSuspect(first.key);
-    notifier.tapCell(first.value);
-    expect(notifier.runCheck(), (correct: 1, total: 5));
-  });
 
   test('daily: same UTC date yields the identical case', () async {
     final container = await makeContainer();

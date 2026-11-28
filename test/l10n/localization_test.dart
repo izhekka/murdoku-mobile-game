@@ -116,6 +116,47 @@ const Map<ObjectKind, String> instrumentalForms = {
 };
 
 void main() {
+  test('the deleted Erase/Undo/Check strings are gone from both arbs '
+      '(issue 107)', () {
+    const removedKeys = [
+      'toolErase',
+      'toolUndo',
+      'toolCheck',
+      'toolCheckTooltip',
+      'checkResult',
+    ];
+    for (final path in ['lib/l10n/app_en.arb', 'lib/l10n/app_ru.arb']) {
+      final arb =
+          jsonDecode(File(path).readAsStringSync()) as Map<String, Object?>;
+      for (final key in removedKeys) {
+        expect(
+          arb.keys.any((k) => k == key || k == '@$key'),
+          isFalse,
+          reason: '$path must no longer carry $key',
+        );
+      }
+    }
+  });
+
+  test('no clue template ends with a trailing period (issue 107)', () {
+    for (final path in ['lib/l10n/app_en.arb', 'lib/l10n/app_ru.arb']) {
+      final arb =
+          jsonDecode(File(path).readAsStringSync()) as Map<String, Object?>;
+      final clueKeys = arb.keys
+          .where((k) => k.startsWith('clue') && !k.startsWith('@'))
+          .toList();
+      expect(clueKeys.length, 12, reason: path);
+      for (final key in clueKeys) {
+        final template = arb[key]! as String;
+        expect(
+          template.endsWith('.'),
+          isFalse,
+          reason: '$path $key = "$template" must not end with a period',
+        );
+      }
+    }
+  });
+
   test('ru arb covers exactly the en key set', () {
     final en = jsonDecode(
       File('lib/l10n/app_en.arb').readAsStringSync(),
@@ -157,37 +198,37 @@ void main() {
 
       expect(
         describeClue(c.clues[0], c, l10n, names),
-        '— в библиотеке.',
+        '— в библиотеке',
         reason: 'InRoom uses the room prep phrase',
       );
       expect(
         describeClue(c.clues[1], c, l10n, names),
-        '— на том же этаже, что и Джек.',
+        '— на том же этаже, что и Джек',
         reason: 'SameRow keeps both names nominative',
       );
       expect(
         describeClue(c.clues[2], c, l10n, names),
-        '— в том же коридоре, что и жертва.',
+        '— в том же коридоре, что и жертва',
         reason: 'victim nominative',
       );
       expect(
         describeClue(c.clues[3], c, l10n, names),
-        '— западнее Джека.',
+        '— западнее Джека',
         reason: 'Direction uses genitive target',
       );
       expect(
         describeClue(c.clues[4], c, l10n, names),
-        '— около жертвы.',
+        '— около жертвы',
         reason: 'Beside uses genitive victim',
       );
       expect(
         describeClue(c.clues[5], c, l10n, names),
-        '— не на чердаке.',
+        '— не на чердаке',
         reason: 'negated InRoom with prep phrase',
       );
       expect(
         describeClue(c.clues[6], c, l10n, names),
-        '— в комнате со столом.',
+        '— в комнате со столом',
         reason: 'BesideObject uses the euphonic prep + lowercase instrumental',
       );
       expect(
@@ -197,7 +238,7 @@ void main() {
           l10n,
           names,
         ),
-        '— не в комнате со столом.',
+        '— не в комнате со столом',
         reason: 'negated BesideObject',
       );
     },
@@ -265,56 +306,44 @@ void main() {
       final names = NameForms.forLocale('ru', c);
       final l10n = lookupAppLocalizations(const Locale('ru'));
       const expected = <ObjectKind, (String, String)>{
-        ObjectKind.piano: (
-          '— в комнате с пианино.',
-          '— не в комнате с пианино.',
-        ),
+        ObjectKind.piano: ('— в комнате с пианино', '— не в комнате с пианино'),
         ObjectKind.plant: (
-          '— в комнате с растением.',
-          '— не в комнате с растением.',
+          '— в комнате с растением',
+          '— не в комнате с растением',
         ),
         ObjectKind.armor: (
-          '— в комнате с доспехами.',
-          '— не в комнате с доспехами.',
+          '— в комнате с доспехами',
+          '— не в комнате с доспехами',
         ),
         ObjectKind.chest: (
-          '— в комнате с сундуком.',
-          '— не в комнате с сундуком.',
+          '— в комнате с сундуком',
+          '— не в комнате с сундуком',
         ),
-        ObjectKind.clock: ('— в комнате с часами.', '— не в комнате с часами.'),
+        ObjectKind.clock: ('— в комнате с часами', '— не в комнате с часами'),
         ObjectKind.globe: (
-          '— в комнате с глобусом.',
-          '— не в комнате с глобусом.',
+          '— в комнате с глобусом',
+          '— не в комнате с глобусом',
         ),
         ObjectKind.portrait: (
-          '— в комнате с портретом.',
-          '— не в комнате с портретом.',
+          '— в комнате с портретом',
+          '— не в комнате с портретом',
         ),
         ObjectKind.fireplace: (
-          '— в комнате с камином.',
-          '— не в комнате с камином.',
+          '— в комнате с камином',
+          '— не в комнате с камином',
         ),
-        ObjectKind.table: (
-          '— в комнате со столом.',
-          '— не в комнате со столом.',
-        ),
-        ObjectKind.chair: (
-          '— в комнате со стулом.',
-          '— не в комнате со стулом.',
-        ),
+        ObjectKind.table: ('— в комнате со столом', '— не в комнате со столом'),
+        ObjectKind.chair: ('— в комнате со стулом', '— не в комнате со стулом'),
         ObjectKind.flowers: (
-          '— в комнате с цветами.',
-          '— не в комнате с цветами.',
+          '— в комнате с цветами',
+          '— не в комнате с цветами',
         ),
-        ObjectKind.sofa: (
-          '— в комнате с диваном.',
-          '— не в комнате с диваном.',
-        ),
+        ObjectKind.sofa: ('— в комнате с диваном', '— не в комнате с диваном'),
         ObjectKind.bookshelf: (
-          '— в комнате со стеллажом.',
-          '— не в комнате со стеллажом.',
+          '— в комнате со стеллажом',
+          '— не в комнате со стеллажом',
         ),
-        ObjectKind.lamp: ('— в комнате с лампой.', '— не в комнате с лампой.'),
+        ObjectKind.lamp: ('— в комнате с лампой', '— не в комнате с лампой'),
       };
       expect(
         expected.keys.toSet(),
@@ -352,12 +381,12 @@ void main() {
     final names = NameForms.forLocale('en', c);
     final l10n = lookupAppLocalizations(const Locale('en'));
 
-    expect(describeClue(c.clues[0], c, l10n, names), '— in the Library.');
-    expect(describeClue(c.clues[3], c, l10n, names), '— west of Jack.');
-    expect(describeClue(c.clues[4], c, l10n, names), '— beside the victim.');
+    expect(describeClue(c.clues[0], c, l10n, names), '— in the Library');
+    expect(describeClue(c.clues[3], c, l10n, names), '— west of Jack');
+    expect(describeClue(c.clues[4], c, l10n, names), '— beside the victim');
     expect(
       describeClue(c.clues[6], c, l10n, names),
-      '— in the same room as the Table.',
+      '— in the same room as the Table',
     );
     expect(
       describeClue(
@@ -366,7 +395,7 @@ void main() {
         l10n,
         names,
       ),
-      '— not in the same room as the Table.',
+      '— not in the same room as the Table',
     );
   });
 

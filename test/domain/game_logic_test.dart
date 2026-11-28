@@ -81,14 +81,6 @@ void main() {
     );
   });
 
-  test('correctCount counts only exact solution matches', () {
-    expect(correctCount(caseData, {}), 0);
-    expect(correctCount(caseData, {'s0': p(0, 0)}), 1);
-    expect(correctCount(caseData, {'s0': p(1, 4)}), 0, reason: 'wrong cell');
-    final all = Map.of(caseData.solution);
-    expect(correctCount(caseData, all), 5);
-  });
-
   test('boardSolved is strict', () {
     final all = Map.of(caseData.solution);
     expect(boardSolved(caseData, all), isTrue);

@@ -317,73 +317,73 @@ abstract class AppLocalizations {
   /// No description provided for @clueInRoom.
   ///
   /// In en, this message translates to:
-  /// **'— in the {room}.'**
+  /// **'— in the {room}'**
   String clueInRoom(String room);
 
   /// No description provided for @clueInRoomNot.
   ///
   /// In en, this message translates to:
-  /// **'— not in the {room}.'**
+  /// **'— not in the {room}'**
   String clueInRoomNot(String room);
 
   /// No description provided for @clueSameRow.
   ///
   /// In en, this message translates to:
-  /// **'— on the same floor as {target}.'**
+  /// **'— on the same floor as {target}'**
   String clueSameRow(String target);
 
   /// No description provided for @clueSameRowNot.
   ///
   /// In en, this message translates to:
-  /// **'— not on the same floor as {target}.'**
+  /// **'— not on the same floor as {target}'**
   String clueSameRowNot(String target);
 
   /// No description provided for @clueSameCol.
   ///
   /// In en, this message translates to:
-  /// **'— in the same corridor as {target}.'**
+  /// **'— in the same corridor as {target}'**
   String clueSameCol(String target);
 
   /// No description provided for @clueSameColNot.
   ///
   /// In en, this message translates to:
-  /// **'— not in the same corridor as {target}.'**
+  /// **'— not in the same corridor as {target}'**
   String clueSameColNot(String target);
 
   /// No description provided for @clueDirection.
   ///
   /// In en, this message translates to:
-  /// **'— {direction} of {target}.'**
+  /// **'— {direction} of {target}'**
   String clueDirection(String direction, String target);
 
   /// No description provided for @clueDirectionNot.
   ///
   /// In en, this message translates to:
-  /// **'— not {direction} of {target}.'**
+  /// **'— not {direction} of {target}'**
   String clueDirectionNot(String direction, String target);
 
   /// No description provided for @clueBeside.
   ///
   /// In en, this message translates to:
-  /// **'— beside {target}.'**
+  /// **'— beside {target}'**
   String clueBeside(String target);
 
   /// No description provided for @clueBesideNot.
   ///
   /// In en, this message translates to:
-  /// **'— not beside {target}.'**
+  /// **'— not beside {target}'**
   String clueBesideNot(String target);
 
   /// No description provided for @clueBesideObject.
   ///
   /// In en, this message translates to:
-  /// **'— in the same room as the {object}.'**
+  /// **'— in the same room as the {object}'**
   String clueBesideObject(String object);
 
   /// No description provided for @clueBesideObjectNot.
   ///
   /// In en, this message translates to:
-  /// **'— not in the same room as the {object}.'**
+  /// **'— not in the same room as the {object}'**
   String clueBesideObjectNot(String object);
 
   /// No description provided for @accuse.
@@ -410,24 +410,6 @@ abstract class AppLocalizations {
   /// **'Mark'**
   String get toolMark;
 
-  /// No description provided for @toolErase.
-  ///
-  /// In en, this message translates to:
-  /// **'Erase'**
-  String get toolErase;
-
-  /// No description provided for @toolUndo.
-  ///
-  /// In en, this message translates to:
-  /// **'Undo'**
-  String get toolUndo;
-
-  /// No description provided for @toolCheck.
-  ///
-  /// In en, this message translates to:
-  /// **'Check'**
-  String get toolCheck;
-
   /// No description provided for @toolHint.
   ///
   /// In en, this message translates to:
@@ -439,12 +421,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Accuse'**
   String get toolAccuse;
-
-  /// No description provided for @toolCheckTooltip.
-  ///
-  /// In en, this message translates to:
-  /// **'Check how many guests are placed'**
-  String get toolCheckTooltip;
 
   /// No description provided for @toolMarkTooltip.
   ///
@@ -469,12 +445,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{name} has an airtight alibi.'**
   String alibi(String name);
-
-  /// No description provided for @checkResult.
-  ///
-  /// In en, this message translates to:
-  /// **'{n} of {total} guests are correctly placed.'**
-  String checkResult(int n, int total);
 
   /// No description provided for @victoryTitle.
   ///

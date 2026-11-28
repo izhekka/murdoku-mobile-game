@@ -435,15 +435,15 @@ void main() {
     // Room sentences render as rich text with the chip placeholder (\uFFFC,
     // issue 104); non-room sentences stay plain.
     expect(find.text('Ash'), findsOneWidget);
-    expect(find.text('— in the \uFFFC.'), findsOneWidget);
+    expect(find.text('— in the \uFFFC'), findsOneWidget);
     expect(find.text('Blair'), findsOneWidget);
-    expect(find.text('— not on the same floor as the victim.'), findsOneWidget);
+    expect(find.text('— not on the same floor as the victim'), findsOneWidget);
     expect(find.text('Casey'), findsOneWidget);
-    expect(find.text('— in the same corridor as Ellis.'), findsOneWidget);
+    expect(find.text('— in the same corridor as Ellis'), findsOneWidget);
     expect(find.text('Drew'), findsOneWidget);
-    expect(find.text('— not south of the victim.'), findsOneWidget);
+    expect(find.text('— not south of the victim'), findsOneWidget);
     expect(find.text('Ellis'), findsOneWidget);
-    expect(find.text('— in the same room as the Clock.'), findsOneWidget);
+    expect(find.text('— in the same room as the Clock'), findsOneWidget);
 
     // Placed suspect is marked.
     expect(find.byIcon(Icons.check_circle), findsOneWidget);
@@ -505,13 +505,13 @@ void main() {
     await tester.pump();
 
     // Initially Ash (s0) is selected: uncapped clue text.
-    final ashSelected = tester.widget<Text>(find.text('— in the \uFFFC.'));
+    final ashSelected = tester.widget<Text>(find.text('— in the \uFFFC'));
     expect(ashSelected.maxLines, isNull);
 
     // Unselected cards are uncapped too: the (taller) card height bounds
     // the text instead of a 2-line ellipsis (UX-9).
     final blair = tester.widget<Text>(
-      find.text('— not on the same floor as the victim.'),
+      find.text('— not on the same floor as the victim'),
     );
     expect(blair.maxLines, isNull);
     expect(blair.overflow, isNull);
@@ -521,10 +521,10 @@ void main() {
     await tester.pump();
 
     final blairSelected = tester.widget<Text>(
-      find.text('— not on the same floor as the victim.'),
+      find.text('— not on the same floor as the victim'),
     );
     expect(blairSelected.maxLines, isNull);
-    final ash = tester.widget<Text>(find.text('— in the \uFFFC.'));
+    final ash = tester.widget<Text>(find.text('— in the \uFFFC'));
     expect(ash.maxLines, isNull);
   });
 
@@ -589,7 +589,7 @@ void main() {
 
       final node = tester.getSemantics(find.text('Ash'));
       expect(node.flagsCollection.isButton, isTrue);
-      expect(node.label, contains('— in the Hall.'));
+      expect(node.label, contains('— in the Hall'));
       // The sentence no longer carries the guest's name (issue 89), so the
       // name prefix is pinned directly: the label must still start with it.
       expect(node.label, startsWith('Ash.'));
@@ -799,11 +799,11 @@ void main() {
   /// The exact en clue sentences the [fixture] cards render (see the first
   /// test's wording asserts).
   const clueSentences = {
-    '— in the Hall.',
-    '— not on the same floor as the victim.',
-    '— in the same corridor as Ellis.',
-    '— not south of the victim.',
-    '— in the same room as the Clock.',
+    '— in the Hall',
+    '— not on the same floor as the victim',
+    '— in the same corridor as Ellis',
+    '— not south of the victim',
+    '— in the same room as the Clock',
   };
 
   /// The exact sentence each [fixture] card renders, keyed by suspect id
@@ -961,7 +961,7 @@ void main() {
       // paragraph since issue 104 — the room chip is a \uFFFC placeholder
       // in its plain text; the fixture's one-clue-per-card join is exactly
       // the sentence).
-      expect(find.text('— in the \uFFFC.'), findsOneWidget);
+      expect(find.text('— in the \uFFFC'), findsOneWidget);
     },
   );
 
@@ -1227,7 +1227,7 @@ void main() {
       reason: 'grown rows exceeding the slot make the grid scrollable',
     );
     expect(find.text('Ellis'), findsOneWidget);
-    expect(find.text('— in the same room as the Clock.'), findsOneWidget);
+    expect(find.text('— in the same room as the Clock'), findsOneWidget);
     expect(
       tester.getRect(ellisCard).bottom,
       lessThanOrEqualTo(600),
@@ -1266,7 +1266,7 @@ void main() {
     // asserted as contained text (Ellis's card grew extra sentences when the
     // issue-89 shortening required fixture growth).
     expect(
-      find.textContaining('— in the same room as the Clock.'),
+      find.textContaining('— in the same room as the Clock'),
       findsOneWidget,
     );
     expect(
@@ -1851,7 +1851,7 @@ void main() {
           l10n,
           names,
         ),
-        '— not in the same corridor as Ellis.',
+        '— not in the same corridor as Ellis',
       );
     });
 
@@ -1866,7 +1866,7 @@ void main() {
           l10n,
           names,
         ),
-        '— not in the same room as the Clock.',
+        '— not in the same room as the Clock',
       );
     });
   });

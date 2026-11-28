@@ -58,7 +58,7 @@ Future<(AppLocalizations, NameForms)> l10nFor(
 
 void main() {
   group('clue segments (issue 104)', () {
-    testWidgets('en positive InRoom: dash + prefix + room + period', (
+    testWidgets('en positive InRoom: dash + prefix + room chip', (
       tester,
     ) async {
       final (l10n, names) = await l10nFor(tester, const Locale('en'));
@@ -72,7 +72,6 @@ void main() {
         ('— ', null),
         ('in the ', null),
         ('Hall', 0),
-        ('.', null),
       ]);
     });
 
@@ -85,7 +84,6 @@ void main() {
         ('— ', null),
         ('not in the ', null),
         ('Hall', 0),
-        ('.', null),
       ]);
     });
 
@@ -97,7 +95,7 @@ void main() {
       const clue = InRoom(suspectId: 's0', roomId: 'r1', negated: false);
       expect(
         shapeOf(describeClueSegments(clue, poolRoomFixture, l10n, names)),
-        const [('— ', null), ('в библиотеке', 1), ('.', null)],
+        const [('— ', null), ('в библиотеке', 1)],
       );
     });
 
@@ -113,7 +111,7 @@ void main() {
       );
       expect(shapeOf(describeClueSegments(clue, fixture, l10n, names)), const [
         ('— ', null),
-        ('not on the same floor as the victim.', null),
+        ('not on the same floor as the victim', null),
       ]);
     });
 
@@ -128,6 +126,32 @@ void main() {
         3,
         reason:
             'the room index is the legend/board order, not the palette index',
+      );
+    });
+
+    testWidgets('a stored name occurring mid-template keeps the trailing '
+        'plain segment (issue 107: de-dotting made every template end at '
+        'the room; legacy names can still occur mid-template and the split '
+        'stays lossless)', (tester) async {
+      final (l10n, _) = await l10nFor(tester, const Locale('en'));
+      final legacy = fixture.copyWith(
+        rooms: [
+          for (final (i, room) in fixture.rooms.indexed)
+            RoomDef(
+              id: room.id,
+              name: i == 0 ? 'in' : room.name,
+              cells: room.cells,
+            ),
+        ],
+        clues: const [InRoom(suspectId: 's0', roomId: 'r0', negated: false)],
+      );
+      final names = NameForms.forLocale('en', legacy);
+      // "— in the in": the name "in" first occurs inside the en prefix, so
+      // the room chip lands mid-sentence and the trailing words stay a
+      // plain segment.
+      expect(
+        shapeOf(describeClueSegments(legacy.clues.first, legacy, l10n, names)),
+        const [('— ', null), ('in', 0), (' the in', null)],
       );
     });
 
@@ -173,7 +197,7 @@ void main() {
 
       // The sentence's plain text carries the \uFFFC placeholder where the
       // chip sits.
-      final sentence = find.text('— in the \uFFFC.');
+      final sentence = find.text('— in the \uFFFC');
       expect(sentence, findsOneWidget);
       final chips = chipContainersOf(tester, sentence);
       expect(chips, hasLength(1));
@@ -193,7 +217,7 @@ void main() {
       await tester.pumpWidget(skinWrap(stickerTokens));
       await tester.pumpAndSettle();
 
-      final blair = find.text('— not on the same floor as the victim.');
+      final blair = find.text('— not on the same floor as the victim');
       expect(blair, findsOneWidget);
       expect(
         find.descendant(of: blair, matching: find.byType(Container)),
@@ -225,7 +249,7 @@ void main() {
       await tester.pumpWidget(skinWrap(stickerTokens, c: negatedRoomFixture));
       await tester.pumpAndSettle();
 
-      final sentence = find.text('— not in the \uFFFC.');
+      final sentence = find.text('— not in the \uFFFC');
       expect(sentence, findsOneWidget);
       final chips = chipContainersOf(tester, sentence);
       expect(
@@ -240,7 +264,7 @@ void main() {
       for (final tokens in [candyTokens, comicTokens]) {
         await tester.pumpWidget(skinWrap(tokens));
         await tester.pumpAndSettle();
-        final chips = chipContainersOf(tester, find.text('— in the \uFFFC.'));
+        final chips = chipContainersOf(tester, find.text('— in the \uFFFC'));
         expect(
           (chips.single.decoration! as BoxDecoration).color,
           tokens.roomTints[0],
@@ -258,7 +282,7 @@ void main() {
       await tester.pumpWidget(sidePanelWrap(fixture));
       await tester.pump();
 
-      final sentence = find.text('— in the \uFFFC.');
+      final sentence = find.text('— in the \uFFFC');
       expect(sentence, findsOneWidget);
       final bg = classicRoomTints[0].withValues(alpha: 0.55);
       final chips = chipContainersOf(tester, sentence);
@@ -347,7 +371,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('в библиотеке'), findsOneWidget);
-      final sentence = find.text('— \uFFFC.');
+      final sentence = find.text('— \uFFFC');
       expect(sentence, findsOneWidget);
       final chips = chipContainersOf(tester, sentence);
       expect(

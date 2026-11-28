@@ -52,7 +52,7 @@
   "dirSouth": "south",
   "dirEast": "east",
   "dirWest": "west",
-  "clueInRoom": "— in the {room}.",
+  "clueInRoom": "— in the {room}",
   "@clueInRoom": {
     "placeholders": {
       "room": {
@@ -60,7 +60,7 @@
       }
     }
   },
-  "clueInRoomNot": "— not in the {room}.",
+  "clueInRoomNot": "— not in the {room}",
   "@clueInRoomNot": {
     "placeholders": {
       "room": {
@@ -68,7 +68,7 @@
       }
     }
   },
-  "clueSameRow": "— on the same floor as {target}.",
+  "clueSameRow": "— on the same floor as {target}",
   "@clueSameRow": {
     "placeholders": {
       "target": {
@@ -76,7 +76,7 @@
       }
     }
   },
-  "clueSameRowNot": "— not on the same floor as {target}.",
+  "clueSameRowNot": "— not on the same floor as {target}",
   "@clueSameRowNot": {
     "placeholders": {
       "target": {
@@ -84,7 +84,7 @@
       }
     }
   },
-  "clueSameCol": "— in the same corridor as {target}.",
+  "clueSameCol": "— in the same corridor as {target}",
   "@clueSameCol": {
     "placeholders": {
       "target": {
@@ -92,7 +92,7 @@
       }
     }
   },
-  "clueSameColNot": "— not in the same corridor as {target}.",
+  "clueSameColNot": "— not in the same corridor as {target}",
   "@clueSameColNot": {
     "placeholders": {
       "target": {
@@ -100,7 +100,7 @@
       }
     }
   },
-  "clueDirection": "— {direction} of {target}.",
+  "clueDirection": "— {direction} of {target}",
   "@clueDirection": {
     "placeholders": {
       "direction": {
@@ -111,7 +111,7 @@
       }
     }
   },
-  "clueDirectionNot": "— not {direction} of {target}.",
+  "clueDirectionNot": "— not {direction} of {target}",
   "@clueDirectionNot": {
     "placeholders": {
       "direction": {
@@ -122,7 +122,7 @@
       }
     }
   },
-  "clueBeside": "— beside {target}.",
+  "clueBeside": "— beside {target}",
   "@clueBeside": {
     "placeholders": {
       "target": {
@@ -130,7 +130,7 @@
       }
     }
   },
-  "clueBesideNot": "— not beside {target}.",
+  "clueBesideNot": "— not beside {target}",
   "@clueBesideNot": {
     "placeholders": {
       "target": {
@@ -138,7 +138,7 @@
       }
     }
   },
-  "clueBesideObject": "— in the same room as the {object}.",
+  "clueBesideObject": "— in the same room as the {object}",
   "@clueBesideObject": {
     "placeholders": {
       "object": {
@@ -146,7 +146,7 @@
       }
     }
   },
-  "clueBesideObjectNot": "— not in the same room as the {object}.",
+  "clueBesideObjectNot": "— not in the same room as the {object}",
   "@clueBesideObjectNot": {
     "placeholders": {
       "object": {
@@ -158,12 +158,8 @@
   "accuseTitle": "Who did it?",
   "toolPlace": "Place",
   "toolMark": "Mark",
-  "toolErase": "Erase",
-  "toolUndo": "Undo",
-  "toolCheck": "Check",
   "toolHint": "Hint",
   "toolAccuse": "Accuse",
-  "toolCheckTooltip": "Check how many guests are placed",
   "toolMarkTooltip": "Mark a cell as empty",
   "toolHintTooltip": "Get a hint",
   "timerSemantics": "{difficulty}, elapsed {time}",
@@ -182,17 +178,6 @@
     "placeholders": {
       "name": {
         "type": "String"
-      }
-    }
-  },
-  "checkResult": "{n} of {total} guests are correctly placed.",
-  "@checkResult": {
-    "placeholders": {
-      "n": {
-        "type": "int"
-      },
-      "total": {
-        "type": "int"
       }
     }
   },

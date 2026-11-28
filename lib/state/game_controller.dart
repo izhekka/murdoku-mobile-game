@@ -3,56 +3,13 @@ import 'dart:math';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:murdoku/domain/game_logic.dart'
-    show Tool, canPlace, correctCount;
+import 'package:murdoku/domain/game_logic.dart' show Tool, canPlace;
 import 'package:murdoku/domain/generator/case_factory.dart';
 import 'package:murdoku/domain/models.dart';
 import 'package:murdoku/state/providers.dart';
 import 'package:murdoku/storage/prefs_repository.dart';
 
 enum GamePhase { playing, won, revealed }
-
-/// A reversible player action, for undo.
-sealed class _Move {
-  void undo(GameNotifier notifier);
-}
-
-class _PlaceMove implements _Move {
-  _PlaceMove(this.suspectId, this.pos, this.clearedMark);
-
-  final String suspectId;
-  final Pos pos;
-  final bool clearedMark; // an X mark was consumed by this placement
-
-  @override
-  void undo(GameNotifier notifier) {
-    notifier._placed.remove(suspectId);
-    if (clearedMark) notifier._xMarks.add(pos);
-  }
-}
-
-class _RemoveMove implements _Move {
-  _RemoveMove(this.suspectId, this.pos);
-
-  final String suspectId;
-  final Pos pos;
-
-  @override
-  void undo(GameNotifier notifier) {
-    notifier._placed[suspectId] = pos;
-  }
-}
-
-class _ToggleXMove implements _Move {
-  _ToggleXMove(this.pos);
-
-  final Pos pos;
-
-  @override
-  void undo(GameNotifier notifier) {
-    if (!notifier._xMarks.remove(pos)) notifier._xMarks.add(pos);
-  }
-}
 
 class GameState {
   const GameState({
@@ -128,7 +85,6 @@ class GameState {
 
 /// Drives one active case. Null state means no active game (home screen).
 class GameNotifier extends Notifier<GameState?> {
-  final _history = <_Move>[];
   late CaseData _case;
   Map<String, Pos> _placed = {};
   Set<Pos> _xMarks = {};
@@ -197,7 +153,6 @@ class GameNotifier extends Notifier<GameState?> {
     _wrongAccusations = 0;
     _isDaily = isDaily;
     _dailyDate = dailyDate;
-    _history.clear();
     state = _compose(phase: GamePhase.playing);
     _persist();
   }
@@ -230,7 +185,6 @@ class GameNotifier extends Notifier<GameState?> {
     _wrongAccusations = g.board.wrongAccusations;
     _isDaily = g.isDaily;
     _dailyDate = g.dailyDate;
-    _history.clear();
     state = _compose(phase: GamePhase.playing);
   }
 
@@ -257,16 +211,7 @@ class GameNotifier extends Notifier<GameState?> {
   void _tapWithTool(GameState s, Pos p) => switch (s.tool) {
     Tool.place => _tapPlace(s, p),
     Tool.markX => _toggleX(s, p),
-    Tool.erase => _eraseAt(s, p),
   };
-
-  /// Erase tool: removing an X is one reversible move.
-  void _eraseAt(GameState s, Pos p) {
-    if (_xMarks.remove(p)) {
-      _history.add(_ToggleXMove(p));
-      _afterMove(s);
-    }
-  }
 
   void _tapPlace(GameState s, Pos p) {
     final selected = s.selectedSuspectId;
@@ -274,9 +219,8 @@ class GameNotifier extends Notifier<GameState?> {
     if (_locked.contains(selected)) return;
     if (_tapOccupied(s, selected, p)) return;
     if (_canPlaceFresh(selected, p)) {
-      final clearedMark = _xMarks.remove(p);
+      _xMarks.remove(p);
       _placed[selected] = p;
-      _history.add(_PlaceMove(selected, p, clearedMark));
       _afterMove(s);
     }
   }
@@ -290,7 +234,6 @@ class GameNotifier extends Notifier<GameState?> {
     if (suspectAt == selected) {
       // Toggle: remove the selected suspect from its own cell.
       _placed.remove(selected);
-      _history.add(_RemoveMove(selected, p));
       _afterMove(s);
     }
     // Tapping a cell occupied by ANOTHER suspect is a no-op.
@@ -313,25 +256,7 @@ class GameNotifier extends Notifier<GameState?> {
   void _toggleX(GameState s, Pos p) {
     if (_placed.values.contains(p)) return; // never mark a suspect cell
     if (!_xMarks.remove(p)) _xMarks.add(p);
-    _history.add(_ToggleXMove(p));
     _afterMove(s);
-  }
-
-  void undo() {
-    final s = _state;
-    if (s == null || s.phase != GamePhase.playing) return;
-    if (_history.isEmpty) return;
-    _history.removeLast().undo(this);
-    _afterMove(s);
-  }
-
-  ({int correct, int total}) runCheck() {
-    final s = _state;
-    if (s == null) return (correct: 0, total: 0);
-    return (
-      correct: correctCount(_case, _placed),
-      total: _case.suspects.length,
-    );
   }
 
   void hintPlacement() {

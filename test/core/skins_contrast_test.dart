@@ -131,10 +131,7 @@ void main() {
         for (final entry in {
           'place': t.actions.place,
           'mark': t.actions.mark,
-          'erase': t.actions.erase,
-          'undo': t.actions.undo,
           'hint': t.actions.hint,
-          'check': t.actions.check,
           'menu': t.actions.menu,
         }.entries) {
           final ratio = _contrastRatio(t.ink, entry.value);

@@ -235,9 +235,14 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('board_view')), findsOneWidget);
 
-      // 12. Pause menu sheet → Resume row. (The sheet title repeats the
-      // toolbar pill's 'Меню' label; the abandon row is sheet-unique.)
-      await tester.tap(find.byKey(const Key('tool_menu')));
+      // 12. Pause menu sheet (the app-bar Menu icon, issue 107) → Resume
+      // row. (The abandon row is sheet-unique.)
+      await tester.tap(
+        find.descendant(
+          of: find.byType(AppBar),
+          matching: find.byIcon(Icons.pause),
+        ),
+      );
       await tester.pumpAndSettle();
       expect(find.text(l10n.abandonCase), findsOneWidget);
       await shot('game_pause_$p');

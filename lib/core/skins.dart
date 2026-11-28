@@ -236,24 +236,20 @@ class SkinBadge {
 }
 
 /// Toolbar colors per action; shared across the cartoon skins (issue 23).
+/// Issue 107 deleted the Erase/Undo/Check buttons, so their color fields are
+/// gone — place, mark, hint, accuse and menu remain.
 class SkinActions {
   const SkinActions({
     required this.place,
     required this.mark,
-    required this.erase,
-    required this.undo,
     required this.hint,
-    required this.check,
     required this.accuse,
     required this.menu,
   });
 
   final Color place;
   final Color mark;
-  final Color erase;
-  final Color undo;
   final Color hint;
-  final Color check;
   final Color accuse;
   final Color menu;
 
@@ -263,18 +259,14 @@ class SkinActions {
     return _allEqual([
       other.place == place,
       other.mark == mark,
-      other.erase == erase,
-      other.undo == undo,
       other.hint == hint,
-      other.check == check,
       other.accuse == accuse,
       other.menu == menu,
     ]);
   }
 
   @override
-  int get hashCode =>
-      Object.hash(place, mark, erase, undo, hint, check, accuse, menu);
+  int get hashCode => Object.hash(place, mark, hint, accuse, menu);
 }
 
 /// Cartoon danger accent (issue 87): deep burnt orange so the white glyphs
@@ -293,10 +285,7 @@ const Color _cartoonDanger = Color(0xFFC2410C);
 const SkinActions _cartoonActions = SkinActions(
   place: Color(0xFFFF8FB3),
   mark: Color(0xFFFFA94D),
-  erase: Color(0xFF38D9A9),
-  undo: Color(0xFF74C0FC),
   hint: Color(0xFFFFC078),
-  check: Color(0xFF51CF66),
   accuse: _cartoonDanger,
   menu: Color(0xFFC3A9FD),
 );
@@ -556,10 +545,7 @@ SkinTokens skinTokensFor(SkinSetting skin, ColorScheme scheme) =>
         actions: SkinActions(
           place: scheme.primary,
           mark: scheme.primary,
-          erase: scheme.primary,
-          undo: scheme.primary,
           hint: scheme.primary,
-          check: scheme.primary,
           accuse: scheme.primary,
           menu: scheme.primary,
         ),

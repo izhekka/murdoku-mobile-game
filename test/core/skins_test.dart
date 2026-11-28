@@ -161,10 +161,7 @@ void main() {
     for (final t in [candyTokens, stickerTokens, comicTokens]) {
       expect(t.actions.place, c(0xFFFF8FB3), reason: '${t.skin} place');
       expect(t.actions.mark, c(0xFFFFA94D), reason: '${t.skin} mark');
-      expect(t.actions.erase, c(0xFF38D9A9), reason: '${t.skin} erase');
-      expect(t.actions.undo, c(0xFF74C0FC), reason: '${t.skin} undo');
       expect(t.actions.hint, c(0xFFFFC078), reason: '${t.skin} hint');
-      expect(t.actions.check, c(0xFF51CF66), reason: '${t.skin} check');
       // Issue 87: place/menu lighten one step for the ink-glyph AA bars and
       // the deepened danger accent is both the dangerColor and the accuse
       // pill (white glyphs only there).

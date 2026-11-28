@@ -122,62 +122,62 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String clueInRoom(String room) {
-    return '— $room.';
+    return '— $room';
   }
 
   @override
   String clueInRoomNot(String room) {
-    return '— не $room.';
+    return '— не $room';
   }
 
   @override
   String clueSameRow(String target) {
-    return '— на том же этаже, что и $target.';
+    return '— на том же этаже, что и $target';
   }
 
   @override
   String clueSameRowNot(String target) {
-    return '— не на том же этаже, что и $target.';
+    return '— не на том же этаже, что и $target';
   }
 
   @override
   String clueSameCol(String target) {
-    return '— в том же коридоре, что и $target.';
+    return '— в том же коридоре, что и $target';
   }
 
   @override
   String clueSameColNot(String target) {
-    return '— не в том же коридоре, что и $target.';
+    return '— не в том же коридоре, что и $target';
   }
 
   @override
   String clueDirection(String direction, String target) {
-    return '— $direction $target.';
+    return '— $direction $target';
   }
 
   @override
   String clueDirectionNot(String direction, String target) {
-    return '— не $direction $target.';
+    return '— не $direction $target';
   }
 
   @override
   String clueBeside(String target) {
-    return '— около $target.';
+    return '— около $target';
   }
 
   @override
   String clueBesideNot(String target) {
-    return '— не около $target.';
+    return '— не около $target';
   }
 
   @override
   String clueBesideObject(String object) {
-    return '— в комнате $object.';
+    return '— в комнате $object';
   }
 
   @override
   String clueBesideObjectNot(String object) {
-    return '— не в комнате $object.';
+    return '— не в комнате $object';
   }
 
   @override
@@ -193,22 +193,10 @@ class AppLocalizationsRu extends AppLocalizations {
   String get toolMark => 'Крестик';
 
   @override
-  String get toolErase => 'Стереть';
-
-  @override
-  String get toolUndo => 'Отменить';
-
-  @override
-  String get toolCheck => 'Проверить';
-
-  @override
   String get toolHint => 'Подсказка';
 
   @override
   String get toolAccuse => 'Обвинить';
-
-  @override
-  String get toolCheckTooltip => 'Проверить расстановку гостей';
 
   @override
   String get toolMarkTooltip => 'Пометить клетку как пустую';
@@ -224,11 +212,6 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String alibi(String name) {
     return 'У $name железное алиби.';
-  }
-
-  @override
-  String checkResult(int n, int total) {
-    return '$n из $total гостей на своих местах.';
   }
 
   @override

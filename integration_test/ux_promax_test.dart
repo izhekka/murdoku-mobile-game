@@ -84,7 +84,12 @@ void main() {
 
     // 2. How-to-play scrolled to the bottom in ru (via the pause sheet's
     // real push, so Back returns into the running case).
-    await tester.tap(find.byKey(const Key('tool_menu')));
+    await tester.tap(
+      find.descendant(
+        of: find.byType(AppBar),
+        matching: find.byIcon(Icons.pause),
+      ),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.text(l10n.howToPlayTitle).last);
     await tester.pumpAndSettle();
@@ -103,7 +108,12 @@ void main() {
 
     // 3. Abandon the case so stats can be populated by a fresh win, then
     // win one easy case and capture the populated stats.
-    await tester.tap(find.byKey(const Key('tool_menu')));
+    await tester.tap(
+      find.descendant(
+        of: find.byType(AppBar),
+        matching: find.byIcon(Icons.pause),
+      ),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.text(l10n.abandonCase).last);
     await tester.pumpAndSettle();

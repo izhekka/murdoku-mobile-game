@@ -123,62 +123,62 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String clueInRoom(String room) {
-    return '— in the $room.';
+    return '— in the $room';
   }
 
   @override
   String clueInRoomNot(String room) {
-    return '— not in the $room.';
+    return '— not in the $room';
   }
 
   @override
   String clueSameRow(String target) {
-    return '— on the same floor as $target.';
+    return '— on the same floor as $target';
   }
 
   @override
   String clueSameRowNot(String target) {
-    return '— not on the same floor as $target.';
+    return '— not on the same floor as $target';
   }
 
   @override
   String clueSameCol(String target) {
-    return '— in the same corridor as $target.';
+    return '— in the same corridor as $target';
   }
 
   @override
   String clueSameColNot(String target) {
-    return '— not in the same corridor as $target.';
+    return '— not in the same corridor as $target';
   }
 
   @override
   String clueDirection(String direction, String target) {
-    return '— $direction of $target.';
+    return '— $direction of $target';
   }
 
   @override
   String clueDirectionNot(String direction, String target) {
-    return '— not $direction of $target.';
+    return '— not $direction of $target';
   }
 
   @override
   String clueBeside(String target) {
-    return '— beside $target.';
+    return '— beside $target';
   }
 
   @override
   String clueBesideNot(String target) {
-    return '— not beside $target.';
+    return '— not beside $target';
   }
 
   @override
   String clueBesideObject(String object) {
-    return '— in the same room as the $object.';
+    return '— in the same room as the $object';
   }
 
   @override
   String clueBesideObjectNot(String object) {
-    return '— not in the same room as the $object.';
+    return '— not in the same room as the $object';
   }
 
   @override
@@ -194,22 +194,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get toolMark => 'Mark';
 
   @override
-  String get toolErase => 'Erase';
-
-  @override
-  String get toolUndo => 'Undo';
-
-  @override
-  String get toolCheck => 'Check';
-
-  @override
   String get toolHint => 'Hint';
 
   @override
   String get toolAccuse => 'Accuse';
-
-  @override
-  String get toolCheckTooltip => 'Check how many guests are placed';
 
   @override
   String get toolMarkTooltip => 'Mark a cell as empty';
@@ -225,11 +213,6 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String alibi(String name) {
     return '$name has an airtight alibi.';
-  }
-
-  @override
-  String checkResult(int n, int total) {
-    return '$n of $total guests are correctly placed.';
   }
 
   @override
