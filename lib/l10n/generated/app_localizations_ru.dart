@@ -330,10 +330,6 @@ class AppLocalizationsRu extends AppLocalizations {
   String get skinComic => 'Комикс';
 
   @override
-  String get themeModeCaption =>
-      'Светлая/тёмная тема применяется к классическому стилю.';
-
-  @override
   String get hapticsLabel => 'Вибрация';
 
   @override

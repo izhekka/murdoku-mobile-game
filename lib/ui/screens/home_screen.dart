@@ -76,22 +76,82 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     return Scaffold(
       appBar: AppBar(title: Text(l10n.appTitle)),
-      body: ListView(
-        padding: const EdgeInsets.all(12),
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          // Issue 109: from the game screen's wide breakpoint (SE landscape
+          // 667 qualifies) the cards split into two top-aligned columns;
+          // below it today's single-column ListView is untouched.
+          if (constraints.maxWidth >= 600) {
+            return _landscapeBody(l10n, savedGame, dailyDone, today);
+          }
+          return _portraitBody(l10n, savedGame, dailyDone, today);
+        },
+      ),
+    );
+  }
+
+  /// Today's single-column body, byte-identical below the wide breakpoint.
+  Widget _portraitBody(
+    AppLocalizations l10n,
+    SavedGame? savedGame,
+    bool dailyDone,
+    String today,
+  ) {
+    return ListView(
+      padding: const EdgeInsets.all(12),
+      children: [
+        if (savedGame != null) ...[
+          _continueCard(l10n, savedGame),
+          // Issue 96: the explicit spacer joins every block pair, so the
+          // drawn gap = the skin's card margins + 8 uniformly (16 on the
+          // cartoon skins, 24 on classic) instead of spacing the menu card
+          // off from a margins-only rhythm.
+          const SizedBox(height: 8),
+        ],
+        _newCaseCard(l10n),
+        const SizedBox(height: 8),
+        _dailyCard(l10n, dailyDone, today),
+        const SizedBox(height: 8),
+        _menuCard(l10n),
+      ],
+    );
+  }
+
+  /// The wide body (issue 109): continue/new-case/daily stacked in the left
+  /// column (the issue-96 spacer rhythm between them), the how-to-play /
+  /// stats / settings menu card in the right one; both columns top-aligned.
+  /// Each column scrolls (the portrait ListView's discipline carried over):
+  /// overflow is never allowed — the issue-107 render-proof test boots
+  /// through home at 600×280, where three cards exceed the 224px body.
+  Widget _landscapeBody(
+    AppLocalizations l10n,
+    SavedGame? savedGame,
+    bool dailyDone,
+    String today,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.all(12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (savedGame != null) ...[
-            _continueCard(l10n, savedGame),
-            // Issue 96: the explicit spacer joins every block pair, so the
-            // drawn gap = the skin's card margins + 8 uniformly (16 on the
-            // cartoon skins, 24 on classic) instead of spacing the menu card
-            // off from a margins-only rhythm.
-            const SizedBox(height: 8),
-          ],
-          _newCaseCard(l10n),
-          const SizedBox(height: 8),
-          _dailyCard(l10n, dailyDone, today),
-          const SizedBox(height: 8),
-          _menuCard(l10n),
+          Expanded(
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (savedGame != null) ...[
+                    _continueCard(l10n, savedGame),
+                    const SizedBox(height: 8),
+                  ],
+                  _newCaseCard(l10n),
+                  const SizedBox(height: 8),
+                  _dailyCard(l10n, dailyDone, today),
+                ],
+              ),
+            ),
+          ),
+          Expanded(child: SingleChildScrollView(child: _menuCard(l10n))),
         ],
       ),
     );

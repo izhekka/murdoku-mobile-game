@@ -39,9 +39,14 @@ AppLocalizations l10nOf(WidgetTester tester) =>
 
 void main() {
   testWidgets('theme change persists across container reload', (tester) async {
-    final (_, repo) = await pumpSettings(tester);
+    final (container, repo) = await pumpSettings(tester);
     final l10n = l10nOf(tester);
     expect(find.byType(SettingsScreen), findsOneWidget);
+    // Issue 109: the Theme section exists only on the classic skin.
+    container
+        .read(settingsControllerProvider.notifier)
+        .setSkin(SkinSetting.classic);
+    await tester.pumpAndSettle();
 
     await tester.tap(find.text(l10n.themeDark));
     await tester.pumpAndSettle();
@@ -55,7 +60,7 @@ void main() {
   testWidgets('haptics toggle persists', (tester) async {
     final (_, repo) = await pumpSettings(tester);
 
-    await tester.tap(find.byType(SwitchListTile));
+    await tester.tap(find.byType(Switch));
     await tester.pumpAndSettle();
 
     expect(repo.loadSettings().haptics, isFalse);
@@ -103,8 +108,87 @@ void main() {
     ]) {
       expect(find.text(label), findsOneWidget, reason: 'segment $label');
     }
-    // The caption explains that ThemeMode applies to Классика only.
-    expect(find.text(l10n.themeModeCaption), findsOneWidget);
+    // Issue 109: the classic-only caption is gone — the arb entries and the
+    // generated getter were removed, so absence is enforced at compile time.
+  });
+
+  testWidgets('Skin section precedes Theme; Theme only on classic; themeMode '
+      'persists while hidden (issue 109)', (tester) async {
+    final (container, _) = await pumpSettings(tester);
+    // Default skin is sticker (cartoon): the Theme section is hidden.
+    expect(find.byType(SegmentedButton<ThemeMode>), findsNothing);
+
+    // Park dark, hide the section behind a cartoon skin, bring it back:
+    // the persisted selection re-applies.
+    container
+        .read(settingsControllerProvider.notifier)
+        .setThemeMode(ThemeMode.dark);
+    await tester.pumpAndSettle();
+    container
+        .read(settingsControllerProvider.notifier)
+        .setSkin(SkinSetting.candy);
+    await tester.pumpAndSettle();
+    expect(find.byType(SegmentedButton<ThemeMode>), findsNothing);
+    expect(
+      container.read(settingsControllerProvider).themeMode,
+      ThemeMode.dark,
+    );
+    container
+        .read(settingsControllerProvider.notifier)
+        .setSkin(SkinSetting.classic);
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<SegmentedButton<ThemeMode>>(
+            find.byType(SegmentedButton<ThemeMode>),
+          )
+          .selected,
+      {ThemeMode.dark},
+    );
+
+    // Skin first, Theme second, Language third.
+    expect(
+      tester.getRect(find.byType(SegmentedButton<SkinSetting>)).top,
+      lessThan(tester.getRect(find.byType(SegmentedButton<ThemeMode>)).top),
+    );
+    expect(
+      tester.getRect(find.byType(SegmentedButton<ThemeMode>)).top,
+      lessThan(
+        tester.getRect(find.byType(SegmentedButton<LanguageSetting>)).top,
+      ),
+    );
+  });
+
+  testWidgets('haptics label is titleMedium at the section-label offset with '
+      'the switch trailing right (issue 109)', (tester) async {
+    tester.view.physicalSize = const Size(1206, 2622); // 402x874 @ dpr 3
+    tester.view.devicePixelRatio = 3.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await pumpSettings(tester);
+    final l10n = l10nOf(tester);
+
+    final labelRect = tester.getRect(find.text(l10n.hapticsLabel));
+    final switchRect = tester.getRect(find.byType(Switch));
+    expect(
+      labelRect.left,
+      tester.getRect(find.text(l10n.skinLabel)).left,
+      reason: 'same section-label left offset',
+    );
+    final label = tester.widget<Text>(find.text(l10n.hapticsLabel));
+    expect(
+      label.style,
+      Theme.of(tester.element(find.text(l10n.hapticsLabel)))
+          .textTheme
+          .titleMedium,
+      reason: 'the haptics label renders in titleMedium',
+    );
+    expect(switchRect.right, greaterThan(labelRect.right));
+    expect(
+      switchRect.right,
+      closeTo(402 - 12, 6),
+      reason: 'the switch presses against the trailing edge (ListView pad 12)',
+    );
   });
 
   testWidgets('selecting Комикс updates the controller and persists '
@@ -128,7 +212,13 @@ void main() {
     tester.view.devicePixelRatio = 3.0;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    await pumpSettings(tester);
+    final (container, _) = await pumpSettings(tester);
+    // Issue 109: the Theme section renders only on classic; select it so
+    // all three segmented buttons are up for the height assertions below.
+    container
+        .read(settingsControllerProvider.notifier)
+        .setSkin(SkinSetting.classic);
+    await tester.pumpAndSettle();
     final l10n = l10nOf(tester);
 
     // Issue 76 run-1 evidence (per-PNG verdicts travel with the issue's run

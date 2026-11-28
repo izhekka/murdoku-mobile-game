@@ -117,10 +117,13 @@ class _GameScreenState extends ConsumerState<GameScreen>
                     child: LayoutBuilder(
                       builder: (context, slot) {
                         // Issue 103: the board's square footprint pins to
-                        // the slot's bottom-LEFT edge (the 8px padding stays
-                        // the left seam — no dead band) and the suspects
-                        // panel takes the remaining width up to its minimum,
-                        // header-less.
+                        // the slot's TOP-LEFT edge (issue 109 switched the
+                        // vertical pin from bottom to top: when the slot is
+                        // taller than the square — SE landscape ≈319 vs 295
+                        // — the bottom pin left a dead band ABOVE the map)
+                        // and the suspects panel takes the remaining width
+                        // up to its minimum, header-less. The 8px padding
+                        // stays the seams — no dead band.
                         final boardSide = math.max(
                           0.0,
                           math.min(
@@ -133,7 +136,7 @@ class _GameScreenState extends ConsumerState<GameScreen>
                             SizedBox(
                               width: boardSide,
                               child: Align(
-                                alignment: Alignment.bottomLeft,
+                                alignment: Alignment.topLeft,
                                 child: board,
                               ),
                             ),

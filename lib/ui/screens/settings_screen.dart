@@ -23,46 +23,12 @@ class SettingsScreen extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.all(12),
         children: [
+          // Issue 109: Skin is the first section; Theme follows and exists
+          // only on the classic skin (the cartoon skins are light-only,
+          // issue 23) — the persisted ThemeMode stays in the controller and
+          // re-applies when classic is re-selected.
           Padding(
             padding: const EdgeInsets.only(left: 16, top: 8, bottom: 8),
-            child: Text(
-              l10n.themeModeLabel,
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-          ),
-          SegmentedButton<ThemeMode>(
-            // Same uniform segment treatment as the skin control (issue 76).
-            showSelectedIcon: false,
-            style: const ButtonStyle(
-              textStyle: WidgetStatePropertyAll(TextStyle(fontSize: 12)),
-            ),
-            segments: [
-              ButtonSegment(
-                value: ThemeMode.system,
-                label: Text(l10n.themeSystem),
-              ),
-              ButtonSegment(
-                value: ThemeMode.light,
-                label: Text(l10n.themeLight),
-              ),
-              ButtonSegment(value: ThemeMode.dark, label: Text(l10n.themeDark)),
-            ],
-            selected: {settings.themeMode},
-            onSelectionChanged: (selection) => ref
-                .read(settingsControllerProvider.notifier)
-                .setThemeMode(selection.first),
-          ),
-          // The cartoon skins are light-only (issue 23): explain that the
-          // ThemeMode choice applies to Классика alone.
-          Padding(
-            padding: const EdgeInsets.only(left: 16, top: 6),
-            child: Text(
-              l10n.themeModeCaption,
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(left: 16, top: 16, bottom: 8),
             child: Text(
               l10n.skinLabel,
               style: Theme.of(context).textTheme.titleMedium,
@@ -104,11 +70,61 @@ class SettingsScreen extends ConsumerWidget {
                 .read(settingsControllerProvider.notifier)
                 .setSkin(selection.first),
           ),
-          SwitchListTile(
-            title: Text(l10n.hapticsLabel),
-            value: settings.haptics,
-            onChanged: (value) =>
-                ref.read(settingsControllerProvider.notifier).setHaptics(value),
+          if (settings.skin == SkinSetting.classic) ...[
+            Padding(
+              padding: const EdgeInsets.only(left: 16, top: 16, bottom: 8),
+              child: Text(
+                l10n.themeModeLabel,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+            ),
+            SegmentedButton<ThemeMode>(
+              // Same uniform segment treatment as the skin control (issue 76).
+              showSelectedIcon: false,
+              style: const ButtonStyle(
+                textStyle: WidgetStatePropertyAll(TextStyle(fontSize: 12)),
+              ),
+              segments: [
+                ButtonSegment(
+                  value: ThemeMode.system,
+                  label: Text(l10n.themeSystem),
+                ),
+                ButtonSegment(
+                  value: ThemeMode.light,
+                  label: Text(l10n.themeLight),
+                ),
+                ButtonSegment(
+                  value: ThemeMode.dark,
+                  label: Text(l10n.themeDark),
+                ),
+              ],
+              selected: {settings.themeMode},
+              onSelectionChanged: (selection) => ref
+                  .read(settingsControllerProvider.notifier)
+                  .setThemeMode(selection.first),
+            ),
+          ],
+          // Issue 109: the haptics row replaces the SwitchListTile — the
+          // label sits at the section-label left offset in titleMedium and
+          // the switch presses against the trailing edge.
+          Padding(
+            padding: const EdgeInsets.only(left: 16, top: 12, bottom: 4),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    l10n.hapticsLabel,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ),
+                Switch(
+                  value: settings.haptics,
+                  onChanged: (value) => ref
+                      .read(settingsControllerProvider.notifier)
+                      .setHaptics(value),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 16),
           Padding(

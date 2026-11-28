@@ -67,65 +67,72 @@ class PauseMenuSheet extends StatelessWidget {
       );
       final hairline = tokens.ink.withValues(alpha: 0.12);
       Widget separator() => Divider(height: 1, thickness: 1, color: hairline);
-      body = Container(
-        margin: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: tokens.card.background,
-          borderRadius: BorderRadius.circular(tokens.card.radius),
-          border: Border.all(
-            color: tokens.card.borderColor,
-            width: tokens.card.borderWidth,
+      body = SingleChildScrollView(
+        // Issue 109: the sheet's max height clips entries on short landscape
+        // screens — the whole card scrolls instead.
+        child: Container(
+          margin: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: tokens.card.background,
+            borderRadius: BorderRadius.circular(tokens.card.radius),
+            border: Border.all(
+              color: tokens.card.borderColor,
+              width: tokens.card.borderWidth,
+            ),
+            boxShadow: [tokens.card.shadow],
           ),
-          boxShadow: [tokens.card.shadow],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            title,
-            separator(),
-            row(l10n.resume, () => Navigator.of(context).pop()),
-            separator(),
-            row(l10n.howToPlayTitle, () => popThenPush('/how-to-play')),
-            separator(),
-            row(l10n.settingsTitle, () => popThenPush('/settings')),
-            separator(),
-            row(l10n.abandonCase, () {
-              Navigator.of(context).pop();
-              onAbandon();
-            }, color: tokens.dangerColor),
-          ],
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              title,
+              separator(),
+              row(l10n.resume, () => Navigator.of(context).pop()),
+              separator(),
+              row(l10n.howToPlayTitle, () => popThenPush('/how-to-play')),
+              separator(),
+              row(l10n.settingsTitle, () => popThenPush('/settings')),
+              separator(),
+              row(l10n.abandonCase, () {
+                Navigator.of(context).pop();
+                onAbandon();
+              }, color: tokens.dangerColor),
+            ],
+          ),
         ),
       );
     } else {
-      body = Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          title,
-          ListTile(
-            leading: const Icon(Icons.play_arrow),
-            title: Text(l10n.resume),
-            onTap: () => Navigator.of(context).pop(),
-          ),
-          ListTile(
-            leading: const Icon(Icons.menu_book),
-            title: Text(l10n.howToPlayTitle),
-            onTap: () => popThenPush('/how-to-play'),
-          ),
-          ListTile(
-            leading: const Icon(Icons.settings),
-            title: Text(l10n.settingsTitle),
-            onTap: () => popThenPush('/settings'),
-          ),
-          ListTile(
-            leading: const Icon(Icons.logout),
-            title: Text(l10n.abandonCase),
-            onTap: () {
-              Navigator.of(context).pop();
-              onAbandon();
-            },
-          ),
-        ],
+      // Issue 109: same scrollability for the classic variant.
+      body = SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            title,
+            ListTile(
+              leading: const Icon(Icons.play_arrow),
+              title: Text(l10n.resume),
+              onTap: () => Navigator.of(context).pop(),
+            ),
+            ListTile(
+              leading: const Icon(Icons.menu_book),
+              title: Text(l10n.howToPlayTitle),
+              onTap: () => popThenPush('/how-to-play'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.settings),
+              title: Text(l10n.settingsTitle),
+              onTap: () => popThenPush('/settings'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.logout),
+              title: Text(l10n.abandonCase),
+              onTap: () {
+                Navigator.of(context).pop();
+                onAbandon();
+              },
+            ),
+          ],
+        ),
       );
     }
 

@@ -452,4 +452,69 @@ void main() {
       expectUniformRhythm(tester, skinMargin: 4, separator: 16, gapCount: 2);
     });
   });
+
+  group('home two-column landscape (issue 109)', () {
+    Future<void> useSurface(WidgetTester tester, Size size) async {
+      tester.view.physicalSize = size;
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+    }
+
+    /// Margin-inclusive rect of the home [SkinCard] holding [content].
+    Rect cardOf(WidgetTester tester, Finder content) => tester.getRect(
+      find
+          .ancestor(of: content, matching: find.byType(skin_widgets.SkinCard))
+          .first,
+    );
+
+    testWidgets('667x375 with a save: continue/new/daily left, menu right, '
+        'top-aligned', (tester) async {
+      await useSurface(tester, const Size(667, 375));
+      await pumpHome(tester);
+      container
+          .read(gameControllerProvider.notifier)
+          .startNewCase(Difficulty.easy, seed: 3);
+      await tester.pumpAndSettle();
+      final l10n = l10nOf(tester);
+
+      final continueRect = cardOf(tester, find.text(l10n.continueCase));
+      final newRect = cardOf(tester, find.text(l10n.newCase));
+      final dailyRect = cardOf(tester, find.text(l10n.dailyCase));
+      final menuRect = cardOf(tester, find.text(l10n.settingsTitle));
+
+      // Left column stacks continue → new → daily.
+      expect(continueRect.top, lessThan(newRect.top));
+      expect(newRect.top, lessThan(dailyRect.top));
+      expect(continueRect.left, newRect.left);
+      expect(newRect.left, dailyRect.left);
+      // The menu card is the right column, top-aligned with the left one.
+      // The columns' card boxes meet at the Expanded seam (667−24)/2 + 12 =
+      // 333.5; a single column would put the menu at x=12 under daily.right
+      // = 655 and fail this.
+      expect(menuRect.left, greaterThanOrEqualTo(dailyRect.right));
+      expect((menuRect.top - continueRect.top).abs(), lessThan(1));
+    });
+
+    testWidgets('402x874 portrait with a save: the single column is '
+        'unchanged', (tester) async {
+      await useSurface(tester, const Size(402, 874));
+      await pumpHome(tester);
+      container
+          .read(gameControllerProvider.notifier)
+          .startNewCase(Difficulty.easy, seed: 3);
+      await tester.pumpAndSettle();
+      final l10n = l10nOf(tester);
+
+      final continueRect = cardOf(tester, find.text(l10n.continueCase));
+      final newRect = cardOf(tester, find.text(l10n.newCase));
+      final dailyRect = cardOf(tester, find.text(l10n.dailyCase));
+      final menuRect = cardOf(tester, find.text(l10n.settingsTitle));
+
+      expect(continueRect.top, lessThan(newRect.top));
+      expect(newRect.top, lessThan(dailyRect.top));
+      expect(dailyRect.top, lessThan(menuRect.top));
+      expect(menuRect.left, dailyRect.left);
+    });
+  });
 }

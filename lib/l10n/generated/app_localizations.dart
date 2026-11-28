@@ -644,12 +644,6 @@ abstract class AppLocalizations {
   /// **'Comic'**
   String get skinComic;
 
-  /// No description provided for @themeModeCaption.
-  ///
-  /// In en, this message translates to:
-  /// **'Light/dark applies to the Classic skin.'**
-  String get themeModeCaption;
-
   /// No description provided for @hapticsLabel.
   ///
   /// In en, this message translates to:

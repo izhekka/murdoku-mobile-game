@@ -46,34 +46,68 @@ class LegendSheet extends StatelessWidget {
             const SizedBox(height: 12),
             Flexible(
               child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 4),
-                      child: Text(
-                        l10n.legendRooms,
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                    ),
-                    ..._roomTiles(
-                      l10n,
-                      names,
-                      cartoon,
-                      tokens,
-                      scheme,
-                      roomColors,
-                    ),
-                    const SizedBox(height: 8),
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 4),
-                      child: Text(
-                        l10n.legendItems,
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                    ),
-                    ..._itemTiles(context, l10n, names),
-                  ],
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    // Issue 109: same wide breakpoint as the game screen —
+                    // landscape shows the rooms column left of the items
+                    // column; portrait keeps today's stacked order.
+                    final roomsColumn = Column(
+                      key: const Key('legend_rooms'),
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 4),
+                          child: Text(
+                            l10n.legendRooms,
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                        ),
+                        ..._roomTiles(
+                          l10n,
+                          names,
+                          cartoon,
+                          tokens,
+                          scheme,
+                          roomColors,
+                        ),
+                      ],
+                    );
+                    final itemsColumn = Column(
+                      key: const Key('legend_items'),
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 4),
+                          child: Text(
+                            l10n.legendItems,
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                        ),
+                        ..._itemTiles(context, l10n, names),
+                      ],
+                    );
+                    if (constraints.maxWidth >= 600) {
+                      return Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(child: roomsColumn),
+                          const SizedBox(width: 16),
+                          Expanded(child: itemsColumn),
+                        ],
+                      );
+                    }
+                    return Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        roomsColumn,
+                        const SizedBox(height: 8),
+                        itemsColumn,
+                      ],
+                    );
+                  },
                 ),
               ),
             ),
@@ -89,8 +123,9 @@ class LegendSheet extends StatelessWidget {
       ? List.generate(g, (i) => tokens!.roomTints[i % tokens.roomTints.length])
       : AppTheme.roomColors(g);
 
-  /// One numbered swatch tile per room, in board order.
-  List<ListTile> _roomTiles(
+  /// One compact numbered-swatch row per room, in board order (issue 109:
+  /// ~28px rows instead of ~56px ListTiles, same content).
+  List<Widget> _roomTiles(
     AppLocalizations l10n,
     NameForms names,
     bool cartoon,
@@ -99,9 +134,18 @@ class LegendSheet extends StatelessWidget {
     List<Color> roomColors,
   ) => [
     for (var i = 0; i < caseData.rooms.length; i++)
-      ListTile(
-        leading: _roomSwatch(i, cartoon, tokens, scheme, roomColors),
-        title: Text('${i + 1} — ${names.roomNom(caseData.rooms[i].id)}'),
+      Padding(
+        key: ValueKey('legend_room_$i'),
+        padding: const EdgeInsets.symmetric(vertical: 2),
+        child: Row(
+          children: [
+            _roomSwatch(i, cartoon, tokens, scheme, roomColors),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text('${i + 1} — ${names.roomNom(caseData.rooms[i].id)}'),
+            ),
+          ],
+        ),
       ),
   ];
 
@@ -139,20 +183,39 @@ class LegendSheet extends StatelessWidget {
     );
   }
 
-  /// One tile per distinct item kind in the case, in first-appearance
-  /// order, with its name and occupiability hint.
-  List<ListTile> _itemTiles(
+  /// One compact row per distinct item kind in the case, in first-appearance
+  /// order, with its name and occupiability hint (issue 109).
+  List<Widget> _itemTiles(
     BuildContext context,
     AppLocalizations l10n,
     NameForms names,
   ) => [
     for (final kind in _seenKinds())
-      ListTile(
-        leading: ItemSprite(kind: kind, size: 30),
-        title: Text(names.objectNom(kind)),
-        subtitle: Text(
-          kindOccupiable(kind) ? l10n.legendOccupiable : l10n.stateBlocked,
-          style: Theme.of(context).textTheme.bodySmall,
+      Padding(
+        key: ValueKey('legend_item_${kind.name}'),
+        padding: const EdgeInsets.symmetric(vertical: 2),
+        child: Row(
+          children: [
+            // 28 keeps the sprite's 1.35 paint box at ~38px so the two-line
+            // row stays <= 44px (issue 109 compaction).
+            ItemSprite(kind: kind, size: 28),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(names.objectNom(kind)),
+                  Text(
+                    kindOccupiable(kind)
+                        ? l10n.legendOccupiable
+                        : l10n.stateBlocked,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
   ];

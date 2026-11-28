@@ -124,4 +124,54 @@ void main() {
       expect(decoration.border?.top.color, comicTokens.mortarColor);
     }
   });
+
+  testWidgets('compact rows in portrait: room and item rows stay <= 44 px '
+      '(issue 109)', (tester) async {
+    tester.view.physicalSize = const Size(402, 874);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(wrap());
+    await tester.tap(find.byIcon(Icons.menu_book));
+    await tester.pumpAndSettle();
+
+    for (var i = 0; i < fixture.rooms.length; i++) {
+      expect(
+        tester.getRect(find.byKey(ValueKey('legend_room_$i'))).height,
+        lessThanOrEqualTo(44),
+        reason: 'room row $i must stay compact',
+      );
+    }
+    for (final kind in fixture.objects.map((o) => o.kind).toSet()) {
+      expect(
+        tester.getRect(find.byKey(ValueKey('legend_item_${kind.name}'))).height,
+        lessThanOrEqualTo(44),
+        reason: 'item ${kind.name} row must stay compact',
+      );
+    }
+  });
+
+  testWidgets('landscape: the rooms column sits left of the items column '
+      '(issue 109)', (tester) async {
+    tester.view.physicalSize = const Size(667, 375);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(wrap());
+    await tester.tap(find.byIcon(Icons.menu_book));
+    await tester.pumpAndSettle();
+
+    final roomsRect = tester.getRect(find.byKey(const Key('legend_rooms')));
+    final itemsRect = tester.getRect(find.byKey(const Key('legend_items')));
+    expect(
+      roomsRect.left,
+      lessThan(itemsRect.left),
+      reason: 'rooms column left, items column right',
+    );
+    expect(
+      itemsRect.left,
+      greaterThanOrEqualTo(roomsRect.right),
+      reason: 'the two columns sit side by side, not stacked',
+    );
+  });
 }

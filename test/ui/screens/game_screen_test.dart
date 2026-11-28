@@ -591,8 +591,8 @@ void main() {
     );
   });
 
-  testWidgets('wide branch pins the board bottom-left; the panel takes the '
-      'rest without the header (issue 103)', (tester) async {
+  testWidgets('wide branch pins the board top-left; the panel takes the '
+      'rest without the header (issue 103/109)', (tester) async {
     await pumpGame(tester, size: const Size(1024, 768), tutorialSeen: true);
     expect(tester.takeException(), isNull);
     final boardRect = tester.getRect(find.byKey(const Key('board_view')));
@@ -604,6 +604,11 @@ void main() {
       boardRect.left,
       closeTo(8, 0.5),
       reason: 'the board hugs the left screen edge (no dead band)',
+    );
+    expect(
+      boardRect.top,
+      closeTo(64, 0.5),
+      reason: 'issue 109: pinned to the slot top — app bar 56 + the 8px seam',
     );
     final panelRect = tester.getRect(find.byType(SuspectPanel));
     expect(
@@ -656,6 +661,25 @@ void main() {
       findsNothing,
       reason: 'the suspects header is not rendered in landscape',
     );
+  });
+
+  testWidgets('667x375 SE landscape: the map top sits flush under the app '
+      'bar (issue 109)', (tester) async {
+    await pumpGame(tester, size: const Size(667, 375), tutorialSeen: true);
+    expect(tester.takeException(), isNull);
+    final boardRect = tester.getRect(find.byKey(const Key('board_view')));
+    // Slot 375 − app bar 56 = 319 tall × (667 − strip 72) = 595 wide:
+    // min(319, 595 − 300) = 295 ⇒ plate 279 inside the 8px padding, pinned
+    // to the slot's TOP edge (issue 109: the bottom pin left a ~24px dead
+    // band above the map when the slot is taller than the board square).
+    expect(boardRect.width, closeTo(279, 0.5));
+    expect(boardRect.height, closeTo(279, 0.5));
+    expect(
+      boardRect.top,
+      closeTo(64, 0.5),
+      reason: 'app bar 56 + the 8px seam — no dead band above the map',
+    );
+    expect(boardRect.left, closeTo(8, 0.5));
   });
 
   testWidgets('tall wide window: the board cedes the 300px panel minimum '
@@ -1044,15 +1068,17 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text(l10n.settingsTitle));
       await tester.pumpAndSettle();
+      // Issue 109: the Theme section is classic-only; the Skin label is the
+      // always-present settings marker.
       expect(
-        find.text(l10n.themeModeLabel),
+        find.text(l10n.skinLabel),
         findsOneWidget,
         reason: 'Settings opens above the running case',
       );
 
       await tester.tap(find.byIcon(Icons.arrow_back));
       await tester.pumpAndSettle();
-      expect(find.text(l10n.themeModeLabel), findsNothing);
+      expect(find.text(l10n.skinLabel), findsNothing);
       expect(
         container.read(gameControllerProvider)!.placed.length,
         1,
