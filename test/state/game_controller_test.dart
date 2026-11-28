@@ -486,15 +486,16 @@ void main() {
     // Under the pre-#93 cap-10 pool, hard 111 exhausted the whole widened
     // budget and this start exercised generateCaseWithRecovery's retry
     // path (recovered seed 1633640402). The issue-#93 take-all pool
-    // dissolves that corridor: seed 111 generates directly in window 0
-    // (stored seed 1237729143, map-probe measured 2026-11-27) and the
-    // user path just plays it.
+    // dissolved that corridor and the issue-#111 pool keeps it dissolved:
+    // seed 111 still generates directly in window 0 (stored seed
+    // 2074270045, map-probe re-measured 2026-11-28 for issue #111's pool
+    // change) and the user path just plays it.
     notifier.startNewCase(Difficulty.hard, seed: 111);
     final state = container.read(gameControllerProvider)!;
     expect(state.phase, GamePhase.playing);
     expect(
       state.caseData.seed,
-      1237729143,
+      2074270045,
       reason: 'the former corridor seed now plays its window-0 case',
     );
     expect(

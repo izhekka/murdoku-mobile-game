@@ -145,7 +145,7 @@ void main() {
       final clueKeys = arb.keys
           .where((k) => k.startsWith('clue') && !k.startsWith('@'))
           .toList();
-      expect(clueKeys.length, 12, reason: path);
+      expect(clueKeys.length, 15, reason: path);
       for (final key in clueKeys) {
         final template = arb[key]! as String;
         expect(
@@ -154,6 +154,26 @@ void main() {
           reason: '$path $key = "$template" must not end with a period',
         );
       }
+    }
+  });
+
+  test('issue 111: row/col cards name the row and column; no floor or '
+      'corridor wording remains', () {
+    for (final path in ['lib/l10n/app_en.arb', 'lib/l10n/app_ru.arb']) {
+      final arb =
+          jsonDecode(File(path).readAsStringSync()) as Map<String, Object?>;
+      expect(arb.containsKey('glossaryObjects'), isTrue, reason: path);
+      expect(arb.containsKey('glossaryRowCol'), isFalse, reason: path);
+      arb.forEach((key, value) {
+        if (key.startsWith('@') || value is! String) return;
+        for (final word in const ['floor', 'corridor', 'этаж', 'коридор']) {
+          expect(
+            value.contains(word),
+            isFalse,
+            reason: '$path $key = "$value" must not contain "$word"',
+          );
+        }
+      });
     }
   });
 
@@ -203,13 +223,13 @@ void main() {
       );
       expect(
         describeClue(c.clues[1], c, l10n, names),
-        '— на том же этаже, что и Джек',
-        reason: 'SameRow keeps both names nominative',
+        '— в той же строке, что и Джек',
+        reason: 'SameRow keeps both names nominative (issue 111 wording)',
       );
       expect(
         describeClue(c.clues[2], c, l10n, names),
-        '— в том же коридоре, что и жертва',
-        reason: 'victim nominative',
+        '— в той же колонке, что и жертва',
+        reason: 'victim nominative (issue 111 wording)',
       );
       expect(
         describeClue(c.clues[3], c, l10n, names),
@@ -240,6 +260,42 @@ void main() {
         ),
         '— не в комнате со столом',
         reason: 'negated BesideObject',
+      );
+
+      // Issue 111 object-cell kinds: the on-form filler for sits-on, the
+      // prep filler for the near kinds. allKindsFixture: o9 is the chair,
+      // o2 the armor.
+      final k = allKindsFixture();
+      final kn = NameForms.forLocale('ru', k);
+      expect(
+        describeClue(
+          OnObject(suspectId: 's0', objectId: 'o9', negated: false),
+          k,
+          l10n,
+          kn,
+        ),
+        '— сидит на стуле',
+        reason: 'OnObject uses the on form',
+      );
+      expect(
+        describeClue(
+          NearObject(suspectId: 's0', objectId: 'o9', negated: false),
+          k,
+          l10n,
+          kn,
+        ),
+        '— рядом со стулом',
+        reason: 'NearObject uses the prep form',
+      );
+      expect(
+        describeClue(
+          SoleNearObject(suspectId: 's0', objectId: 'o2', negated: false),
+          k,
+          l10n,
+          kn,
+        ),
+        '— единственный гость рядом с доспехами',
+        reason: 'SoleNearObject uses the prep form',
       );
     },
   );
@@ -283,21 +339,19 @@ void main() {
     }
   });
 
-  test(
-    'ru object form records carry exactly (nom, prep) — no dead gen (#14)',
-    () {
-      // Structural record equality: a leftover `gen` field changes the record
-      // shape, and records of different shapes are never equal.
-      expect(ruObjectForms.keys.toSet(), equals(ObjectKind.values.toSet()));
-      for (final kind in ObjectKind.values) {
-        final form = ruObjectForms[kind]!;
-        expect(form, (
-          nom: form.nom,
-          prep: form.prep,
-        ), reason: '${kind.name} form has exactly the fields nom and prep');
-      }
-    },
-  );
+  test('ru object form records carry exactly (nom, prep, on) — no dead gen (#14, #111)', () {
+    // Structural record equality: a leftover `gen` field changes the record
+    // shape, and records of different shapes are never equal.
+    expect(ruObjectForms.keys.toSet(), equals(ObjectKind.values.toSet()));
+    for (final kind in ObjectKind.values) {
+      final form = ruObjectForms[kind]!;
+      expect(form, (
+        nom: form.nom,
+        prep: form.prep,
+        on: form.on,
+      ), reason: '${kind.name} form has exactly the fields nom, prep and on');
+    }
+  });
 
   test(
     'ru item clue: exact «с/со» sentences for every object kind (UX-8 polish)',

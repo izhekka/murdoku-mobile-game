@@ -788,4 +788,73 @@ void main() {
       expect(dead.solve(), isNull);
     });
   });
+
+  group('object-cell clue filters (issue 111)', () {
+    final chair = ObjectDef(
+      id: 'o0',
+      kind: ObjectKind.chair,
+      pos: p(0, 1),
+      occupiable: true,
+    );
+
+    test('OnObject positive keeps only the item cell; negated removes it', () {
+      final f = deducer(
+        [OnObject(suspectId: 's0', objectId: 'o0', negated: false)],
+        objects: [chair],
+      ).filter();
+      expect(surviving(f, 's0'), {p(0, 1)});
+      final g = deducer(
+        [OnObject(suspectId: 's0', objectId: 'o0', negated: true)],
+        objects: [chair],
+      ).filter();
+      // No room clue here, so the negated mask applies to the full init set.
+      expect(surviving(g, 's0'), all8.difference({p(0, 1)}));
+    });
+
+    test('NearObject positive keeps the item cell and its orthogonal '
+        'neighbours; negated removes them', () {
+      // The near mask of (0,1) is {(0,0),(0,1),(0,2),(1,1)}; filter() has no
+      // room restriction, so the mask applies to the full init set.
+      final f = deducer(
+        [NearObject(suspectId: 's1', objectId: 'o0', negated: false)],
+        objects: [chair],
+      ).filter();
+      expect(surviving(f, 's1'), {p(0, 0), p(0, 1), p(0, 2), p(1, 1)});
+      final g = deducer(
+        [NearObject(suspectId: 's1', objectId: 'o0', negated: true)],
+        objects: [chair],
+      ).filter();
+      expect(
+        surviving(g, 's1'),
+        all8.difference({p(0, 0), p(0, 1), p(0, 2), p(1, 1)}),
+      );
+    });
+
+    test('SoleNearObject keeps the near cells for its guest and removes them '
+        'from every other guest', () {
+      final f = deducer(
+        [SoleNearObject(suspectId: 's0', objectId: 'o0', negated: false)],
+        objects: [chair],
+      ).filter();
+      expect(surviving(f, 's0'), {p(0, 0), p(0, 1), p(0, 2), p(1, 1)});
+      expect(
+        surviving(f, 's1'),
+        all8.difference({p(0, 0), p(0, 1), p(0, 2), p(1, 1)}),
+      );
+      expect(
+        surviving(f, 's2'),
+        all8.difference({p(0, 0), p(0, 1), p(0, 2), p(1, 1)}),
+      );
+    });
+
+    test('negated SoleNearObject throws ArgumentError (never ships)', () {
+      expect(
+        () => deducer(
+          [SoleNearObject(suspectId: 's0', objectId: 'o0', negated: true)],
+          objects: [chair],
+        ).filter(),
+        throwsArgumentError,
+      );
+    });
+  });
 }

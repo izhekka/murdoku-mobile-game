@@ -150,15 +150,15 @@ void expectNameParagraphInFull(
 void main() {
   testWidgets('ru library clue sentence wraps without mid-word fragments at '
       'the phone viewport (issue 76, bare text since 89)', (tester) async {
-    // Seed re-pinned for the issue-#106 deduction-chain gate: the old
-    // seed-9 easy case no longer ships a Library clue — seed 61 is
-    // probe-measured (2026-11-28) to ship an InRoom(…poolIndex 1…) card, so
-    // the long ru word «библиотек…» still exercises the wrap behavior.
+    // Seed re-pinned for the issue-#111 pool change: the seed-61 easy case
+    // no longer ships a Library clue — seed 10 is probe-measured
+    // (2026-11-28) to ship an InRoom(…poolIndex 1…) card, so the long ru
+    // word «библиотек…» still exercises the wrap behavior.
     await pumpGame(
       tester,
       size: const Size(402, 874),
       tutorialSeen: true,
-      seed: 61,
+      seed: 10,
     );
     final paragraph = tester.renderObject<RenderParagraph>(
       find.descendant(
@@ -1232,6 +1232,9 @@ void main() {
         objectId: objectId,
         negated: false,
       ),
+      // The object-cell kinds (issue 111) never ship negated, so the first
+      // negated card of a generated case can never be one of them.
+      _ => throw ArgumentError('negated object-cell clues never ship'),
     };
     final positiveText = describeClue(positive, standardCase, l10n, names);
     final renderedPositiveText = renderedOf(positive);
@@ -1273,13 +1276,28 @@ void main() {
       findsOneWidget,
       reason: 'the negated clue template renders on the real game screen',
     );
-    expect(
-      find.text(renderedPositiveText),
-      findsNothing,
-      reason:
-          'the plain (non-negated) template of the same predicate '
-          'must not stand in for the negated one',
+    // The plain (non-negated) template of the same predicate must not stand
+    // in for the negated one. When the rendered positive string is the
+    // shared room-chip placeholder ('— \uFFFC') — or otherwise renders
+    // identically on ANOTHER card of the same case — the on-screen absence
+    // check would false-positive on those cards, so it only runs when the
+    // rendered positive string is unique to this predicate (issue 111's
+    // pool can make the negated card an InRoom).
+    final positiveRenderedElsewhere = standardCase.clues.any(
+      (cl) =>
+          !cl.negated &&
+          cl != negated.first &&
+          renderedOf(cl) == renderedPositiveText,
     );
+    if (!positiveRenderedElsewhere) {
+      expect(
+        find.text(renderedPositiveText),
+        findsNothing,
+        reason:
+            'the plain (non-negated) template of the same predicate '
+            'must not stand in for the negated one',
+      );
+    }
   });
 
   testWidgets(

@@ -5,8 +5,8 @@ import 'package:murdoku/domain/models.dart';
 /// Issue #93: the generator never ships a clue card that names the killer
 /// or reads as a proximity accusation toward the victim. Exclusion rule
 /// (owner-approved, re-scoped 2026-11-27):
-/// 1. no positive `InRoom` naming the victim's room — including the
-///    `_ensureCoverage` fallback (an uncovered murderer would get it);
+/// 1. no positive `InRoom` naming the victim's room (issue 111: a suspect
+///    with no pool candidate fails the attempt — there is no fallback card);
 /// 2. no positive `BesideObject` for an object standing in the victim's room
 ///    (only the murderer's own room equals the victim's room);
 /// 3. no `SameCol(targetId: victimId)` in either polarity;
@@ -36,10 +36,15 @@ void main() {
           if (clue is InRoom && !clue.negated) {
             expect(clue.roomId, isNot(victimRoom), reason: reason);
           }
-          // 2. positive BesideObject for a victim's-room object.
-          if (clue is BesideObject && !clue.negated) {
+          // 2. positive item card for a victim's-room object — BesideObject
+          //    and the three object-cell kinds alike (issue #111).
+          if (!clue.negated &&
+              (clue is BesideObject ||
+                  clue is OnObject ||
+                  clue is NearObject ||
+                  clue is SoleNearObject)) {
             expect(
-              victimRoomObjectIds.contains(clue.objectId),
+              victimRoomObjectIds.contains(json['objectId']),
               isFalse,
               reason: reason,
             );
@@ -85,9 +90,13 @@ void main() {
           if (clue is InRoom && !clue.negated) {
             expect(clue.roomId, isNot(victimRoom), reason: reason);
           }
-          if (clue is BesideObject && !clue.negated) {
+          if (!clue.negated &&
+              (clue is BesideObject ||
+                  clue is OnObject ||
+                  clue is NearObject ||
+                  clue is SoleNearObject)) {
             expect(
-              victimRoomObjectIds.contains(clue.objectId),
+              victimRoomObjectIds.contains(clue.toJson()['objectId']),
               isFalse,
               reason: reason,
             );
@@ -100,50 +109,43 @@ void main() {
     }
   });
 
-  test(
-    'coverage fallback never names the killer in any branch (issue #93)',
-    () {
-      // The _ensureCoverage orElse seam, pinned branch by branch (the orElse
-      // never fires in generated cases because every suspect always holds a
-      // pool candidate — see coverageFallbackClue's doc).
-      Pos p(int row, int col) => (row: row, col: col);
-      final rooms = [
-        RoomDef(id: 'rv', name: 'Sitting', cells: [p(0, 0), p(0, 1), p(1, 0)]),
-        RoomDef(id: 'rx', name: 'Other', cells: [p(1, 1)]),
-      ];
-      // Non-murderer: own-room InRoom stays the fallback shape.
-      final plain = coverageFallbackClue('s0', p(1, 1), p(0, 1), 'rv', rooms);
-      expect(plain, isA<InRoom>());
-      expect((plain as InRoom).roomId, 'rx');
-      expect(plain.negated, isFalse);
-      // Murderer sharing the victim's row: SameRow(victim) positive.
-      final sameRow = coverageFallbackClue('s1', p(0, 0), p(0, 1), 'rv', rooms);
-      expect(
-        sameRow,
-        SameRow(suspectId: 's1', targetId: victimId, negated: false),
-      );
-      // Murderer strictly north of the victim: the north direction card.
-      expect(
-        coverageFallbackClue('s2', p(0, 0), p(1, 0), 'rv', rooms),
-        DirectionClue(
-          suspectId: 's2',
-          targetId: victimId,
-          direction: Direction.north,
-          negated: false,
-        ),
-      );
-      // Murderer strictly south: the south direction card.
-      expect(
-        coverageFallbackClue('s3', p(1, 0), p(0, 0), 'rv', rooms),
-        DirectionClue(
-          suspectId: 's3',
-          targetId: victimId,
-          direction: Direction.south,
-          negated: false,
-        ),
-      );
-    },
-  );
+  test('coverage: an uncovered suspect takes the first pool candidate; with '
+      'no pool candidate the attempt fails (issue #111)', () {
+    // The ensureCoverage seam, pinned branch by branch: in generated cases
+    // only the murderer can lack a pool candidate (the direction cap removed
+    // his guaranteed fallback), so the null return is the drop signal.
+    final suspects = [
+      const Suspect(id: 's0', name: 'A'),
+      const Suspect(id: 's1', name: 'B'),
+    ];
+    final pool = <Clue>[
+      const InRoom(suspectId: 's1', roomId: 'r0', negated: false),
+      const SameRow(suspectId: 's0', targetId: victimId, negated: false),
+      const SameRow(suspectId: 's0', targetId: 's1', negated: false),
+    ];
+    // An already-covered suspect keeps his card and gains no duplicate.
+    final pruned = <Clue>[
+      const InRoom(suspectId: 's1', roomId: 'r0', negated: false),
+    ];
+    final covered = ensureCoverage(pruned, pool, suspects);
+    expect(covered, isNotNull);
+    expect(
+      covered!.where((cl) => cl.suspectId == 's1').length,
+      1,
+      reason: 'covered suspects are skipped',
+    );
+    // The uncovered suspect takes the FIRST pool candidate naming him.
+    expect(
+      covered.where((cl) => cl.suspectId == 's0').single,
+      const SameRow(suspectId: 's0', targetId: victimId, negated: false),
+    );
+    // A suspect with no pool candidate at all: the attempt is dropped.
+    final stranger = [
+      const Suspect(id: 's0', name: 'A'),
+      const Suspect(id: 's2', name: 'C'),
+    ];
+    expect(ensureCoverage(const [], pool, stranger), isNull);
+  });
 
   test('exonerating InRoom(victim room, negated) stays permitted — pinned seeds (issue #93)', () {
     // Pinned seeds chosen by sweep: each pair below is measured to SHIP an
@@ -156,7 +158,12 @@ void main() {
     // never re-pin from a leaked card: the sweep test above still guards
     // the exclusions. easy is absent by construction: its negated cap is 0,
     // so no negated card — exonerating or otherwise — can ship there.
-    const pinnedExonerating = ['standard/80', 'hard/42', 'hard/47'];
+    // Re-measured 2026-11-28 for issue #111 (the negated pool no longer
+    // carries direction candidates, so the negated top-up draws from a
+    // smaller pool and different seeds ship the card): the sweep now
+    // widens to standard 1..200 and hard 1..70; standard seeds 1..158 ship
+    // none.
+    const pinnedExonerating = ['standard/159', 'hard/13', 'hard/35'];
     expect(pinnedExonerating, isNotEmpty);
     for (final pin in pinnedExonerating) {
       final parts = pin.split('/');

@@ -12,8 +12,10 @@ follow the clue cards, then accuse the guest who ends up alone with the victim.
 
 - Procedurally generated cases at three difficulties (5×5 / 6×6 / 7×7), each
   verified by an exhaustive solver to have exactly **one** valid solution.
-- Six clue types (room, same floor/corridor, directions, beside, beside-object)
-  with negations — every clue is a rule, always true.
+- Nine clue types (room, same row/column, direction — capped at two per case,
+  beside, beside-object, and three object-cell kinds: sits on / stays near /
+  the only guest near an object) with negations — every clue is a rule,
+  always true.
 - Daily case derived from the UTC date, with streak tracking.
 - Two hints per case, X-mark elimination marks, undo, unlimited position checks.
 - Save/resume across app restarts, statistics per difficulty, light/dark theme.

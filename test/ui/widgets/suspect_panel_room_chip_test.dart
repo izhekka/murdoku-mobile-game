@@ -111,7 +111,7 @@ void main() {
       );
       expect(shapeOf(describeClueSegments(clue, fixture, l10n, names)), const [
         ('— ', null),
-        ('not on the same floor as the victim', null),
+        ('not in the same row as the victim', null),
       ]);
     });
 
@@ -217,7 +217,7 @@ void main() {
       await tester.pumpWidget(skinWrap(stickerTokens));
       await tester.pumpAndSettle();
 
-      final blair = find.text('— not on the same floor as the victim');
+      final blair = find.text('— not in the same row as the victim');
       expect(blair, findsOneWidget);
       expect(
         find.descendant(of: blair, matching: find.byType(Container)),

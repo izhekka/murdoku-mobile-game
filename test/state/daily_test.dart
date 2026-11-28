@@ -86,13 +86,13 @@ void main() {
     addTearDown(container.dispose);
     final notifier = container.read(gameControllerProvider.notifier);
 
-    // Evidence re-measured 2026-11-27 (issue #93 interim configuration):
-    // the pre-#93 cap-10 pool had exactly two failing date-seeds in
-    // 2019-2060 (2031-09-28 and 2047-04-01, issues 60/61). The take-all
-    // per-type pool dissolves both corridors — bare generateCase succeeds
-    // in window 0 for each (stored seeds from the map probe:
-    // 1243490650 / 1884598929), so the daily start no longer needs
-    // recovery for these dates.
+    // Evidence re-measured 2026-11-28 (issue #111 pool change): the
+    // pre-#93 cap-10 pool had exactly two failing date-seeds in 2019-2060
+    // (2031-09-28 and 2047-04-01, issues 60/61). The take-all per-type pool
+    // dissolved both corridors and the issue-#111 pool keeps them
+    // dissolved — bare generateCase succeeds in window 0 for each (stored
+    // seeds from the map probe: 1705292207 / 526536146), so the daily
+    // start still needs no recovery for these dates.
     final first = <String, int>{};
     for (final date in const ['2031-09-28', '2047-04-01']) {
       final bare = generateCase(
@@ -101,7 +101,7 @@ void main() {
       );
       expect(
         bare.seed,
-        date == '2031-09-28' ? 1243490650 : 1884598929,
+        date == '2031-09-28' ? 1705292207 : 526536146,
         reason: '$date must generate in window 0 (former corridor date)',
       );
       first[date] = bare.seed;

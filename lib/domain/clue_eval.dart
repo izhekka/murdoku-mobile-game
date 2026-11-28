@@ -52,6 +52,14 @@ bool _holds(
         ) ==
         1;
   }
+  // Issue 111 object-cell kinds anchor on the item, not on a target.
+  final objectCell = _objectCellHolds(
+    clue,
+    suspectPos,
+    placement: placement,
+    objects: objects,
+  );
+  if (objectCell != null) return objectCell;
   return _targetHolds(
     clue,
     suspectPos,
@@ -59,6 +67,43 @@ bool _holds(
     victimPos: victimPos,
     rooms: rooms,
   );
+}
+
+/// The issue-111 object-cell kinds' raw predicate; null when [clue] is none
+/// of them, so the caller falls through to the target-bearing kinds.
+bool? _objectCellHolds(
+  Clue clue,
+  Pos suspectPos, {
+  required Map<String, Pos> placement,
+  required List<ObjectDef> objects,
+}) {
+  if (clue is OnObject) {
+    return suspectPos == _objectById(clue.objectId, objects).pos;
+  }
+  if (clue is NearObject) {
+    return _manhattan(suspectPos, _objectById(clue.objectId, objects).pos) <= 1;
+  }
+  if (clue is SoleNearObject) {
+    return _soleNearHolds(clue, suspectPos, placement, objects);
+  }
+  return null;
+}
+
+/// SoleNearObject: the card's guest is near the item AND every OTHER guest
+/// is farther than distance 1 (checked over the full [placement]).
+bool _soleNearHolds(
+  SoleNearObject clue,
+  Pos suspectPos,
+  Map<String, Pos> placement,
+  List<ObjectDef> objects,
+) {
+  final itemPos = _objectById(clue.objectId, objects).pos;
+  if (_manhattan(suspectPos, itemPos) > 1) return false;
+  for (final entry in placement.entries) {
+    if (entry.key == clue.suspectId) continue;
+    if (_manhattan(entry.value, itemPos) <= 1) return false;
+  }
+  return true;
 }
 
 /// The raw predicate for the positional target-bearing clue kinds (row,

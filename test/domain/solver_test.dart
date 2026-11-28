@@ -120,4 +120,55 @@ void main() {
       isNull,
     );
   });
+
+  test('a SoleNearObject card makes an otherwise-two-solution case unique (issue 111)', () {
+    // Pins the all-suspects check mask: the card constrains guests it does
+    // not name, so the solver may only evaluate it at a complete placement.
+    final rooms3 = [
+      RoomDef(id: 'r0', name: 'R0', cells: [p(0, 0), p(0, 1), p(1, 0)]),
+      RoomDef(id: 'r1', name: 'R1', cells: [p(0, 2), p(1, 1), p(1, 2)]),
+      RoomDef(id: 'r2', name: 'R2', cells: [p(2, 0), p(2, 1), p(2, 2)]),
+    ];
+    final objects3 = [
+      ObjectDef(
+        id: 'o0',
+        kind: ObjectKind.chair,
+        pos: p(0, 1),
+        occupiable: true,
+      ),
+    ];
+    const ids3 = ['s0', 's1', 's2'];
+    final victim3 = p(2, 2);
+    final base = [
+      InRoom(suspectId: 's0', roomId: 'r0', negated: false),
+      InRoom(suspectId: 's1', roomId: 'r1', negated: false),
+      InRoom(suspectId: 's2', roomId: 'r2', negated: false),
+      Beside(suspectId: 's2', targetId: 'V', negated: false),
+    ];
+    int count3(List<Clue> clues) => countSolutions(
+      gridSize: 3,
+      rooms: rooms3,
+      clues: clues,
+      suspectIds: ids3,
+      victimPos: victim3,
+      objects: objects3,
+    );
+    expect(count3(base), 2);
+    final pinned = [
+      ...base,
+      SoleNearObject(suspectId: 's0', objectId: 'o0', negated: false),
+    ];
+    expect(count3(pinned), 1);
+    expect(
+      firstSolution(
+        gridSize: 3,
+        rooms: rooms3,
+        clues: pinned,
+        suspectIds: ids3,
+        victimPos: victim3,
+        objects: objects3,
+      ),
+      {'s0': p(0, 0), 's1': p(1, 2), 's2': p(2, 1)},
+    );
+  });
 }

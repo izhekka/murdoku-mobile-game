@@ -45,31 +45,37 @@ const List<(String, String)> ruRoomForms = [
   ('Обсерватория', 'в обсерватории'),
 ];
 
-/// An item name in the two forms the item clue and labels need:
-/// nominative (standalone label) and `prep` — the preposition-attached
-/// lowercase instrumental the ru item-clue parameter carries, with the
-/// euphonic «со» before с/ст-initial kinds.
-typedef ObjectNameForm = ({String nom, String prep});
+/// An item name in the three forms the item clues and labels need:
+/// nominative (standalone label), `prep` — the preposition-attached
+/// lowercase instrumental the ru item-clue parameter carries (with the
+/// euphonic «со» before с/ст-initial kinds), and `on` — the prepositional
+/// form the sits-on clue parameter carries (issue 111).
+typedef ObjectNameForm = ({String nom, String prep, String on});
 
 /// Item names by kind: nominative + preposition-attached lowercase
-/// instrumental (hand-written per kind — no runtime euphony logic). The
-/// same-room item clue (UX-8) replaced the old genitive forms (около ...);
-/// the standalone capitalized instrumental retired with #14.
+/// instrumental + prepositional (hand-written per kind — no runtime
+/// euphony logic). The same-room item clue (UX-8) replaced the old
+/// genitive forms (около ...); the standalone capitalized instrumental
+/// retired with #14; the on form landed with the sits-on clue (#111).
 const Map<ObjectKind, ObjectNameForm> ruObjectForms = {
-  ObjectKind.piano: (nom: 'Пианино', prep: 'с пианино'),
-  ObjectKind.plant: (nom: 'Растение', prep: 'с растением'),
-  ObjectKind.armor: (nom: 'Доспехи', prep: 'с доспехами'),
-  ObjectKind.chest: (nom: 'Сундук', prep: 'с сундуком'),
-  ObjectKind.clock: (nom: 'Часы', prep: 'с часами'),
-  ObjectKind.globe: (nom: 'Глобус', prep: 'с глобусом'),
-  ObjectKind.portrait: (nom: 'Портрет', prep: 'с портретом'),
-  ObjectKind.fireplace: (nom: 'Камин', prep: 'с камином'),
-  ObjectKind.table: (nom: 'Стол', prep: 'со столом'),
-  ObjectKind.chair: (nom: 'Стул', prep: 'со стулом'),
-  ObjectKind.flowers: (nom: 'Цветы', prep: 'с цветами'),
-  ObjectKind.sofa: (nom: 'Диван', prep: 'с диваном'),
-  ObjectKind.bookshelf: (nom: 'Стеллаж', prep: 'со стеллажом'),
-  ObjectKind.lamp: (nom: 'Лампа', prep: 'с лампой'),
+  ObjectKind.piano: (nom: 'Пианино', prep: 'с пианино', on: 'на пианино'),
+  ObjectKind.plant: (nom: 'Растение', prep: 'с растением', on: 'на растении'),
+  ObjectKind.armor: (nom: 'Доспехи', prep: 'с доспехами', on: 'на доспехах'),
+  ObjectKind.chest: (nom: 'Сундук', prep: 'с сундуком', on: 'на сундуке'),
+  ObjectKind.clock: (nom: 'Часы', prep: 'с часами', on: 'на часах'),
+  ObjectKind.globe: (nom: 'Глобус', prep: 'с глобусом', on: 'на глобусе'),
+  ObjectKind.portrait: (nom: 'Портрет', prep: 'с портретом', on: 'на портрете'),
+  ObjectKind.fireplace: (nom: 'Камин', prep: 'с камином', on: 'на камине'),
+  ObjectKind.table: (nom: 'Стол', prep: 'со столом', on: 'на столе'),
+  ObjectKind.chair: (nom: 'Стул', prep: 'со стулом', on: 'на стуле'),
+  ObjectKind.flowers: (nom: 'Цветы', prep: 'с цветами', on: 'на цветах'),
+  ObjectKind.sofa: (nom: 'Диван', prep: 'с диваном', on: 'на диване'),
+  ObjectKind.bookshelf: (
+    nom: 'Стеллаж',
+    prep: 'со стеллажом',
+    on: 'на стеллаже',
+  ),
+  ObjectKind.lamp: (nom: 'Лампа', prep: 'с лампой', on: 'на лампе'),
 };
 
 const String victimNomRu = 'жертва';
@@ -149,6 +155,16 @@ class NameForms {
     }
     // The en template already carries the article
     // ("in the same room as the {object}").
+    return _capitalized(kind.name);
+  }
+
+  /// The `{object}` filler of the sits-on item clue (issue 111): the
+  /// prepositional form in ru («на стуле»), bare capitalized name in en
+  /// (the en template carries "sits on the").
+  String objectOn(ObjectKind kind) {
+    if (_ru) {
+      return ruObjectForms[kind]?.on ?? 'на ${objectNom(kind)}';
+    }
     return _capitalized(kind.name);
   }
 

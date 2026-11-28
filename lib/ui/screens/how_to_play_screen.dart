@@ -15,7 +15,7 @@ class HowToPlayScreen extends StatelessWidget {
       l10n.rule4Text,
     ];
     final glossary = [
-      l10n.glossaryRowCol,
+      l10n.glossaryObjects,
       l10n.glossaryBeside,
       l10n.glossaryDirections,
     ];

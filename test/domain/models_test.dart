@@ -76,6 +76,9 @@ CaseData fixture() {
       Beside(suspectId: 's3', targetId: 's4', negated: true),
       BesideObject(suspectId: 's2', objectId: 'o0', negated: false),
       BesideObject(suspectId: 's4', objectId: 'o1', negated: true),
+      OnObject(suspectId: 's0', objectId: 'o0', negated: false),
+      NearObject(suspectId: 's1', objectId: 'o1', negated: false),
+      SoleNearObject(suspectId: 's2', objectId: 'o0', negated: false),
     ],
     solution: {
       's0': p(0, 0),
@@ -158,6 +161,45 @@ void main() {
     expect(restored, equals(c));
     expect(restored.toJson(), equals(c.toJson()));
   });
+
+  test(
+    'object-cell clue kinds: typeName, json shape, equality (issue 111)',
+    () {
+      final on = OnObject(suspectId: 's0', objectId: 'o0', negated: false);
+      expect(on.typeName, 'onObject');
+      expect(on.toJson(), {
+        'type': 'onObject',
+        'suspectId': 's0',
+        'negated': false,
+        'objectId': 'o0',
+      });
+      final near = NearObject(suspectId: 's1', objectId: 'o1', negated: false);
+      expect(near.typeName, 'nearObject');
+      final sole = SoleNearObject(
+        suspectId: 's2',
+        objectId: 'o0',
+        negated: false,
+      );
+      expect(sole.typeName, 'soleNearObject');
+      expect(
+        sole,
+        SoleNearObject(suspectId: 's2', objectId: 'o0', negated: false),
+      );
+      expect(
+        sole,
+        isNot(
+          equals(
+            SoleNearObject(suspectId: 's2', objectId: 'o1', negated: false),
+          ),
+        ),
+      );
+      // Round-trip through the persisted type discriminants.
+      final restored = CaseData.fromJson(fixture().toJson());
+      expect(restored.clues.whereType<OnObject>().first, on);
+      expect(restored.clues.whereType<NearObject>().first, near);
+      expect(restored.clues.whereType<SoleNearObject>().first, sole);
+    },
+  );
 
   test('value equality distinguishes different cases', () {
     final a = fixture();

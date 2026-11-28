@@ -427,6 +427,92 @@ class BesideObject extends Clue {
   Map<String, Object?> toJson() => {...super.toJson(), 'objectId': objectId};
 }
 
+/// The guest's cell IS the item's cell. Only seats (chairs, sofas) can hold
+/// a guest, so the generator emits the kind for occupiable items only.
+class OnObject extends Clue {
+  const OnObject({
+    required super.suspectId,
+    required this.objectId,
+    required super.negated,
+  });
+
+  final String objectId;
+
+  @override
+  String get typeName => 'onObject';
+
+  @override
+  bool operator ==(Object other) =>
+      other is OnObject &&
+      other.suspectId == suspectId &&
+      other.negated == negated &&
+      other.objectId == objectId;
+
+  @override
+  int get hashCode => Object.hash(OnObject, suspectId, negated, objectId);
+
+  @override
+  Map<String, Object?> toJson() => {...super.toJson(), 'objectId': objectId};
+}
+
+/// The guest's cell is the item's cell or an orthogonally adjacent cell
+/// (Manhattan distance <= 1).
+class NearObject extends Clue {
+  const NearObject({
+    required super.suspectId,
+    required this.objectId,
+    required super.negated,
+  });
+
+  final String objectId;
+
+  @override
+  String get typeName => 'nearObject';
+
+  @override
+  bool operator ==(Object other) =>
+      other is NearObject &&
+      other.suspectId == suspectId &&
+      other.negated == negated &&
+      other.objectId == objectId;
+
+  @override
+  int get hashCode => Object.hash(NearObject, suspectId, negated, objectId);
+
+  @override
+  Map<String, Object?> toJson() => {...super.toJson(), 'objectId': objectId};
+}
+
+/// [NearObject] for the card's guest AND no other guest within distance 1
+/// of the item. It constrains the guests it does NOT name, so it is sound
+/// only on a complete placement — the solver evaluates it only there (its
+/// clue mask covers every suspect) and the negated form never ships.
+class SoleNearObject extends Clue {
+  const SoleNearObject({
+    required super.suspectId,
+    required this.objectId,
+    required super.negated,
+  });
+
+  final String objectId;
+
+  @override
+  String get typeName => 'soleNearObject';
+
+  @override
+  bool operator ==(Object other) =>
+      other is SoleNearObject &&
+      other.suspectId == suspectId &&
+      other.negated == negated &&
+      other.objectId == objectId;
+
+  @override
+  int get hashCode => Object.hash(SoleNearObject, suspectId, negated, objectId);
+
+  @override
+  Map<String, Object?> toJson() => {...super.toJson(), 'objectId': objectId};
+}
+
 /// Clue builders keyed by the persisted `type` discriminant: one entry per
 /// [Clue] subtype, each reading its own fields from the clue JSON.
 final _clueBuilders = <String, Clue Function(Map<String, Object?> json)>{
@@ -457,6 +543,21 @@ final _clueBuilders = <String, Clue Function(Map<String, Object?> json)>{
     negated: json['negated'] as bool,
   ),
   'besideObject': (json) => BesideObject(
+    suspectId: json['suspectId'] as String,
+    objectId: json['objectId'] as String,
+    negated: json['negated'] as bool,
+  ),
+  'onObject': (json) => OnObject(
+    suspectId: json['suspectId'] as String,
+    objectId: json['objectId'] as String,
+    negated: json['negated'] as bool,
+  ),
+  'nearObject': (json) => NearObject(
+    suspectId: json['suspectId'] as String,
+    objectId: json['objectId'] as String,
+    negated: json['negated'] as bool,
+  ),
+  'soleNearObject': (json) => SoleNearObject(
     suspectId: json['suspectId'] as String,
     objectId: json['objectId'] as String,
     negated: json['negated'] as bool,

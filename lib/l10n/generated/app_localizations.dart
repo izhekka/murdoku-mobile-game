@@ -329,25 +329,25 @@ abstract class AppLocalizations {
   /// No description provided for @clueSameRow.
   ///
   /// In en, this message translates to:
-  /// **'— on the same floor as {target}'**
+  /// **'— in the same row as {target}'**
   String clueSameRow(String target);
 
   /// No description provided for @clueSameRowNot.
   ///
   /// In en, this message translates to:
-  /// **'— not on the same floor as {target}'**
+  /// **'— not in the same row as {target}'**
   String clueSameRowNot(String target);
 
   /// No description provided for @clueSameCol.
   ///
   /// In en, this message translates to:
-  /// **'— in the same corridor as {target}'**
+  /// **'— in the same column as {target}'**
   String clueSameCol(String target);
 
   /// No description provided for @clueSameColNot.
   ///
   /// In en, this message translates to:
-  /// **'— not in the same corridor as {target}'**
+  /// **'— not in the same column as {target}'**
   String clueSameColNot(String target);
 
   /// No description provided for @clueDirection.
@@ -385,6 +385,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'— not in the same room as the {object}'**
   String clueBesideObjectNot(String object);
+
+  /// No description provided for @clueOnObject.
+  ///
+  /// In en, this message translates to:
+  /// **'— sits on the {object}'**
+  String clueOnObject(String object);
+
+  /// No description provided for @clueNearObject.
+  ///
+  /// In en, this message translates to:
+  /// **'— stays near the {object}'**
+  String clueNearObject(String object);
+
+  /// No description provided for @clueSoleNearObject.
+  ///
+  /// In en, this message translates to:
+  /// **'— the only guest near the {object}'**
+  String clueSoleNearObject(String object);
 
   /// No description provided for @accuse.
   ///
@@ -740,11 +758,11 @@ abstract class AppLocalizations {
   /// **'North is up, south is down, west is left, east is right.'**
   String get glossaryDirections;
 
-  /// No description provided for @glossaryRowCol.
+  /// No description provided for @glossaryObjects.
   ///
   /// In en, this message translates to:
-  /// **'Same floor: the same row. Same corridor: the same column.'**
-  String get glossaryRowCol;
+  /// **'Near: in a cell next to the item (up, down, left, right) or sitting on it.'**
+  String get glossaryObjects;
 
   /// No description provided for @languageLabel.
   ///

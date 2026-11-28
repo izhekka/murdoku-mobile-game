@@ -6,9 +6,11 @@
 /// The engine keeps a candidate cell set per suspect (a two-word bitmask
 /// over g² ≤ 81 cells) and drives it to a fixpoint with:
 ///
-/// 1. clue filters for all six kinds in both polarities, arc-consistent on
-///    the relation — a binary clue filters BOTH involved guests, including
-///    while both are unplaced;
+/// 1. clue filters for all nine kinds — the room-, item-room- and target-
+///    bearing kinds in both polarities (arc-consistent on the relation: a
+///    binary clue filters BOTH involved guests, including while both are
+///    unplaced), the object-cell kinds positive-only (negated
+///    SoleNearObject is rejected);
 /// 2. structural propagation — a placed guest's cell, row, column and room
 ///    leave every other unplaced guest's candidates;
 /// 3. tiered placement rules ([DeduceTier]): easy = naked + hidden singles;
@@ -365,7 +367,7 @@ class Deducer {
 
   /// The init + clue-filter fixpoint without any placement rule — the
   /// observability seam the filter unit tests assert against (plainly
-  /// public, like `coverageFallbackClue` in case_factory.dart).
+  /// public, like `ensureCoverage` in case_factory.dart).
   Map<String, Set<Pos>> filter() {
     final s = _State(_env);
     var changed = true;
@@ -434,7 +436,18 @@ class Deducer {
     // Room- and object-anchored kinds are unary masks; the target-bearing
     // kinds resolve their target (victim = known strip, suspect = relation).
     if (clue is InRoom || clue is BesideObject) return _roomAnchored(s, clue);
+    final objectCell = _objectCellAnchored(s, clue);
+    if (objectCell != null) return objectCell;
     return _targetAnchored(s, clue);
+  }
+
+  /// The issue-111 object-cell kinds' deduction; null when [clue] is none
+  /// of them, so the caller falls through to the target anchors.
+  bool? _objectCellAnchored(_State s, Clue clue) {
+    if (clue is OnObject) return _onObjectAnchored(s, clue);
+    if (clue is NearObject) return _nearObjectAnchored(s, clue);
+    if (clue is SoleNearObject) return _soleNearAnchored(s, clue);
+    return null;
   }
 
   bool _roomAnchored(_State s, Clue clue) {
@@ -451,6 +464,55 @@ class Deducer {
     // ADR 0004: the item clue means the guest shares the item's room.
     final obj = _env.objectById[clue.objectId]!;
     return _keep(s, si, _env.cellRoomMask[_env.cellOf(obj.pos)], clue.negated);
+  }
+
+  /// OnObject keeps the item's single cell — a unary mask like the room
+  /// anchors, negated the same way.
+  bool _onObjectAnchored(_State s, OnObject clue) {
+    final si = _env.indexOf[clue.suspectId]!;
+    return _keep(
+      s,
+      si,
+      _nearMask(clue.objectId, singleCell: true),
+      clue.negated,
+    );
+  }
+
+  /// NearObject keeps the item's cell plus its orthogonal neighbours.
+  bool _nearObjectAnchored(_State s, NearObject clue) {
+    final si = _env.indexOf[clue.suspectId]!;
+    return _keep(
+      s,
+      si,
+      _nearMask(clue.objectId, singleCell: false),
+      clue.negated,
+    );
+  }
+
+  /// SoleNearObject (positive only): the card's guest keeps the near mask,
+  /// every other guest loses it. The negated form never ships — the engine
+  /// rejects it loudly instead of applying an unsound per-guest inversion.
+  bool _soleNearAnchored(_State s, SoleNearObject clue) {
+    if (clue.negated) {
+      throw ArgumentError('negated soleNearObject never ships: $clue');
+    }
+    final si = _env.indexOf[clue.suspectId]!;
+    final mask = _nearMask(clue.objectId, singleCell: false);
+    var changed = _keep(s, si, mask, false);
+    for (var i = 0; i < _env.suspectCount; i++) {
+      if (i == si) continue;
+      changed = s.cands[i].subtract(mask) || changed;
+    }
+    return changed;
+  }
+
+  /// The item's own cell (when [singleCell]) or that cell plus its
+  /// orthogonal neighbours (the NearObject neighbourhood).
+  _Mask _nearMask(String objectId, {required bool singleCell}) {
+    final cell = _env.cellOf(_env.objectById[objectId]!.pos);
+    final m = singleCell ? _Mask() : _env.neighborMask[cell].copy();
+    m.set(cell);
+    return m;
   }
 
   bool _targetAnchored(_State s, Clue clue) {

@@ -380,11 +380,12 @@ void main() {
       // the historical budget-exhaustion corridors — seed 111, which exhausted
       // [generateCase]'s whole widened budget under the pre-#93 cap-10 pool
       // (issue 45 seams, re-measured 2026-11-24), now generates on the first
-      // attempt (stored seed 1237729143, map-probe measured 2026-11-27).
+      // attempt (stored seed re-measured 2026-11-28 for issue #111's pool
+      // change: 2074270045).
       // [generateCaseWithRecovery] therefore resolves it in window 0, and a
       // recovered start equals bare generation byte-for-byte.
       final bare = generateCase(difficulty: Difficulty.hard, seed: 111);
-      expect(bare.seed, 1237729143);
+      expect(bare.seed, 2074270045);
       expect(
         bare.clues.length,
         inInclusiveRange(Difficulty.hard.minClues, Difficulty.hard.maxClues),
@@ -417,9 +418,10 @@ void main() {
       expect(b.toJson(), equals(a.toJson()));
       // The former multi-window corridor seed 375 (issue 45, measured
       // 2026-11-24: exhausts windows 0+1, recovers in window 2) also
-      // generates directly under the #93 take-all pool (stored seed
-      // 394194587) — the stride machinery stands ready but is not needed.
-      expect(a.seed, 394194587);
+      // generates directly (stored seed re-measured 2026-11-28 for issue
+      // #111's pool change: 1840162272) — the stride machinery stands
+      // ready but is not needed.
+      expect(a.seed, 1840162272);
     },
   );
 }

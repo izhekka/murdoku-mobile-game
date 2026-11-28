@@ -68,7 +68,7 @@
       }
     }
   },
-  "clueSameRow": "— on the same floor as {target}",
+  "clueSameRow": "— in the same row as {target}",
   "@clueSameRow": {
     "placeholders": {
       "target": {
@@ -76,7 +76,7 @@
       }
     }
   },
-  "clueSameRowNot": "— not on the same floor as {target}",
+  "clueSameRowNot": "— not in the same row as {target}",
   "@clueSameRowNot": {
     "placeholders": {
       "target": {
@@ -84,7 +84,7 @@
       }
     }
   },
-  "clueSameCol": "— in the same corridor as {target}",
+  "clueSameCol": "— in the same column as {target}",
   "@clueSameCol": {
     "placeholders": {
       "target": {
@@ -92,7 +92,7 @@
       }
     }
   },
-  "clueSameColNot": "— not in the same corridor as {target}",
+  "clueSameColNot": "— not in the same column as {target}",
   "@clueSameColNot": {
     "placeholders": {
       "target": {
@@ -148,6 +148,30 @@
   },
   "clueBesideObjectNot": "— not in the same room as the {object}",
   "@clueBesideObjectNot": {
+    "placeholders": {
+      "object": {
+        "type": "String"
+      }
+    }
+  },
+  "clueOnObject": "— sits on the {object}",
+  "@clueOnObject": {
+    "placeholders": {
+      "object": {
+        "type": "String"
+      }
+    }
+  },
+  "clueNearObject": "— stays near the {object}",
+  "@clueNearObject": {
+    "placeholders": {
+      "object": {
+        "type": "String"
+      }
+    }
+  },
+  "clueSoleNearObject": "— the only guest near the {object}",
+  "@clueSoleNearObject": {
     "placeholders": {
       "object": {
         "type": "String"
@@ -286,7 +310,7 @@
   "glossaryTitle": "Clue glossary",
   "glossaryBeside": "Beside: directly adjacent (up, down, left, right).",
   "glossaryDirections": "North is up, south is down, west is left, east is right.",
-  "glossaryRowCol": "Same floor: the same row. Same corridor: the same column.",
+  "glossaryObjects": "Near: in a cell next to the item (up, down, left, right) or sitting on it.",
   "languageLabel": "Language",
   "languageSystem": "System",
   "languageRussian": "Русский",

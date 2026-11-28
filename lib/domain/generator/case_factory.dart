@@ -54,7 +54,12 @@ const _retryBudget = 40;
 /// that makes previously generated cases differ from fresh output (clue
 /// rules, gating, board shape) — the stored pools are then discarded on
 /// next load and silently regenerated.
-const casePoolGeneratorTag = 1;
+const casePoolGeneratorTag = 2;
+
+/// The per-case cap on `DirectionClue` cards of any polarity (issue 111).
+/// Only the positive side can approach it — negated directions are not
+/// emitted at all — so no downstream cap check is needed.
+const _maxDirectionCards = 2;
 
 /// Recovery windows for [generateCaseWithRecovery]: how many extra 40-seed
 /// strides the drawn-seed start path may consume past the exhausted one.
@@ -418,7 +423,6 @@ List<Clue>? _buildClueSet(
     minimized,
     maxClues,
     tier,
-    victimRoomId,
   );
   if (picked == null) return null;
   ensureChainSolvable(
@@ -435,7 +439,7 @@ List<Clue>? _buildClueSet(
 
 /// Prune, coverage, clue-window fill and the negated top-up: everything the
 /// minimized set needs to fit the difficulty's window. Returns null when
-/// the window cannot be met.
+/// the window cannot be met or a suspect has no pool candidate (issue 111).
 List<Clue>? _fittedClueSet(
   Difficulty difficulty,
   _Prepared prep,
@@ -443,7 +447,6 @@ List<Clue>? _fittedClueSet(
   List<Clue> minimized,
   int maxClues,
   DeduceTier tier,
-  String victimRoomId,
 ) {
   final pruned = _prune(
     minimized,
@@ -454,15 +457,8 @@ List<Clue>? _fittedClueSet(
     prep.objects,
     tier,
   );
-  var picked = _ensureCoverage(
-    pruned,
-    pool,
-    prep.suspects,
-    prep.rooms,
-    prep.solution,
-    prep.victimPos,
-    victimRoomId,
-  );
+  var picked = ensureCoverage(pruned, pool, prep.suspects);
+  if (picked == null) return null;
   if (picked.length > maxClues) return null;
   picked = _fillToMinClues(picked, pool, difficulty.minClues);
   if (picked.length < difficulty.minClues || picked.length > maxClues) {
@@ -477,7 +473,7 @@ List<Clue>? _fittedClueSet(
 /// chain), so the throw cannot fire in correct code — it is the acceptance
 /// anchor: any regression that ships an unchainable set crashes loudly.
 ///
-/// Public seam (plainly public, like [coverageFallbackClue]; no
+/// Public seam (plainly public, like [ensureCoverage]; no
 /// @visibleForTesting so this pure-Dart file stays flutter/meta-free): the
 /// throw branch never fires in generated cases, and the CRAP gate requires
 /// every decision branch covered — the unit test calls this directly with
@@ -532,83 +528,34 @@ bool _chainSolvable({
     null;
 
 /// Coverage: no suspect may end up without a clue (empty cards confuse
-/// players). Pool clues are all true of the solution, so additions are
+/// players). Every pool clue is true of the solution, so additions are
 /// chain-safe (issue #106: they never un-solve a chain-solvable set).
-/// InRoom(s, own room) always exists as a fallback shape,
-/// so the firstWhere orElse below is a defensive fallback only.
+/// Returns null when an uncovered suspect has NO pool candidate — the
+/// attempt is dropped, never filled (issue #111). The old coverage fallback
+/// emitted direction cards, which the per-case direction cap can no longer
+/// guarantee room for; in generated cases only the murderer can lack a
+/// candidate (every other suspect always has InRoom(own room) in the pool),
+/// so dropping such layouts is expected and the retry budget absorbs it.
 ///
-/// Issue #93: the fallback must not name the killer. For a suspect whose own
-/// room IS the victim's room (that suspect is the murderer), an
-/// InRoom(own room) card is a positive victim's-room card — the excluded
-/// class — so the fallback falls back to the strongest true victim
-/// relation instead ([coverageFallbackClue]).
-List<Clue> _ensureCoverage(
+/// Public seam (plainly public, like [ensureChainSolvable]; no
+/// @visibleForTesting so this pure-Dart file stays flutter/meta-free): the
+/// null branch fires during generation, but which attempt fails is not
+/// observable from pipeline tests, and the CRAP gate requires every
+/// decision branch covered — leak_filter_test.dart pins the seam directly.
+List<Clue>? ensureCoverage(
   List<Clue> pruned,
   List<Clue> pool,
   List<Suspect> suspects,
-  List<RoomDef> rooms,
-  Map<String, Pos> solution,
-  Pos victimPos,
-  String victimRoomId,
 ) {
   final picked = [...pruned];
   final covered = picked.map((cl) => cl.suspectId).toSet();
   for (final s in suspects) {
     if (covered.contains(s.id)) continue;
-    final candidate = pool.firstWhere(
-      (cl) => cl.suspectId == s.id,
-      orElse: () => coverageFallbackClue(
-        s.id,
-        solution[s.id]!,
-        victimPos,
-        victimRoomId,
-        rooms,
-      ),
-    );
-    picked.add(candidate);
+    final index = pool.indexWhere((cl) => cl.suspectId == s.id);
+    if (index == -1) return null;
+    picked.add(pool[index]);
   }
   return picked;
-}
-
-/// The leak-safe defensive coverage fallback (issue #93). Any suspect
-/// except the murderer keeps today's shape — InRoom(own room). The suspect
-/// whose own room equals the victim's room is the murderer, and that card
-/// would name the killer, so the fallback emits the strongest clue that is
-/// always true of such a placement and never an excluded class:
-/// SameRow(victim) positive when he shares the victim's row (an allowed
-/// class — only SameCol/Beside victim cards are excluded), otherwise a
-/// strict north/south direction to the victim (cells differ, so exactly one
-/// of the two holds). Both are true of the solution, preserving the
-/// "additions keep uniqueness" guarantee.
-///
-/// Public seam (plainly public; no @visibleForTesting annotation so this
-/// pure-Dart file stays flutter/meta-free): the orElse path it backs never
-/// fires in generated cases — every suspect always holds at least one pool
-/// candidate (the murderer always has a strict north/south direction to the
-/// victim) — so pipeline tests cannot reach these branches, and the CRAP
-/// gate requires every decision branch covered. The unit test in
-/// leak_filter_test.dart pins all three branches; the 100-seed leak sweeps
-/// still guard the shipped set end to end.
-Clue coverageFallbackClue(
-  String suspectId,
-  Pos sp,
-  Pos victimPos,
-  String victimRoomId,
-  List<RoomDef> rooms,
-) {
-  final ownRoom = roomOf(rooms, sp)!;
-  if (ownRoom != victimRoomId) {
-    return InRoom(suspectId: suspectId, roomId: ownRoom, negated: false);
-  }
-  if (sp.row == victimPos.row) {
-    return SameRow(suspectId: suspectId, targetId: victimId, negated: false);
-  }
-  return DirectionClue(
-    suspectId: suspectId,
-    targetId: victimId,
-    direction: sp.row < victimPos.row ? Direction.north : Direction.south,
-    negated: false,
-  );
 }
 
 /// Tops up a sub-window pick with pool candidates, preferring clue types the
@@ -753,11 +700,14 @@ List<Clue> _cluePool(
 ) {
   final byType = <String, List<Clue>>{
     'inRoom': [],
+    'onObject': [],
+    'soleNearObject': [],
+    'nearObject': [],
+    'beside': [],
+    'besideObject': [],
     'sameRow': [],
     'sameCol': [],
     'direction': [],
-    'beside': [],
-    'besideObject': [],
   };
   _positiveCandidates(
     suspects,
@@ -780,8 +730,16 @@ List<Clue> _cluePool(
   // deep (hard seeds 1/3/5 measured) — so the pool keeps every shuffled
   // candidate. 5×5 output stays byte-identical to the cap-10 pool because
   // only post-prefix candidates are appended.
+  //
+  // Issue 111: the one exception is the direction type — after its shuffle
+  // it keeps only its first [_maxDirectionCards] candidates, so a case can
+  // never ship more direction cards than the cap. The shuffle call order is
+  // untouched (no rng call added or moved).
   final pool = [
-    for (final entry in byType.entries) ...(entry.value..shuffle(rng)),
+    for (final entry in byType.entries)
+      ...(entry.value..shuffle(rng)).take(
+        entry.key == 'direction' ? _maxDirectionCards : entry.value.length,
+      ),
   ];
 
   // Issue #10: negated candidates, drawn TRUE of the solution (a card clue
@@ -840,6 +798,45 @@ void _positiveCandidates(
     _victimDirections(sp, victimPos, s, byType);
     _objectCandidates(rooms, sp, victimRoomId, objects, s, byType);
   }
+  _soleNearCandidates(suspects, solution, rooms, victimRoomId, objects, byType);
+}
+
+/// Issue 111: one pass over the items (outside the per-suspect loop): the
+/// only guest within distance 1 of the item — when every other guest is
+/// farther — gets a SoleNearObject candidate. Victim's-room items are
+/// skipped (issue #93, same killer-naming shape as BesideObject).
+void _soleNearCandidates(
+  List<Suspect> suspects,
+  Map<String, Pos> solution,
+  List<RoomDef> rooms,
+  String victimRoomId,
+  List<ObjectDef> objects,
+  Map<String, List<Clue>> byType,
+) {
+  for (final obj in objects) {
+    if (roomOf(rooms, obj.pos) == victimRoomId) continue;
+    final sole = _soleNearGuest(suspects, solution, obj.pos);
+    if (sole == null) continue;
+    byType['soleNearObject']!.add(
+      SoleNearObject(suspectId: sole, objectId: obj.id, negated: false),
+    );
+  }
+}
+
+/// The id of the only guest within distance 1 of the item; null when none
+/// or several are.
+String? _soleNearGuest(
+  List<Suspect> suspects,
+  Map<String, Pos> solution,
+  Pos itemPos,
+) {
+  String? sole;
+  for (final s in suspects) {
+    if (_manhattan(solution[s.id]!, itemPos) > 1) continue;
+    if (sole != null) return null;
+    sole = s.id;
+  }
+  return sole;
 }
 
 /// Per-pair candidates: same row/col first, then directions, then beside —
@@ -998,6 +995,9 @@ void _victimDirections(
 /// Manhattan-1 cells). Issue #93: objects standing in the victim's room are
 /// skipped on the positive side — a guest sharing a room with such an
 /// object shares the victim's room, so the card names the killer.
+/// Issue 111: the same skip guards the object-cell kinds — OnObject for a
+/// seat the guest's solution cell IS (occupiable items only), NearObject at
+/// exactly Manhattan distance 1 (the item's own cell belongs to OnObject).
 void _objectCandidates(
   List<RoomDef> rooms,
   Pos sp,
@@ -1009,11 +1009,35 @@ void _objectCandidates(
   final guestRoom = roomOf(rooms, sp);
   for (final obj in objects) {
     final objRoom = roomOf(rooms, obj.pos);
-    if (objRoom == guestRoom && objRoom != victimRoomId) {
-      byType['besideObject']!.add(
-        BesideObject(suspectId: s, objectId: obj.id, negated: false),
-      );
-    }
+    if (objRoom == victimRoomId) continue;
+    _oneObjectCandidates(obj, objRoom, guestRoom, sp, s, byType);
+  }
+}
+
+/// One non-victim's-room object's positive candidates for guest [s]: the
+/// same-room item clue, the seat the guest sits on, the item one step away.
+void _oneObjectCandidates(
+  ObjectDef obj,
+  String? objRoom,
+  String? guestRoom,
+  Pos sp,
+  String s,
+  Map<String, List<Clue>> byType,
+) {
+  if (objRoom == guestRoom) {
+    byType['besideObject']!.add(
+      BesideObject(suspectId: s, objectId: obj.id, negated: false),
+    );
+  }
+  if (obj.occupiable && obj.pos == sp) {
+    byType['onObject']!.add(
+      OnObject(suspectId: s, objectId: obj.id, negated: false),
+    );
+  }
+  if (_manhattan(sp, obj.pos) == 1) {
+    byType['nearObject']!.add(
+      NearObject(suspectId: s, objectId: obj.id, negated: false),
+    );
   }
 }
 
@@ -1073,7 +1097,8 @@ void _negatedTargets(
     // Issue #93: the victim-target SameCol card is an excluded class in
     // both polarities — never emitted, negated included.
     _negatedRowCol(s, sp, t, tp, t != victimId, negated);
-    _negatedDirections(s, sp, t, tp, negated);
+    // Issue 111: no negated direction candidates — with the per-case
+    // direction cap the pool must not carry a second, uncapped polarity.
     if (_manhattan(sp, tp) != 1 && t != victimId) {
       negated.add(Beside(suspectId: s, targetId: t, negated: true));
     }
@@ -1100,33 +1125,6 @@ void _negatedRowCol(
   }
   if (tp.col != sp.col && emitSameCol) {
     negated.add(SameCol(suspectId: s, targetId: t, negated: true));
-  }
-}
-
-/// True when [sp] lies strictly in [d] of [tp] — the raw predicate whose
-/// negation joins the pool.
-bool _holdsDirection(Direction d, Pos sp, Pos tp) => switch (d) {
-  Direction.north => sp.row < tp.row,
-  Direction.south => sp.row > tp.row,
-  Direction.west => sp.col < tp.col,
-  Direction.east => sp.col > tp.col,
-};
-
-/// Negated one-direction candidates for one suspect-target pair.
-void _negatedDirections(
-  String s,
-  Pos sp,
-  String t,
-  Pos tp,
-  List<Clue> negated,
-) {
-  for (final d in Direction.values) {
-    final raw = _holdsDirection(d, sp, tp);
-    if (!raw) {
-      negated.add(
-        DirectionClue(suspectId: s, targetId: t, direction: d, negated: true),
-      );
-    }
   }
 }
 

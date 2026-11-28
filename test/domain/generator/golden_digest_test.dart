@@ -36,35 +36,38 @@ String digestCase(CaseData c) {
 /// four easy digests moved (easy/101, /301, /23, /29 — the chain gate
 /// picked a different clue set there); every other entry, the convergence
 /// table and all stored attempt seeds measured unchanged.
+/// Re-pinned 2026-11-28 for issue #111 (object-cell clue kinds join the
+/// pool, positive direction candidates capped at 2, negated directions
+/// removed): every digest regenerates.
 const golden = {
-  'easy/1': '4573f6db2f8b1c6c',
-  'easy/101': 'eefc7ef8dcefa23f',
-  'easy/201': '5825c777b958015d',
-  'easy/301': 'd89f648866a0c533',
-  'easy/11': '07dedcdaabe48941',
-  'easy/17': 'cc078c577799cbb5',
-  'easy/23': 'd475caba5bb268dd',
-  'easy/29': '05e56c704d273c7f',
-  'standard/1': 'f3d910d0baed9b76',
-  'standard/101': 'e872ccda37f5b18f',
-  'standard/201': '9cfaf0014587c3d1',
-  'standard/301': '68eca9e05283ace3',
-  'standard/11': 'b1f2d4adfe85d78f',
-  'standard/211': 'b6d3954a69ec63b8',
-  'standard/123': '11651f6f024f82a1',
-  'standard/129': 'c48848b2f11762de',
+  'easy/1': 'f5550abd10168a97',
+  'easy/101': '9b8c43ef39db5f5a',
+  'easy/201': '735ed0cdad0e2fd8',
+  'easy/301': 'b84a6b77aee34eff',
+  'easy/11': 'd7ef9a9dc8f6b6bb',
+  'easy/17': 'cde76630bfdefe61',
+  'easy/23': '4a4b3a4e86b8c632',
+  'easy/29': 'b99f75365d83c832',
+  'standard/1': 'bb533c374d6299fe',
+  'standard/101': '1388cfb88b608dca',
+  'standard/201': '77428ed5c3a002df',
+  'standard/301': '46d208ccf8b78338',
+  'standard/11': '7e4949321fea5783',
+  'standard/211': 'e4bd30788ea360dc',
+  'standard/123': '02f96a06d93421a6',
+  'standard/129': '7c593e71f186d464',
   // 20261119/20261120 are dailySeedFor(2026-11-19) / (2026-11-20) — the UTC
   // dates pinned in the daily-card tests (issue 49).
-  'standard/20261119': '51e2e3d18c366a4b',
-  'standard/20261120': 'fc194dd2155e926d',
-  'hard/1': '378e0f7f008c09ad',
-  'hard/101': '5897daef6d5bc1fa',
-  'hard/201': 'ce93a5d5b5465813',
-  'hard/301': 'f4a857d6dacc4b24',
-  'hard/401': '6e4e4620b00cfab0',
-  'hard/11': 'a14859cda6a1f7a9',
-  'hard/112': 'c226621083507342',
-  'hard/211': 'ce40ff2c2ff50bb5',
+  'standard/20261119': 'bdabdb853f0f917b',
+  'standard/20261120': '309d07df497a0de2',
+  'hard/1': '3ded47b6a543e9da',
+  'hard/101': '500a773c4d6ac997',
+  'hard/201': '67c1f6691c060fc6',
+  'hard/301': 'b98ff450ad8ba998',
+  'hard/401': 'a907741dfed8d1ac',
+  'hard/11': '1cdc1e5f5a66e772',
+  'hard/112': 'cd5df795cf366db3',
+  'hard/211': '306838b2a3c2c9ac',
 };
 
 void main() {

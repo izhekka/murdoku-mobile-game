@@ -50,6 +50,8 @@ CaseData buildFixture(List<Clue> clues) => CaseData(
   objects: [
     ObjectDef(id: 'o0', kind: ObjectKind.piano, pos: p(0, 1)),
     ObjectDef(id: 'o1', kind: ObjectKind.clock, pos: p(4, 4)),
+    ObjectDef(id: 'o2', kind: ObjectKind.chair, pos: p(1, 2), occupiable: true),
+    ObjectDef(id: 'o3', kind: ObjectKind.armor, pos: p(3, 0)),
   ],
   suspects: [
     Suspect(id: 's0', name: 'Ash'),
@@ -437,9 +439,9 @@ void main() {
     expect(find.text('Ash'), findsOneWidget);
     expect(find.text('— in the \uFFFC'), findsOneWidget);
     expect(find.text('Blair'), findsOneWidget);
-    expect(find.text('— not on the same floor as the victim'), findsOneWidget);
+    expect(find.text('— not in the same row as the victim'), findsOneWidget);
     expect(find.text('Casey'), findsOneWidget);
-    expect(find.text('— in the same corridor as Ellis'), findsOneWidget);
+    expect(find.text('— in the same column as Ellis'), findsOneWidget);
     expect(find.text('Drew'), findsOneWidget);
     expect(find.text('— not south of the victim'), findsOneWidget);
     expect(find.text('Ellis'), findsOneWidget);
@@ -511,7 +513,7 @@ void main() {
     // Unselected cards are uncapped too: the (taller) card height bounds
     // the text instead of a 2-line ellipsis (UX-9).
     final blair = tester.widget<Text>(
-      find.text('— not on the same floor as the victim'),
+      find.text('— not in the same row as the victim'),
     );
     expect(blair.maxLines, isNull);
     expect(blair.overflow, isNull);
@@ -521,7 +523,7 @@ void main() {
     await tester.pump();
 
     final blairSelected = tester.widget<Text>(
-      find.text('— not on the same floor as the victim'),
+      find.text('— not in the same row as the victim'),
     );
     expect(blairSelected.maxLines, isNull);
     final ash = tester.widget<Text>(find.text('— in the \uFFFC'));
@@ -800,8 +802,8 @@ void main() {
   /// test's wording asserts).
   const clueSentences = {
     '— in the Hall',
-    '— not on the same floor as the victim',
-    '— in the same corridor as Ellis',
+    '— not in the same row as the victim',
+    '— in the same column as Ellis',
     '— not south of the victim',
     '— in the same room as the Clock',
   };
@@ -1840,7 +1842,7 @@ void main() {
       return (l10n, NameForms.forLocale(l10n.localeName, fixture));
     }
 
-    testWidgets('negated same-col clue renders the not-in-corridor sentence', (
+    testWidgets('negated same-col clue renders the not-in-column sentence', (
       tester,
     ) async {
       final (l10n, names) = await l10nAndNames(tester);
@@ -1851,7 +1853,7 @@ void main() {
           l10n,
           names,
         ),
-        '— not in the same corridor as Ellis',
+        '— not in the same column as Ellis',
       );
     });
 
@@ -1867,6 +1869,148 @@ void main() {
           names,
         ),
         '— not in the same room as the Clock',
+      );
+    });
+  });
+
+  group('object-cell clue sentences (issue 111)', () {
+    /// The same board; every suspect carries one object-cell or renamed
+    /// row/col card. o2 is the chair (seat), o3 the armor.
+    final objectCellFixture = buildFixture([
+      OnObject(suspectId: 's0', objectId: 'o2', negated: false),
+      NearObject(suspectId: 's1', objectId: 'o2', negated: false),
+      SoleNearObject(suspectId: 's2', objectId: 'o3', negated: false),
+      SameRow(suspectId: 's3', targetId: 'V', negated: false),
+      SameCol(suspectId: 's4', targetId: 'V', negated: false),
+    ]);
+
+    Future<(AppLocalizations, NameForms)> cellL10nAndNames(
+      WidgetTester tester,
+    ) async {
+      await tester.pumpWidget(const Harness());
+      await tester.pump();
+      final context = tester.element(find.byType(SuspectPanel));
+      final l10n = AppLocalizations.of(context)!;
+      return (l10n, NameForms.forLocale(l10n.localeName, objectCellFixture));
+    }
+
+    testWidgets('sits on / stays near / only guest near render the new '
+        'templates (en)', (tester) async {
+      final (l10n, names) = await cellL10nAndNames(tester);
+      expect(
+        describeClue(
+          OnObject(suspectId: 's0', objectId: 'o2', negated: false),
+          objectCellFixture,
+          l10n,
+          names,
+        ),
+        '— sits on the Chair',
+      );
+      expect(
+        describeClue(
+          NearObject(suspectId: 's1', objectId: 'o2', negated: false),
+          objectCellFixture,
+          l10n,
+          names,
+        ),
+        '— stays near the Chair',
+      );
+      expect(
+        describeClue(
+          SoleNearObject(suspectId: 's2', objectId: 'o3', negated: false),
+          objectCellFixture,
+          l10n,
+          names,
+        ),
+        '— the only guest near the Armor',
+      );
+    });
+
+    testWidgets('object-cell clues never render negated', (tester) async {
+      final (l10n, names) = await cellL10nAndNames(tester);
+      for (final clue in [
+        OnObject(suspectId: 's0', objectId: 'o2', negated: true),
+        NearObject(suspectId: 's1', objectId: 'o2', negated: true),
+        SoleNearObject(suspectId: 's2', objectId: 'o3', negated: true),
+      ]) {
+        expect(
+          () => describeClue(clue, objectCellFixture, l10n, names),
+          throwsArgumentError,
+        );
+      }
+    });
+
+    testWidgets('renamed row and column cards (en)', (tester) async {
+      final (l10n, names) = await cellL10nAndNames(tester);
+      expect(
+        describeClue(
+          SameRow(suspectId: 's3', targetId: 'V', negated: false),
+          objectCellFixture,
+          l10n,
+          names,
+        ),
+        '— in the same row as the victim',
+      );
+      expect(
+        describeClue(
+          SameCol(suspectId: 's4', targetId: 'V', negated: false),
+          objectCellFixture,
+          l10n,
+          names,
+        ),
+        '— in the same column as the victim',
+      );
+      expect(
+        describeClue(
+          SameRow(suspectId: 's3', targetId: 's4', negated: true),
+          objectCellFixture,
+          l10n,
+          names,
+        ),
+        '— not in the same row as Ellis',
+      );
+      expect(
+        describeClue(
+          SameCol(suspectId: 's4', targetId: 's3', negated: true),
+          objectCellFixture,
+          l10n,
+          names,
+        ),
+        '— not in the same column as Drew',
+      );
+    });
+
+    testWidgets('the longest object-cell sentence wraps at a narrow phone '
+        'width in en and ru without overflow', (tester) async {
+      Future<void> pumpAt(Locale locale) async {
+        await tester.pumpWidget(
+          localizedTestApp(
+            locale: locale,
+            child: SingleChildScrollView(
+              child: SizedBox(
+                width: 320,
+                child: SuspectPanel(
+                  caseData: objectCellFixture,
+                  placed: const {},
+                  selectedSuspectId: null,
+                  onSuspectTap: (_) {},
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+      }
+
+      await pumpAt(const Locale('en'));
+      expect(tester.takeException(), isNull);
+      expect(find.text('— the only guest near the Armor'), findsOneWidget);
+
+      await pumpAt(const Locale('ru'));
+      expect(tester.takeException(), isNull);
+      expect(
+        find.text('— единственный гость рядом с доспехами'),
+        findsOneWidget,
       );
     });
   });

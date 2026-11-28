@@ -133,22 +133,22 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String clueSameRow(String target) {
-    return '— on the same floor as $target';
+    return '— in the same row as $target';
   }
 
   @override
   String clueSameRowNot(String target) {
-    return '— not on the same floor as $target';
+    return '— not in the same row as $target';
   }
 
   @override
   String clueSameCol(String target) {
-    return '— in the same corridor as $target';
+    return '— in the same column as $target';
   }
 
   @override
   String clueSameColNot(String target) {
-    return '— not in the same corridor as $target';
+    return '— not in the same column as $target';
   }
 
   @override
@@ -179,6 +179,21 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String clueBesideObjectNot(String object) {
     return '— not in the same room as the $object';
+  }
+
+  @override
+  String clueOnObject(String object) {
+    return '— sits on the $object';
+  }
+
+  @override
+  String clueNearObject(String object) {
+    return '— stays near the $object';
+  }
+
+  @override
+  String clueSoleNearObject(String object) {
+    return '— the only guest near the $object';
   }
 
   @override
@@ -386,8 +401,8 @@ class AppLocalizationsEn extends AppLocalizations {
       'North is up, south is down, west is left, east is right.';
 
   @override
-  String get glossaryRowCol =>
-      'Same floor: the same row. Same corridor: the same column.';
+  String get glossaryObjects =>
+      'Near: in a cell next to the item (up, down, left, right) or sitting on it.';
 
   @override
   String get languageLabel => 'Language';

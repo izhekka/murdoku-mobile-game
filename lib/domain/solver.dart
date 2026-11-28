@@ -193,6 +193,10 @@ String? _clueTargetOf(Clue clue) => switch (clue) {
 
 /// Bitmask of suspect indices each clue needs before it can be evaluated.
 int _clueMaskFor(Clue clue, Map<String, int> indexOf) {
+  // SoleNearObject constrains the guests it does NOT name ("no other guest
+  // near the item"), so it is sound only on a complete placement — its
+  // mask must cover every suspect (issue 111).
+  if (clue is SoleNearObject) return _allSuspectsMask(indexOf);
   var mask = 0;
   void mark(String? id) {
     if (id == null || id == victimId) return;
@@ -203,6 +207,16 @@ int _clueMaskFor(Clue clue, Map<String, int> indexOf) {
   mark(clue.suspectId);
   mark(_clueTargetOf(clue));
   return mask;
+}
+
+/// Bitmask over every suspect index — the full-placement mask SoleNearObject
+/// needs (issue 111).
+int _allSuspectsMask(Map<String, int> indexOf) {
+  var all = 0;
+  for (final i in indexOf.values) {
+    all |= 1 << i;
+  }
+  return all;
 }
 
 /// Counts complete placements satisfying one guest per row/column/room

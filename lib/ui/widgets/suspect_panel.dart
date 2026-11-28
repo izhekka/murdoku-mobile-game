@@ -297,16 +297,76 @@ String describeClue(
     );
   }
   if (clue is BesideObject) {
-    final objectName = names.objectPrep(
-      c.objects.firstWhere((o) => o.id == clue.objectId).kind,
-    );
+    final objectName = names.objectPrep(_objectKind(c, clue.objectId));
     return _either(
       clue.negated,
       l10n.clueBesideObject(objectName),
       l10n.clueBesideObjectNot(objectName),
     );
   }
+  return _objectCellOrTargetSentence(clue, c, l10n, names);
+}
+
+/// The issue-111 object-cell kinds (positive-only templates) or, for every
+/// other kind, the target-bearing sentence.
+String _objectCellOrTargetSentence(
+  Clue clue,
+  CaseData c,
+  AppLocalizations l10n,
+  NameForms names,
+) {
+  if (clue is OnObject) return _onObjectSentence(clue, c, names, l10n);
+  if (clue is NearObject) return _nearObjectSentence(clue, c, names, l10n);
+  if (clue is SoleNearObject) {
+    return _soleNearObjectSentence(clue, c, names, l10n);
+  }
   return _targetClueSentence(clue, l10n, names);
+}
+
+/// The item kind an object-anchored clue points at.
+ObjectKind _objectKind(CaseData c, String objectId) =>
+    c.objects.firstWhere((o) => o.id == objectId).kind;
+
+/// The three object-cell kinds render positive-only templates keyed by the
+/// item kind. Negated forms never ship (the generator cannot emit them), so
+/// the renderer rejects them loudly instead of lying with a positive
+/// template.
+String _onObjectSentence(
+  OnObject clue,
+  CaseData c,
+  NameForms names,
+  AppLocalizations l10n,
+) {
+  if (clue.negated) {
+    throw ArgumentError('negated object-cell clues never ship: $clue');
+  }
+  return l10n.clueOnObject(names.objectOn(_objectKind(c, clue.objectId)));
+}
+
+String _nearObjectSentence(
+  NearObject clue,
+  CaseData c,
+  NameForms names,
+  AppLocalizations l10n,
+) {
+  if (clue.negated) {
+    throw ArgumentError('negated object-cell clues never ship: $clue');
+  }
+  return l10n.clueNearObject(names.objectPrep(_objectKind(c, clue.objectId)));
+}
+
+String _soleNearObjectSentence(
+  SoleNearObject clue,
+  CaseData c,
+  NameForms names,
+  AppLocalizations l10n,
+) {
+  if (clue.negated) {
+    throw ArgumentError('negated object-cell clues never ship: $clue');
+  }
+  return l10n.clueSoleNearObject(
+    names.objectPrep(_objectKind(c, clue.objectId)),
+  );
 }
 
 /// Sentences for the four target-bearing clue kinds; same-row/col targets

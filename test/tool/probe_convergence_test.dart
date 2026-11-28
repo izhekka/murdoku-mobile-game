@@ -41,21 +41,22 @@ void main() {
       // these in the same change. Deliberate literal copy: independent of
       // that table, the values also witness transcription drift in it
       // (the golden-digest literal-copy style). Re-pinned 2026-11-27 for
-      // the issue-#93 interim configuration.
+      // the issue-#93 interim configuration; re-measured 2026-11-28 for
+      // issue #111's pool change.
       expect(mapping['easy']![0], 0);
       expect(mapping['easy']![4], 1951803668); // == standard/4 (attempt-0 map)
       expect(mapping['standard']![4], 1951803668);
-      expect(mapping['hard']![60], 1403540709);
+      expect(mapping['hard']![60], 295270247);
     });
 
     test('no pinned exhaust seam remains in the measured range (#62)', () {
       // Pre-#93, hard/111 exhausted generateCase's whole widened budget
       // (§13 corridor seam, rethrow pinned via recovery tests). The
-      // take-all per-type pool dissolved the corridor: hard/111 now
-      // generates in window 0 (stored seed 1237729143, map-probe measured
-      // 2026-11-27) alongside easy/111.
+      // take-all per-type pool dissolved the corridor: hard/111 still
+      // generates in window 0 (stored seeds re-measured 2026-11-28 for
+      // issue #111's pool change) alongside easy/111.
       final at111 = measureMapping(start: 111, end: 111);
-      expect(at111['hard']![111], 1237729143);
+      expect(at111['hard']![111], 2074270045);
       expect(at111['easy']![111], 1237729143);
     });
   });
@@ -182,15 +183,15 @@ void main() {
       // issue-#93 interim configuration.
       expect(
         digestOf(generateCase(difficulty: Difficulty.easy, seed: 1)),
-        '4573f6db2f8b1c6c',
+        'f5550abd10168a97',
       );
       expect(
         digestOf(generateCase(difficulty: Difficulty.hard, seed: 112)),
-        'c226621083507342',
+        'cd5df795cf366db3',
       );
       expect(
         digestOf(generateCase(difficulty: Difficulty.standard, seed: 20261119)),
-        '51e2e3d18c366a4b',
+        'bdabdb853f0f917b',
       );
     });
 
@@ -263,16 +264,16 @@ void main() {
         expect(rows.length, 2);
         expect(rows[0].date, '2026-11-19');
         expect(rows[0].seed, 20261119);
-        expect(rows[0].digest, '51e2e3d18c366a4b');
+        expect(rows[0].digest, 'bdabdb853f0f917b');
         expect(rows[1].date, '2026-11-20');
         expect(rows[1].seed, 20261120);
-        expect(rows[1].digest, 'fc194dd2155e926d');
+        expect(rows[1].digest, '309d07df497a0de2');
       },
     );
 
     test('an explicit single date prints the live digest (#72)', () {
       final rows = dailyRows(start: DateTime.utc(2026, 11, 19));
-      expect(rows.single.digest, '51e2e3d18c366a4b');
+      expect(rows.single.digest, 'bdabdb853f0f917b');
     });
 
     test('an explicit range is inclusive across a month boundary (#72)', () {
@@ -289,8 +290,8 @@ void main() {
       final rows = dailyRows(fromGolden: readGoldenEntries(goldenFileDefault));
       expect(
         formatDailyRows(rows),
-        '2026-11-19 20261119 -> 51e2e3d18c366a4b\n'
-        '2026-11-20 20261120 -> fc194dd2155e926d',
+        '2026-11-19 20261119 -> bdabdb853f0f917b\n'
+        '2026-11-20 20261120 -> 309d07df497a0de2',
       );
     });
   });
@@ -316,7 +317,7 @@ void main() {
       final result = checkGolden(path);
       expect(
         result.drifted.single,
-        'drift easy/1 live=4573f6db2f8b1c6c committed=deadbeefdeadbeef',
+        'drift easy/1 live=f5550abd10168a97 committed=deadbeefdeadbeef',
       );
       expect(result.ok, isEmpty);
     });

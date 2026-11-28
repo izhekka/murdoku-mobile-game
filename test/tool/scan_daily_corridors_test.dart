@@ -54,8 +54,9 @@ void main() {
     test('the former corridor date maps ok post-#93 (window 0)', () {
       // Issue #93 interim configuration: the take-all pool dissolved the
       // historical 2031-09-28 exhaust corridor — bare generateCase succeeds
-      // in window 0 (stored attempt seed 1243490650, map-probe measured
-      // 2026-11-27), so the recovery loop never leaves window 0.
+      // in window 0 (stored attempt seed 1705292207, map-probe re-measured
+      // 2026-11-28 for issue #111's pool change), so the recovery loop
+      // never leaves window 0.
       final row = scanDate(DateTime.utc(2031, 9, 28));
       expect(row.seed, 20310928);
       expect(row.recoveredStride, isNull);

@@ -302,4 +302,122 @@ void main() {
       throwsArgumentError,
     );
   });
+
+  group('object-cell kinds (issue 111)', () {
+    // 3x3 fixture matching the deducer test's; item o0 chair at (0,1).
+    final rooms3 = [
+      RoomDef(id: 'r0', name: 'R0', cells: [p(0, 0), p(0, 1), p(1, 0)]),
+      RoomDef(id: 'r1', name: 'R1', cells: [p(0, 2), p(1, 1), p(1, 2)]),
+      RoomDef(id: 'r2', name: 'R2', cells: [p(2, 0), p(2, 1), p(2, 2)]),
+    ];
+    final objects3 = [
+      ObjectDef(
+        id: 'o0',
+        kind: ObjectKind.chair,
+        pos: p(0, 1),
+        occupiable: true,
+      ),
+    ];
+    bool eval3(Clue clue, Map<String, Pos> at) => evaluateClue(
+      clue,
+      placement: at,
+      victimPos: p(2, 2),
+      rooms: rooms3,
+      objects: objects3,
+    );
+
+    test('OnObject holds only on the item cell', () {
+      expect(
+        eval3(OnObject(suspectId: 's0', objectId: 'o0', negated: false), {
+          's0': p(0, 1),
+          's1': p(1, 2),
+          's2': p(2, 0),
+        }),
+        isTrue,
+      );
+      expect(
+        eval3(OnObject(suspectId: 's0', objectId: 'o0', negated: false), {
+          's0': p(0, 0),
+          's1': p(1, 2),
+          's2': p(2, 1),
+        }),
+        isFalse,
+      );
+      expect(
+        eval3(OnObject(suspectId: 's0', objectId: 'o0', negated: true), {
+          's0': p(0, 1),
+          's1': p(1, 2),
+          's2': p(2, 0),
+        }),
+        isFalse,
+      );
+    });
+
+    test('NearObject holds on the item cell and its orthogonal neighbours', () {
+      // Distance 0 (the item cell itself) and 1 (adjacent) hold.
+      expect(
+        eval3(NearObject(suspectId: 's0', objectId: 'o0', negated: false), {
+          's0': p(0, 1),
+          's1': p(1, 2),
+          's2': p(2, 0),
+        }),
+        isTrue,
+      );
+      expect(
+        eval3(NearObject(suspectId: 's0', objectId: 'o0', negated: false), {
+          's0': p(0, 0),
+          's1': p(1, 2),
+          's2': p(2, 1),
+        }),
+        isTrue,
+      );
+      // Distance 2 does not.
+      expect(
+        eval3(NearObject(suspectId: 's0', objectId: 'o0', negated: false), {
+          's0': p(1, 0),
+          's1': p(0, 2),
+          's2': p(2, 1),
+        }),
+        isFalse,
+      );
+      expect(
+        eval3(NearObject(suspectId: 's0', objectId: 'o0', negated: true), {
+          's0': p(0, 0),
+          's1': p(1, 2),
+          's2': p(2, 1),
+        }),
+        isFalse,
+      );
+    });
+
+    test(
+      'SoleNearObject holds only when no other guest is within distance 1',
+      () {
+        // s0 near the item, every other guest far: holds.
+        expect(
+          eval3(
+            SoleNearObject(suspectId: 's0', objectId: 'o0', negated: false),
+            {'s0': p(0, 0), 's1': p(1, 2), 's2': p(2, 1)},
+          ),
+          isTrue,
+        );
+        // Another guest near the item: fails.
+        expect(
+          eval3(
+            SoleNearObject(suspectId: 's0', objectId: 'o0', negated: false),
+            {'s0': p(0, 0), 's1': p(1, 1), 's2': p(2, 1)},
+          ),
+          isFalse,
+        );
+        // The card's own guest far from the item: fails.
+        expect(
+          eval3(
+            SoleNearObject(suspectId: 's0', objectId: 'o0', negated: false),
+            {'s0': p(1, 0), 's1': p(1, 2), 's2': p(2, 1)},
+          ),
+          isFalse,
+        );
+      },
+    );
+  });
 }

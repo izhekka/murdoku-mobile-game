@@ -132,22 +132,22 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String clueSameRow(String target) {
-    return '— на том же этаже, что и $target';
+    return '— в той же строке, что и $target';
   }
 
   @override
   String clueSameRowNot(String target) {
-    return '— не на том же этаже, что и $target';
+    return '— не в той же строке, что и $target';
   }
 
   @override
   String clueSameCol(String target) {
-    return '— в том же коридоре, что и $target';
+    return '— в той же колонке, что и $target';
   }
 
   @override
   String clueSameColNot(String target) {
-    return '— не в том же коридоре, что и $target';
+    return '— не в той же колонке, что и $target';
   }
 
   @override
@@ -178,6 +178,21 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String clueBesideObjectNot(String object) {
     return '— не в комнате $object';
+  }
+
+  @override
+  String clueOnObject(String object) {
+    return '— сидит $object';
+  }
+
+  @override
+  String clueNearObject(String object) {
+    return '— рядом $object';
+  }
+
+  @override
+  String clueSoleNearObject(String object) {
+    return '— единственный гость рядом $object';
   }
 
   @override
@@ -386,8 +401,8 @@ class AppLocalizationsRu extends AppLocalizations {
       'Север — вверх, юг — вниз, запад — влево, восток — вправо.';
 
   @override
-  String get glossaryRowCol =>
-      'Тот же этаж: та же строка. Тот же коридор: та же колонка.';
+  String get glossaryObjects =>
+      'Рядом: в соседней клетке (сверху, снизу, слева, справа) или на самом предмете.';
 
   @override
   String get languageLabel => 'Язык';

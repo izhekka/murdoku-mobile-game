@@ -133,7 +133,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text(l10n.glossaryBeside), findsOneWidget);
     expect(glossaryDirections, findsOneWidget);
-    expect(find.text(l10n.glossaryRowCol), findsOneWidget);
+    expect(find.text(l10n.glossaryObjects), findsOneWidget);
+    // The retired same-floor/corridor glossary line is gone (issue 111).
+    expect(find.textContaining('corridor'), findsNothing);
   });
 
   testWidgets('tutorial footer fits 320x569 at textScale 2.0 in all skins '
