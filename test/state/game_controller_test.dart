@@ -3,11 +3,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:murdoku/domain/game_logic.dart' show Tool, boardSolved;
 import 'package:murdoku/domain/generator/case_factory.dart';
 import 'package:murdoku/domain/models.dart';
+import 'package:murdoku/state/case_pool.dart';
 import 'package:murdoku/state/game_controller.dart';
 import 'package:murdoku/state/providers.dart';
 import 'package:murdoku/storage/prefs_repository.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../support/case_pool_fixture.dart';
 import '../support/legacy_case_fixture.dart';
 import '../support/seeded_overrides.dart';
 
@@ -20,6 +22,26 @@ Future<ProviderContainer> makeContainer() async {
   SharedPreferences.setMockInitialValues({});
   final prefs = await SharedPreferences.getInstance();
   return ProviderContainer(overrides: seededOverrides(prefs));
+}
+
+/// Unpinned container (no forcedSeed): exercises the real pool path with a
+/// stubbed batch seam. Records (difficulty, count) batch calls in order.
+Future<(ProviderContainer, PrefsRepository, List<(Difficulty, int)>)>
+makePoolContainer() async {
+  SharedPreferences.setMockInitialValues({});
+  final prefs = await SharedPreferences.getInstance();
+  final repo = PrefsRepository(prefs);
+  final calls = <(Difficulty, int)>[];
+  final container = ProviderContainer(
+    overrides: [
+      sharedPreferencesProvider.overrideWithValue(prefs),
+      casePoolBatchProvider.overrideWithValue((difficulty, count) async {
+        calls.add((difficulty, count));
+        return [for (var i = 0; i < count; i++) poolCase(difficulty, 1000 + i)];
+      }),
+    ],
+  );
+  return (container, repo, calls);
 }
 
 void main() {
@@ -506,4 +528,97 @@ void main() {
       }
     },
   );
+
+  group('case pool integration (issue 108)', () {
+    test('a pinned forced seed bypasses the pool entirely', () async {
+      final container = await makeContainer();
+      addTearDown(container.dispose);
+      final repo = container.read(prefsRepositoryProvider);
+      final stocked = poolCase(Difficulty.easy, 77);
+      await repo.saveCasePool(
+        CasePool(
+          byDifficulty: {
+            Difficulty.easy: [stocked],
+          },
+        ),
+      );
+      final notifier = container.read(gameControllerProvider.notifier);
+
+      // forcedSeedProvider pins seed 3 (seededOverrides): the pool must
+      // stay untouched and the start yield the deterministic seed-3 case.
+      notifier.startNewCase(Difficulty.easy);
+      expect(container.read(gameControllerProvider)!.caseData, fixedCase);
+      expect(repo.loadCasePool().byDifficulty[Difficulty.easy], [stocked]);
+    });
+
+    test(
+      'an unpinned start pops a pooled case into a fresh-board state',
+      () async {
+        final (container, repo, calls) = await makePoolContainer();
+        addTearDown(container.dispose);
+        final a = poolCase(Difficulty.easy, 1);
+        final b = poolCase(Difficulty.easy, 2);
+        await repo.saveCasePool(
+          CasePool(
+            byDifficulty: {
+              Difficulty.easy: [a, b],
+              Difficulty.standard: [
+                for (var i = 0; i < 5; i++) poolCase(Difficulty.standard, i),
+              ],
+              Difficulty.hard: [
+                for (var i = 0; i < 5; i++) poolCase(Difficulty.hard, i),
+              ],
+            },
+          ),
+        );
+        final notifier = container.read(gameControllerProvider.notifier);
+
+        notifier.startNewCase(Difficulty.easy);
+        final state = container.read(gameControllerProvider)!;
+        expect(state.caseData, anyOf(a, b));
+        expect(state.phase, GamePhase.playing);
+        expect(state.placed, isEmpty);
+        expect(state.xMarks, isEmpty);
+        expect(state.lockedSuspects, isEmpty);
+        expect(state.eliminatedSuspects, isEmpty);
+        expect(state.elapsed, Duration.zero);
+        expect(state.hintsUsed, 0);
+        expect(state.wrongAccusations, 0);
+        expect(state.isDaily, isFalse);
+        expect(state.dailyDate, isNull);
+
+        await pumpEventQueue();
+        // The pop left one easy case (< 5) → exactly one refill batch, and
+        // the remainder persisted without the picked entry.
+        expect(calls, [(Difficulty.easy, 10)]);
+        final reloaded = repo.loadCasePool().byDifficulty[Difficulty.easy]!;
+        expect(reloaded, hasLength(11));
+        expect(reloaded, contains(state.caseData == a ? b : a));
+      },
+    );
+
+    test('an empty pool falls back to sync generation and refills', () async {
+      final (container, repo, calls) = await makePoolContainer();
+      addTearDown(container.dispose);
+      final notifier = container.read(gameControllerProvider.notifier);
+
+      notifier.startNewCase(Difficulty.easy);
+      final state = container.read(gameControllerProvider)!;
+      expect(state.phase, GamePhase.playing);
+      expect(
+        state.caseData.clues.length,
+        inInclusiveRange(Difficulty.easy.minClues, Difficulty.easy.maxClues),
+      );
+      expect(
+        calls.where((c) => c.$1 == Difficulty.easy),
+        [(Difficulty.easy, 10)],
+        reason:
+            'background refill fired for the empty pool (all three '
+            'pools are empty here, so each difficulty gets its own batch)',
+      );
+
+      await pumpEventQueue();
+      expect(repo.loadCasePool().byDifficulty[Difficulty.easy], hasLength(10));
+    });
+  });
 }

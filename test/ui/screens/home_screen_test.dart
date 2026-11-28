@@ -7,6 +7,7 @@ import 'package:murdoku/core/skins.dart';
 import 'package:murdoku/domain/generator/case_factory.dart';
 import 'package:murdoku/domain/models.dart';
 import 'package:murdoku/l10n/generated/app_localizations.dart';
+import 'package:murdoku/state/case_pool.dart';
 import 'package:murdoku/state/clock.dart';
 import 'package:murdoku/state/game_controller.dart';
 import 'package:murdoku/state/providers.dart';
@@ -17,12 +18,55 @@ import 'package:murdoku/ui/screens/home_screen.dart';
 import 'package:murdoku/ui/widgets/skin_card.dart' as skin_widgets;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../support/case_pool_fixture.dart';
 import '../../support/seeded_overrides.dart';
 
 Pos p(int row, int col) => (row: row, col: col);
 
 void main() {
   late ProviderContainer container;
+
+  testWidgets('home init triggers the pool refill check (issue 108)', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    await PrefsRepository(prefs).saveTutorialSeen(true);
+    final calls = <(Difficulty, int)>[];
+    final testContainer = ProviderContainer(
+      overrides: [
+        sharedPreferencesProvider.overrideWithValue(prefs),
+        // No forcedSeed pin: the refill check must actually run. All pools
+        // are empty, so each difficulty gets its own background batch.
+        casePoolBatchProvider.overrideWithValue((difficulty, count) async {
+          calls.add((difficulty, count));
+          return [
+            for (var i = 0; i < count; i++) poolCase(difficulty, 1000 + i),
+          ];
+        }),
+        clockProvider.overrideWithValue(() => DateTime.utc(2026, 11, 20, 15)),
+      ],
+    );
+    addTearDown(testContainer.dispose);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: testContainer,
+        child: const MurdokuApp(),
+      ),
+    );
+    // First pump runs home's post-frame callbacks (the refill check);
+    // the stub batches complete in microtasks flushed by the next pump.
+    // pumpEventQueue is unusable here: inside a widget test's FakeAsync
+    // zone its bounded timeout never elapses in fake time.
+    await tester.pump();
+    await tester.pump();
+
+    expect(calls, [
+      (Difficulty.easy, 10),
+      (Difficulty.standard, 10),
+      (Difficulty.hard, 10),
+    ]);
+  });
 
   Future<void> pumpHome(WidgetTester tester) async {
     SharedPreferences.setMockInitialValues({});

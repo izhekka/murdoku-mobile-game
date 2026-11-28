@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
@@ -5,6 +7,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:murdoku/core/format.dart';
 import 'package:murdoku/domain/models.dart';
 import 'package:murdoku/l10n/generated/app_localizations.dart';
+import 'package:murdoku/state/case_pool.dart';
 import 'package:murdoku/state/clock.dart';
 import 'package:murdoku/state/game_controller.dart';
 import 'package:murdoku/state/providers.dart';
@@ -25,7 +28,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _maybeShowTutorial());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _maybeShowTutorial();
+      _kickPoolRefill();
+    });
+  }
+
+  /// Issue 108: home init runs the pool refill check so deficient pools
+  /// top up in the background while the app is open — never blocking the
+  /// UI. With the forced-seed pin (integration tests) the pool is
+  /// bypassed entirely (the controller no-ops the check).
+  void _kickPoolRefill() {
+    if (!mounted) return;
+    unawaited(ref.read(casePoolControllerProvider.notifier).maybeRefill());
   }
 
   void _maybeShowTutorial() {

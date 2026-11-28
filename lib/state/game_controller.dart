@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:murdoku/domain/game_logic.dart' show Tool, canPlace;
 import 'package:murdoku/domain/generator/case_factory.dart';
 import 'package:murdoku/domain/models.dart';
+import 'package:murdoku/state/case_pool.dart';
 import 'package:murdoku/state/providers.dart';
 import 'package:murdoku/storage/prefs_repository.dart';
 
@@ -102,18 +103,49 @@ class GameNotifier extends Notifier<GameState?> {
 
   GameState? get _state => state;
 
-  /// Starts a fresh case on a runtime-drawn (or forced/test) seed. Routes
-  /// through [generateCaseWithRecovery] so a seed the generator's budget
-  /// cannot satisfy (issue 45) retries instead of crashing the start flow.
+  /// Starts a fresh case on a runtime-drawn (or forced/test) seed. With no
+  /// pinned seed and a stocked pool (issue 108), the start is served by a
+  /// random pop from the pool; an empty pool keeps today's synchronous
+  /// generation and triggers the background refill. Pinned seeds
+  /// ([forcedSeedProvider], integration tests) bypass the pool entirely —
+  /// determinism preserved. Both sync paths route through
+  /// [generateCaseWithRecovery] so a seed the generator's budget cannot
+  /// satisfy (issue 45) retries instead of crashing the start flow.
   void startNewCase(Difficulty difficulty, {int? seed}) {
+    final forced = seed ?? ref.read(forcedSeedProvider);
+    if (forced != null) {
+      _startSync(difficulty, forced);
+      return;
+    }
+    if (_takePooled(difficulty)) return;
+    _startSync(difficulty, Random().nextInt(1 << 30));
+    _refillInBackground();
+  }
+
+  /// Today's synchronous start, unchanged (issue 108 pool fallback).
+  void _startSync(Difficulty difficulty, int seed) {
     _start(
-      generateCaseWithRecovery(
-        difficulty: difficulty,
-        seed: seed ?? ref.read(forcedSeedProvider) ?? Random().nextInt(1 << 30),
-      ),
+      generateCaseWithRecovery(difficulty: difficulty, seed: seed),
       isDaily: false,
       dailyDate: '',
     );
+  }
+
+  /// Pool hop (issue 108): starts a stored case when the pool has one.
+  /// Returns true when the start was served from the pool.
+  bool _takePooled(Difficulty difficulty) {
+    final pooled = ref
+        .read(casePoolControllerProvider.notifier)
+        .take(difficulty);
+    if (pooled == null) return false;
+    _start(pooled, isDaily: false, dailyDate: '');
+    return true;
+  }
+
+  /// The empty-pool synchronous start just ran; top the pool up in the
+  /// background (owner-specified fallback rule, issue 108).
+  void _refillInBackground() {
+    unawaited(ref.read(casePoolControllerProvider.notifier).maybeRefill());
   }
 
   /// Starts the daily case for [utcDate] (seed: dailySeedFor of the UTC

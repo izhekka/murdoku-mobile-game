@@ -1,8 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:murdoku/domain/models.dart';
 import 'package:murdoku/l10n/generated/app_localizations.dart';
 import 'package:murdoku/main.dart';
+import 'package:murdoku/state/case_pool.dart';
 import 'package:murdoku/state/game_controller.dart';
 import 'package:murdoku/ui/screens/game_screen.dart';
 import 'package:murdoku/ui/widgets/item_sprite.dart';
@@ -47,7 +49,16 @@ void main() {
     });
 
     SharedPreferences.setMockInitialValues({});
-    final handle = await murdokuBootstrap();
+    final handle = await murdokuBootstrap(
+      // Unseeded boot runs home's pool refill check (issue 108); the empty
+      // stub keeps this bootstrap test generation-free. Case starts are
+      // unaffected (and none happen here — see the issue-48 test below).
+      providerOverrides: [
+        casePoolBatchProvider.overrideWithValue(
+          (difficulty, count) async => const <CaseData>[],
+        ),
+      ],
+    );
     await tester.pumpAndSettle();
 
     expect(find.text('Murdoku'), findsOneWidget);
@@ -72,7 +83,15 @@ void main() {
     });
 
     SharedPreferences.setMockInitialValues({});
-    final handle = await murdokuBootstrap();
+    final handle = await murdokuBootstrap(
+      // Same empty batch stub as above: unseeded boot must stay
+      // generation-free; the no-case-start contract below is unaffected.
+      providerOverrides: [
+        casePoolBatchProvider.overrideWithValue(
+          (difficulty, count) async => const <CaseData>[],
+        ),
+      ],
+    );
     await tester.pumpAndSettle();
     // Restore the test binding's error handler before asserting: with the
     // production FlutterError.onError still installed, a failing expect is

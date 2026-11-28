@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/semantics.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+// Override lives in the misc export (mirrors test/support/seeded_overrides.dart).
+import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:murdoku/app.dart';
 import 'package:murdoku/state/providers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -29,6 +31,7 @@ Future<void> main() => murdokuBootstrap();
 Future<SemanticsHandle> murdokuBootstrap({
   int? forcedSeed,
   bool skipTutorial = false,
+  List<Override> providerOverrides = const [],
 }) async {
   // The body is an async closure, so it cannot throw synchronously and
   // runZonedGuarded never returns null here (null is only for synchronous
@@ -54,6 +57,10 @@ Future<SemanticsHandle> murdokuBootstrap({
             sharedPreferencesProvider.overrideWithValue(prefs),
             if (forcedSeed != null)
               forcedSeedProvider.overrideWithValue(forcedSeed),
+            // Caller overrides last: in Riverpod the later override wins,
+            // so a caller-supplied override must not be silently shadowed
+            // by the bootstrap's own defaults.
+            ...providerOverrides,
           ],
           child: const MurdokuApp(),
         ),

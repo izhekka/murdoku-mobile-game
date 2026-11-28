@@ -1,5 +1,9 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart' show ThemeMode;
+import 'package:murdoku/domain/generator/case_factory.dart'
+    show casePoolGeneratorTag;
 import 'package:murdoku/domain/models.dart';
 import 'package:murdoku/storage/prefs_repository.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -289,6 +293,116 @@ void main() {
       ),
     );
     expect(game, isNot(withHints(game, game.board.hintsUsed + 1)));
+  });
+
+  group('case pool (issue 108)', () {
+    test('defaults to the empty pool on empty storage', () {
+      expect(repo.loadCasePool(), CasePool.empty);
+    });
+
+    test('envelope round-trips with v and gen tags', () async {
+      final easy = fixtureCase();
+      final standard = fixtureCase().copyWith(
+        seed: 43,
+        difficulty: Difficulty.standard,
+      );
+      await repo.saveCasePool(
+        CasePool(
+          byDifficulty: {
+            Difficulty.easy: [easy],
+            Difficulty.standard: [standard],
+          },
+        ),
+      );
+      final loaded = repo.loadCasePool();
+      expect(loaded.byDifficulty[Difficulty.easy], [easy]);
+      expect(loaded.byDifficulty[Difficulty.standard], [standard]);
+      expect(loaded.byDifficulty[Difficulty.hard] ?? const [], isEmpty);
+      final raw = prefs.getString('murdoku.casePool')!;
+      expect(raw, contains('"v":1'));
+      expect(raw, contains('"gen":$casePoolGeneratorTag'));
+    });
+
+    test('corrupt payloads degrade to the empty pool', () async {
+      const key = 'murdoku.casePool';
+      await prefs.setString(key, '{not json');
+      expect(repo.loadCasePool(), CasePool.empty);
+      await prefs.setString(key, '[]');
+      expect(repo.loadCasePool(), CasePool.empty);
+      await prefs.setString(key, '{}');
+      expect(repo.loadCasePool(), CasePool.empty);
+    });
+
+    test('unknown schema version degrades to the empty pool', () async {
+      await prefs.setString(
+        'murdoku.casePool',
+        '{"v": 99, "gen": $casePoolGeneratorTag, "easy": []}',
+      );
+      expect(repo.loadCasePool(), CasePool.empty);
+    });
+
+    test('foreign generator tag discards the pool', () async {
+      final envelope = CasePool(
+        byDifficulty: {
+          Difficulty.easy: [fixtureCase()],
+        },
+      ).toJson();
+      envelope['gen'] = casePoolGeneratorTag + 1;
+      await prefs.setString('murdoku.casePool', jsonEncode(envelope));
+      expect(repo.loadCasePool(), CasePool.empty);
+    });
+
+    test('malformed case entry degrades to the empty pool', () async {
+      final envelope = CasePool(
+        byDifficulty: {
+          Difficulty.easy: [fixtureCase()],
+        },
+      ).toJson();
+      envelope['easy'] = [
+        {'difficulty': 'nope'},
+      ];
+      await prefs.setString('murdoku.casePool', jsonEncode(envelope));
+      expect(repo.loadCasePool(), CasePool.empty);
+    });
+
+    test('pools with different case lists compare unequal', () {
+      final a = CasePool(
+        byDifficulty: {
+          Difficulty.easy: [fixtureCase()],
+        },
+      );
+      final b = CasePool(
+        byDifficulty: {
+          Difficulty.easy: [fixtureCase().copyWith(seed: 43)],
+        },
+      );
+      final missingPool = CasePool.empty;
+      expect(a, isNot(b));
+      expect(a, isNot(missingPool));
+      // A missing key equals an explicitly empty list for that difficulty.
+      expect(
+        CasePool(byDifficulty: {Difficulty.easy: const <CaseData>[]}),
+        missingPool,
+      );
+    });
+
+    test('equal pools hash equal regardless of key insertion order', () {
+      // == is order-insensitive (_poolsEqual walks Difficulty.values), so
+      // the hash must be too — canonical difficulty order, not map order.
+      final easy = [fixtureCase()];
+      final standard = [fixtureCase().copyWith(seed: 43)];
+      final a = CasePool(
+        byDifficulty: {Difficulty.easy: easy, Difficulty.standard: standard},
+      );
+      final b = CasePool(
+        byDifficulty: {
+          Difficulty.standard: [...standard],
+          Difficulty.easy: [...easy],
+        },
+      );
+      expect(a, b);
+      expect(a.hashCode, b.hashCode);
+    });
   });
 
   test('Stats equality compares counters, maps and lengths (issue 35)', () {

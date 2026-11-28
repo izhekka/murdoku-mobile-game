@@ -46,6 +46,16 @@ const _roomNames = [
 /// Budget of derived attempts per widening window in [generateCase].
 const _retryBudget = 40;
 
+/// Tag of the generator pipeline whose output lives in persisted pools
+/// (issue 108). The case-pool envelope stores it alongside the cases; on
+/// load a mismatching tag degrades the whole pool to empty, so a changed
+/// pipeline (e.g. ADR 0007 gating) never serves stale-quality cases.
+/// BUMP PROTOCOL: bump by 1 whenever generation semantics change in a way
+/// that makes previously generated cases differ from fresh output (clue
+/// rules, gating, board shape) — the stored pools are then discarded on
+/// next load and silently regenerated.
+const casePoolGeneratorTag = 1;
+
 /// Recovery windows for [generateCaseWithRecovery]: how many extra 40-seed
 /// strides the drawn-seed start path may consume past the exhausted one.
 const _recoveredWindows = 8;

@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart' show ThemeMode;
+import 'package:murdoku/domain/generator/case_factory.dart'
+    show casePoolGeneratorTag;
 import 'package:murdoku/domain/models.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -203,6 +205,93 @@ class SavedGame {
   }
 }
 
+/// Persisted per-difficulty pools of pre-generated unstarted cases
+/// (issue 108). The envelope carries `'v': 1` plus the generator-pipeline
+/// tag (`'gen'`, [casePoolGeneratorTag]): malformed, unknown-version or
+/// foreign-tag payloads degrade to [CasePool.empty] — a changed pipeline
+/// (ADR 0007-style gating) discards stored pools instead of serving
+/// stale-quality cases. Anonymous content, not progress: `resetProgress`
+/// does not clear it.
+class CasePool {
+  const CasePool({this.byDifficulty = const {}});
+
+  static const CasePool empty = CasePool();
+
+  final Map<Difficulty, List<CaseData>> byDifficulty;
+
+  @override
+  bool operator ==(Object other) =>
+      other is CasePool && _poolsEqual(other.byDifficulty, byDifficulty);
+
+  /// Deep per-difficulty comparison. mapEquals compares map VALUES by
+  /// identity — the values here are lists, so each pool compares deep via
+  /// listEquals. A missing key and an explicitly empty list mean the same
+  /// (the empty pool for that difficulty).
+  static bool _poolsEqual(
+    Map<Difficulty, List<CaseData>> a,
+    Map<Difficulty, List<CaseData>> b,
+  ) {
+    for (final d in Difficulty.values) {
+      if (!listEquals(a[d] ?? const <CaseData>[], b[d] ?? const <CaseData>[])) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  @override
+  // Canonical difficulty order (== walks Difficulty.values too), so equal
+  // pools hash equal regardless of the map's key insertion order.
+  int get hashCode => Object.hashAll([
+    for (final d in Difficulty.values)
+      Object.hash(d, (byDifficulty[d] ?? const <CaseData>[]).length),
+  ]);
+
+  Map<String, Object?> toJson() => {
+    'v': 1,
+    'gen': casePoolGeneratorTag,
+    for (final d in Difficulty.values)
+      d.name: (byDifficulty[d] ?? const <CaseData>[])
+          .map((c) => c.toJson())
+          .toList(),
+  };
+
+  /// Returns null for unknown versions, foreign generator tags or malformed
+  /// payloads — callers treat that as an empty pool.
+  static CasePool? tryFromJson(Map<String, Object?> json) {
+    try {
+      return _tryParse(json);
+    } on Object catch (e) {
+      debugPrint('CasePool parse failed: $e');
+      return null;
+    }
+  }
+
+  /// Payload validation and construction for a known-good envelope; any
+  /// throw is caught by [tryFromJson] and degrades to null.
+  static CasePool? _tryParse(Map<String, Object?> json) {
+    if (json['v'] != 1 || json['gen'] != casePoolGeneratorTag) return null;
+    return CasePool(byDifficulty: _parsePools(json));
+  }
+
+  /// Per-difficulty case lists; a non-list entry throws into the
+  /// [tryFromJson] guard (whole payload degrades to empty).
+  static Map<Difficulty, List<CaseData>> _parsePools(
+    Map<String, Object?> json,
+  ) {
+    final pools = <Difficulty, List<CaseData>>{};
+    for (final d in Difficulty.values) {
+      final raw = json[d.name];
+      if (raw == null) continue;
+      pools[d] = [
+        for (final entry in raw as List<Object?>)
+          CaseData.fromJson(entry as Map<String, Object?>),
+      ];
+    }
+    return pools;
+  }
+}
+
 class PrefsRepository {
   PrefsRepository(this._prefs);
 
@@ -213,6 +302,7 @@ class PrefsRepository {
   static const _statsKey = 'murdoku.stats';
   static const _dailyKey = 'murdoku.daily';
   static const _tutorialKey = 'murdoku.tutorialSeen';
+  static const _casePoolKey = 'murdoku.casePool';
 
   Settings loadSettings() {
     final raw = _prefs.getString(_settingsKey);
@@ -283,6 +373,23 @@ class PrefsRepository {
 
   Future<void> saveTutorialSeen(bool seen) =>
       _prefs.setBool(_tutorialKey, seen);
+
+  /// The persisted case pools; absent, corrupt or foreign-tag payloads
+  /// degrade to [CasePool.empty] (never crash).
+  CasePool loadCasePool() {
+    final raw = _prefs.getString(_casePoolKey);
+    if (raw == null) return CasePool.empty;
+    try {
+      return CasePool.tryFromJson(jsonDecode(raw) as Map<String, Object?>) ??
+          CasePool.empty;
+    } on Object catch (e) {
+      debugPrint('case pool jsonDecode failed: $e');
+      return CasePool.empty;
+    }
+  }
+
+  Future<void> saveCasePool(CasePool pool) =>
+      _prefs.setString(_casePoolKey, jsonEncode(pool.toJson()));
 }
 
 /// True when every field-equality check in [checks] holds. The persisted
